@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { LoaderCircle, Radio, X } from "lucide-react";
 import { FIELD_CLASS } from "@/lib/constants";
 import { GENRES, type Genre } from "@/lib/types";
@@ -13,36 +13,22 @@ type GoLiveValues = {
 };
 
 type GoLiveModalProps = {
-  open: boolean;
   isSubmitting: boolean;
   onClose: () => void;
   onSubmit: (values: GoLiveValues) => void;
 };
 
-const EMPTY_FORM: GoLiveValues = {
-  performerName: "",
-  genre: "Acoustic",
-  streetAddress: "",
-  handle: "",
-};
-
 export default function GoLiveModal({
-  open,
   isSubmitting,
   onClose,
   onSubmit,
 }: GoLiveModalProps) {
-  const [form, setForm] = useState<GoLiveValues>(EMPTY_FORM);
-
-  useEffect(() => {
-    if (!open) {
-      setForm(EMPTY_FORM);
-    }
-  }, [open]);
-
-  if (!open) {
-    return null;
-  }
+  const [form, setForm] = useState<GoLiveValues>({
+    performerName: "",
+    genre: "Acoustic",
+    streetAddress: "",
+    handle: "",
+  });
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center p-4 sm:items-center">

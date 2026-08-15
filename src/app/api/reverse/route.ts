@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { NOMINATIM_USER_AGENT } from "@/lib/nominatim";
 
 const NOMINATIM_REVERSE = "https://nominatim.openstreetmap.org/reverse";
-const USER_AGENT =
-  "ATXLive/1.0 (Austin Live Music Map; github.com/YeshuaThrone/EmeraldVal)";
 
 type NominatimReverse = {
   display_name?: string;
@@ -53,7 +52,7 @@ export async function GET(request: NextRequest) {
       cache: "no-store",
       headers: {
         Accept: "application/json",
-        "User-Agent": USER_AGENT,
+        "User-Agent": NOMINATIM_USER_AGENT,
       },
     });
 

@@ -329,12 +329,13 @@ export default function LiveMapApp() {
         onSendTip={handleSendTip}
       />
 
-      <GoLiveModal
-        open={goLiveOpen}
-        isSubmitting={isGoingLive}
-        onClose={() => setGoLiveOpen(false)}
-        onSubmit={handleGoLive}
-      />
+      {goLiveOpen ? (
+        <GoLiveModal
+          isSubmitting={isGoingLive}
+          onClose={() => setGoLiveOpen(false)}
+          onSubmit={handleGoLive}
+        />
+      ) : null}
 
       <Toast toast={toast} onDismiss={dismissToast} />
     </div>
