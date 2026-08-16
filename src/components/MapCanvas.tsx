@@ -8,6 +8,7 @@ import {
   LightingEffect,
   TerrainController,
   _SunLight as SunLight,
+  type Layer,
   type MapViewState,
   type PickingInfo,
 } from "@deck.gl/core";
@@ -137,7 +138,7 @@ export default function MapCanvas({
   }, []);
 
   const layers = useMemo(() => {
-    let basemap = createLightBasemap();
+    let basemap: Layer = createLightBasemap();
 
     if (useGoogle3d) {
       try {
