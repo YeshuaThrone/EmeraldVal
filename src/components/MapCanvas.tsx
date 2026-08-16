@@ -26,9 +26,15 @@ import {
 } from "@/lib/constants";
 import type { FlyToTarget, Pin, PinKind } from "@/lib/types";
 
-const GOOGLE_3D_TILES_URL = "https://tile.googleapis.com/v1/3dtiles/root.json";
 const LIGHT_FALLBACK_TILES =
   "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png";
+
+function withGoogleMapsKey(url: string): string {
+  if (url.includes("key=")) {
+    return url;
+  }
+  return `${url}${url.includes("?") ? "&" : "?"}key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`;
+}
 
 type AustinViewState = MapViewState & {
   transitionDuration?: number;
@@ -144,22 +150,41 @@ export default function MapCanvas({
       try {
         basemap = new Tile3DLayer({
           id: "google-3d-tiles",
-          data: GOOGLE_3D_TILES_URL,
+          data: `https://tile.googleapis.com/v1/3dtiles/root.json?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
           loader: Tiles3DLoader,
           operation: "terrain+draw",
           pickable: false,
           loadOptions: {
             worker: false,
-            fetch: {
-              headers: {
-                "X-GOOG-API-KEY": process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
-              },
+            fetch: (url: string, init?: RequestInit) => {
+              try {
+                const headers = new Headers(init?.headers);
+                headers.set(
+                  "X-GOOG-API-KEY",
+                  process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY as string,
+                );
+                return fetch(withGoogleMapsKey(url), { ...init, headers }).catch(() => {
+                  setTilesFailed(true);
+                  return new Response(null, { status: 503, statusText: "Unavailable" });
+                });
+              } catch {
+                setTilesFailed(true);
+                return Promise.resolve(
+                  new Response(null, { status: 503, statusText: "Unavailable" }),
+                );
+              }
             },
           },
           onTileError: () => {
             setTilesFailed(true);
           },
           onTilesetLoad: (tileset) => {
+            setViewState((current) => ({
+              ...current,
+              pitch: DEFAULT_PITCH,
+              maxPitch: 85,
+              minPitch: 0,
+            }));
             try {
               const tileset3d = tileset as {
                 options: {
@@ -269,7 +294,9 @@ export default function MapCanvas({
         <p className="mt-0.5 text-slate-500">
           {useGoogle3d
             ? credits
-            : "Light OSM/Carto basemap · add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for Google 3D Tiles"}
+            : tilesFailed
+              ? "Google 3D tiles unavailable · showing 2D Austin flag map"
+              : "2D Austin flag map · add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for Photorealistic 3D Tiles"}
         </p>
       </div>
     </div>

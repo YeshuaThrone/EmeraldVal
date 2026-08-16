@@ -21,7 +21,7 @@ Copy `.env.example` to `.env.local` and set a Map Tiles API key:
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_key_here
 ```
 
-If the key is missing or tile requests fail, the map falls back to a bright Carto/OpenStreetMap light basemap so pins, filters, and timers still work.
+If the key is missing, the map stays on a bright 2D Austin-flag basemap (no 3D tile requests, no console errors). When Photorealistic 3D Tiles load, the camera keeps a 45° daylight pitch.
 
 ## Run locally
 
