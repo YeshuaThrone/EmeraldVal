@@ -22,12 +22,17 @@ export default function FestivalFinder({
   onSelect,
 }: FestivalFinderProps) {
   return (
-    <section
-      className={`fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-3xl rounded-t-3xl border border-[#00529C]/20 border-b-0 bg-white px-5 pt-3 pb-6 shadow-[0_-16px_48px_rgba(0,82,156,0.12)] transition-transform duration-300 ${
-        open ? "translate-y-0" : "pointer-events-none translate-y-full"
-      }`}
-      aria-hidden={!open}
-    >
+    <div className="pointer-events-none fixed inset-0 z-40" aria-hidden={!open}>
+      <div
+        className={`absolute inset-0 bg-[#003366]/20 transition-opacity ${
+          open ? "opacity-100" : "opacity-0"
+        }`}
+      />
+      <section
+        className={`absolute inset-x-0 bottom-0 mx-auto w-full max-w-3xl rounded-t-3xl border border-[#00529C]/20 border-b-0 bg-white px-5 pt-3 pb-6 shadow-[0_-16px_48px_rgba(0,82,156,0.12)] transition-transform duration-300 ${
+          open ? "pointer-events-auto translate-y-0" : "translate-y-full"
+        }`}
+      >
       <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-[#FFE317]" />
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
@@ -117,5 +122,6 @@ export default function FestivalFinder({
         )}
       </div>
     </section>
+    </div>
   );
 }

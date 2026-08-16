@@ -202,7 +202,18 @@ export default function LiveMapApp() {
 
   const handleMapClick = useCallback(
     async (lat: number, lng: number) => {
-      if (isClicking || goLiveOpen || viewMode === "festivals") {
+      if (isClicking || goLiveOpen) {
+        return;
+      }
+
+      if (viewMode === "festivals") {
+        setSelectedPinId(null);
+        setViewMode("map");
+        return;
+      }
+
+      if (selectedPinId) {
+        setSelectedPinId(null);
         return;
       }
 
@@ -231,7 +242,7 @@ export default function LiveMapApp() {
         setIsClicking(false);
       }
     },
-    [addPinAndFocus, goLiveOpen, isClicking, viewMode],
+    [addPinAndFocus, goLiveOpen, isClicking, selectedPinId, viewMode],
   );
 
   const handleGoLive = useCallback(
@@ -340,15 +351,31 @@ export default function LiveMapApp() {
     [selectedPinId],
   );
 
-  const handleSelectFestival = useCallback((id: string) => {
-    const festival = pins.find((pin) => pin.id === id);
-    if (!festival) {
-      return;
-    }
-    setSelectedPinId(id);
+  const handleSelectPin = useCallback((pin: Pin) => {
     setViewMode("map");
-    setFlyTo({ lat: festival.lat, lng: festival.lng, zoom: PIN_ZOOM });
-  }, [pins]);
+    setSelectedPinId(pin.id);
+    setFlyTo({ lat: pin.lat, lng: pin.lng, zoom: PIN_ZOOM });
+  }, []);
+
+  const handleClosePerformerDrawer = useCallback(() => {
+    setSelectedPinId(null);
+  }, []);
+
+  const handleCloseFestivalFinder = useCallback(() => {
+    setSelectedPinId(null);
+    setViewMode("map");
+  }, []);
+
+  const handleSelectFestival = useCallback(
+    (id: string) => {
+      const festival = pins.find((pin) => pin.id === id);
+      if (!festival) {
+        return;
+      }
+      handleSelectPin(festival);
+    },
+    [handleSelectPin, pins],
+  );
 
   const festivalFinderOpen = viewMode === "festivals" && !selectedPin;
 
@@ -359,10 +386,7 @@ export default function LiveMapApp() {
           pins={visiblePins}
           selectedPinId={selectedPinId}
           flyTo={flyTo}
-          onSelectPin={(id) => {
-            setViewMode("map");
-            setSelectedPinId(id);
-          }}
+          onSelectPin={handleSelectPin}
           onMapClick={handleMapClick}
         />
       </div>
@@ -431,7 +455,7 @@ export default function LiveMapApp() {
         festivals={festivals}
         now={now}
         genreFilter={genreFilter}
-        onClose={() => setViewMode("map")}
+        onClose={handleCloseFestivalFinder}
         onSelect={handleSelectFestival}
       />
 
@@ -439,7 +463,7 @@ export default function LiveMapApp() {
         pin={selectedPin}
         now={now}
         onChange={handlePinChange}
-        onClose={() => setSelectedPinId(null)}
+        onClose={handleClosePerformerDrawer}
         onSendTip={handleSendTip}
       />
 

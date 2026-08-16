@@ -39,7 +39,7 @@ type MapCanvasProps = {
   pins: Pin[];
   selectedPinId: string | null;
   flyTo: FlyToTarget | null;
-  onSelectPin: (id: string) => void;
+  onSelectPin: (pin: Pin) => void;
   onMapClick: (lat: number, lng: number) => void;
 };
 
@@ -196,7 +196,7 @@ export default function MapCanvas({
     const glow = new ScatterplotLayer<Pin>({
       id: "pin-glow",
       data: pins,
-      pickable: false,
+      pickable: true,
       radiusUnits: "pixels",
       stroked: true,
       filled: true,
@@ -245,6 +245,7 @@ export default function MapCanvas({
         }}
         effects={[daylightEffect]}
         layers={layers}
+        pickingRadius={28}
         getCursor={({ isDragging, isHovering }) =>
           isDragging ? "grabbing" : isHovering ? "pointer" : "grab"
         }
@@ -253,7 +254,7 @@ export default function MapCanvas({
         }}
         onClick={(info: PickingInfo) => {
           if (isPinObject(info.object)) {
-            onSelectPin(info.object.id);
+            onSelectPin(info.object);
             return;
           }
           const coordinate = info.coordinate;
