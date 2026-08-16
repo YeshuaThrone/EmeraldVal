@@ -29,8 +29,8 @@ import FestivalFinder from "@/components/FestivalFinder";
 const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#0B0F17] text-[#c4b5fd]">
-      <LoaderCircle className="h-8 w-8 animate-spin text-[#8B5CF6]" />
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#F8FAFC] text-[#00529C]">
+      <LoaderCircle className="h-8 w-8 animate-spin text-[#E0144C]" />
       <p className="text-sm tracking-wide">Loading 3D Austin map…</p>
     </div>
   ),
@@ -353,7 +353,7 @@ export default function LiveMapApp() {
   const festivalFinderOpen = viewMode === "festivals" && !selectedPin;
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#0B0F17] text-white">
+    <div className="relative h-dvh w-full overflow-hidden bg-[#F8FAFC] text-[#003366]">
       <div className="absolute inset-0 z-0">
         <MapCanvas
           pins={visiblePins}
@@ -370,15 +370,15 @@ export default function LiveMapApp() {
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 p-4 md:p-5">
         <div className="mx-auto flex max-w-5xl flex-col gap-3">
           <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#8B5CF6] shadow-[0_0_24px_rgba(139,92,246,0.55)]">
+            <div className="flex items-center gap-3 rounded-2xl border border-[#00529C]/25 bg-white px-3 py-2 shadow-sm">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#00529C]">
                 <AudioLines className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="font-display text-xl font-semibold tracking-tight text-white md:text-2xl">
+                <h1 className="font-display text-xl font-semibold tracking-tight text-[#003366] md:text-2xl">
                   ATX Live
                 </h1>
-                <p className="text-xs text-zinc-400 md:text-sm">
+                <p className="text-xs text-[#00529C] md:text-sm">
                   Austin Live Music Map · 6th · Rainey · South Congress
                 </p>
               </div>
@@ -391,13 +391,13 @@ export default function LiveMapApp() {
                   setViewMode(mode);
                 }}
               />
-              <div className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-[#0B0F17]/80 px-3 py-2 text-xs text-zinc-400 backdrop-blur-md sm:flex">
+              <div className="hidden items-center gap-3 rounded-2xl border border-[#00529C]/25 bg-white px-3 py-2 text-xs text-[#00529C] shadow-sm sm:flex">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#22FF88] shadow-[0_0_10px_#22FF88]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#10B981] shadow-[0_0_8px_#10B981]" />
                   Live
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#FFD700] shadow-[0_0_10px_#FFD700]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#FFE317] shadow-[0_0_8px_#FFE317]" />
                   Festivals
                 </span>
               </div>
@@ -418,7 +418,7 @@ export default function LiveMapApp() {
       <button
         type="button"
         onClick={() => setGoLiveOpen(true)}
-        className={`fixed right-5 bottom-6 z-30 inline-flex items-center gap-2 rounded-full bg-[#8B5CF6] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_0_32px_rgba(139,92,246,0.55)] transition hover:bg-[#7c4eef] md:bottom-8 ${
+        className={`fixed right-5 bottom-6 z-30 inline-flex items-center gap-2 rounded-full bg-[#E0144C] px-5 py-3.5 text-sm font-semibold text-white shadow-lg transition hover:bg-[#c41243] md:bottom-8 ${
           selectedPin || festivalFinderOpen ? "pointer-events-none opacity-0" : ""
         }`}
       >

@@ -7,12 +7,22 @@ export const DOWNTOWN_AUSTIN = {
 };
 
 export const DEFAULT_ZOOM = 15.6;
-export const DEFAULT_PITCH = 58;
-export const DEFAULT_BEARING = -18;
+export const DEFAULT_PITCH = 45;
+export const DEFAULT_BEARING = -22;
 export const PIN_ZOOM = 16.4;
 
+export const ATX = {
+  white: "#FFFFFF",
+  mist: "#F8FAFC",
+  blue: "#00529C",
+  navy: "#003366",
+  red: "#E0144C",
+  gold: "#FFE317",
+  live: "#10B981",
+} as const;
+
 export const FIELD_CLASS =
-  "w-full rounded-xl border border-white/10 bg-[#121826] px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/40";
+  "w-full rounded-xl border border-[#00529C]/30 bg-white px-3 py-2.5 text-sm text-[#003366] placeholder:text-slate-400 outline-none transition focus:border-[#00529C] focus:ring-2 focus:ring-[#00529C]/20";
 
 const SEED_LIVE_AT = Date.now();
 const SEED_LIVE_UNTIL = SEED_LIVE_AT + LIVE_TTL_MS;

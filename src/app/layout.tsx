@@ -24,7 +24,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${outfit.variable} ${dmSans.variable} h-full antialiased`}
     >
-      <body className="h-dvh overflow-hidden bg-[#0B0F17] font-sans text-white">
+      <body className="h-dvh overflow-hidden bg-[#F8FAFC] font-sans text-[#003366]">
         {children}
       </body>
     </html>

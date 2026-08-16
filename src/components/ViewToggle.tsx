@@ -10,14 +10,14 @@ type ViewToggleProps = {
 
 export default function ViewToggle({ mode, onModeChange }: ViewToggleProps) {
   return (
-    <div className="inline-flex rounded-2xl border border-white/10 bg-[#0B0F17]/85 p-1 backdrop-blur-md">
+    <div className="inline-flex rounded-2xl border border-[#00529C]/30 bg-white p-1 shadow-sm">
       <button
         type="button"
         onClick={() => onModeChange("map")}
         className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
           mode === "map"
-            ? "bg-[#8B5CF6] text-white shadow-[0_0_16px_rgba(139,92,246,0.45)]"
-            : "text-zinc-400 hover:text-white"
+            ? "bg-[#E0144C] text-white"
+            : "border border-transparent text-[#00529C] hover:bg-[#F8FAFC]"
         }`}
       >
         <Earth className="h-3.5 w-3.5" />
@@ -28,8 +28,8 @@ export default function ViewToggle({ mode, onModeChange }: ViewToggleProps) {
         onClick={() => onModeChange("festivals")}
         className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition ${
           mode === "festivals"
-            ? "bg-[#FFD700] text-[#0B0F17] shadow-[0_0_16px_rgba(255,215,0,0.4)]"
-            : "text-zinc-400 hover:text-white"
+            ? "bg-[#E0144C] text-white"
+            : "border border-transparent text-[#00529C] hover:bg-[#F8FAFC]"
         }`}
       >
         <CalendarDays className="h-3.5 w-3.5" />

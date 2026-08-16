@@ -3,12 +3,16 @@
 import { useMemo, useState } from "react";
 import DeckGL from "@deck.gl/react";
 import {
+  AmbientLight,
   FlyToInterpolator,
+  LightingEffect,
   TerrainController,
+  _SunLight as SunLight,
   type MapViewState,
   type PickingInfo,
 } from "@deck.gl/core";
 import { Tile3DLayer, TileLayer } from "@deck.gl/geo-layers";
+import { Tiles3DLoader } from "@loaders.gl/3d-tiles";
 import { BitmapLayer, ColumnLayer, ScatterplotLayer } from "@deck.gl/layers";
 import {
   DEFAULT_BEARING,
@@ -22,8 +26,8 @@ import {
 import type { FlyToTarget, Pin, PinKind } from "@/lib/types";
 
 const GOOGLE_3D_TILES_URL = "https://tile.googleapis.com/v1/3dtiles/root.json";
-const DARK_FALLBACK_TILES =
-  "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}@2x.png";
+const LIGHT_FALLBACK_TILES =
+  "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png";
 
 type AustinViewState = MapViewState & {
   transitionDuration?: number;
@@ -42,9 +46,9 @@ const KIND_COLORS: Record<
   PinKind,
   { fill: [number, number, number, number]; glow: [number, number, number, number] }
 > = {
-  live: { fill: [34, 255, 136, 235], glow: [34, 255, 136, 95] },
-  festival: { fill: [255, 215, 0, 235], glow: [255, 215, 0, 100] },
-  drop: { fill: [139, 92, 246, 220], glow: [139, 92, 246, 80] },
+  live: { fill: [16, 185, 129, 255], glow: [16, 185, 129, 110] },
+  festival: { fill: [255, 227, 23, 255], glow: [255, 227, 23, 120] },
+  drop: { fill: [0, 82, 156, 245], glow: [0, 82, 156, 90] },
 };
 
 function isPinObject(value: unknown): value is Pin {
@@ -59,6 +63,25 @@ function isPinObject(value: unknown): value is Pin {
   );
 }
 
+function createLightBasemap() {
+  return new TileLayer({
+    id: "light-fallback-tiles",
+    data: LIGHT_FALLBACK_TILES,
+    minZoom: 0,
+    maxZoom: 19,
+    tileSize: 256,
+    pickable: false,
+    renderSubLayers: (props) => {
+      const bbox = props.tile.boundingBox;
+      return new BitmapLayer(props, {
+        data: undefined,
+        image: props.data,
+        bounds: [bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1]],
+      });
+    },
+  });
+}
+
 export default function MapCanvas({
   pins,
   selectedPinId,
@@ -66,8 +89,9 @@ export default function MapCanvas({
   onSelectPin,
   onMapClick,
 }: MapCanvasProps) {
-  const googleMapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+  const googleMapsApiKey = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "").trim();
   const [credits, setCredits] = useState("© Google");
+  const [tilesFailed, setTilesFailed] = useState(false);
   const [viewState, setViewState] = useState<AustinViewState>({
     latitude: DOWNTOWN_AUSTIN.latitude,
     longitude: DOWNTOWN_AUSTIN.longitude,
@@ -88,7 +112,7 @@ export default function MapCanvas({
       latitude: flyTo.lat,
       longitude: flyTo.lng,
       zoom: flyTo.zoom,
-      pitch: Math.max(current.pitch ?? DEFAULT_PITCH, 52),
+      pitch: DEFAULT_PITCH,
       transitionDuration: 900,
       transitionInterpolator: new FlyToInterpolator({ speed: 1.4 }),
     }));
@@ -97,12 +121,30 @@ export default function MapCanvas({
   const zoom = viewState.zoom ?? DEFAULT_ZOOM;
   const radius = pinRadiusMeters(zoom);
   const elevation = pinElevationMeters(zoom);
+  const useGoogle3d = Boolean(googleMapsApiKey) && !tilesFailed;
+
+  const daylightEffect = useMemo(() => {
+    const ambientLight = new AmbientLight({
+      color: [255, 255, 255],
+      intensity: 1.9,
+    });
+    const sunLight = new SunLight({
+      timestamp: Date.UTC(2026, 7, 16, 19, 0, 0),
+      color: [255, 244, 214],
+      intensity: 2.2,
+    });
+    return new LightingEffect({ ambientLight, sunLight });
+  }, []);
 
   const layers = useMemo(() => {
-    const basemap = googleMapsApiKey
-      ? new Tile3DLayer({
+    let basemap = createLightBasemap();
+
+    if (useGoogle3d) {
+      try {
+        basemap = new Tile3DLayer({
           id: "google-3d-tiles",
           data: GOOGLE_3D_TILES_URL,
+          loader: Tiles3DLoader,
           operation: "terrain+draw",
           pickable: false,
           loadOptions: {
@@ -113,47 +155,42 @@ export default function MapCanvas({
               },
             },
           },
-          onTilesetLoad: (tileset) => {
-            const tileset3d = tileset as {
-              options: {
-                onTraversalComplete?: (tiles: unknown[]) => unknown[];
-              };
-            };
-            tileset3d.options.onTraversalComplete = (selectedTiles) => {
-              const names = new Set<string>();
-              for (const tile of selectedTiles) {
-                const copyright = (
-                  tile as {
-                    content?: { gltf?: { asset?: { copyright?: string } } };
-                  }
-                ).content?.gltf?.asset?.copyright;
-                if (copyright) {
-                  copyright.split(";").forEach((entry) => names.add(entry.trim()));
-                }
-              }
-              if (names.size > 0) {
-                setCredits([...names].join("; "));
-              }
-              return selectedTiles;
-            };
+          onTileError: () => {
+            setTilesFailed(true);
           },
-        })
-      : new TileLayer({
-          id: "dark-fallback-tiles",
-          data: DARK_FALLBACK_TILES,
-          minZoom: 0,
-          maxZoom: 19,
-          tileSize: 256,
-          pickable: false,
-          renderSubLayers: (props) => {
-            const bbox = props.tile.boundingBox;
-            return new BitmapLayer(props, {
-              data: undefined,
-              image: props.data,
-              bounds: [bbox[0][0], bbox[0][1], bbox[1][0], bbox[1][1]],
-            });
+          onTilesetLoad: (tileset) => {
+            try {
+              const tileset3d = tileset as {
+                options: {
+                  onTraversalComplete?: (tiles: unknown[]) => unknown[];
+                };
+              };
+              tileset3d.options.onTraversalComplete = (selectedTiles) => {
+                const names = new Set<string>();
+                for (const tile of selectedTiles) {
+                  const copyright = (
+                    tile as {
+                      content?: { gltf?: { asset?: { copyright?: string } } };
+                    }
+                  ).content?.gltf?.asset?.copyright;
+                  if (copyright) {
+                    copyright.split(";").forEach((entry) => names.add(entry.trim()));
+                  }
+                }
+                if (names.size > 0) {
+                  setCredits([...names].join("; "));
+                }
+                return selectedTiles;
+              };
+            } catch {
+              setTilesFailed(true);
+            }
           },
         });
+      } catch {
+        basemap = createLightBasemap();
+      }
+    }
 
     const glow = new ScatterplotLayer<Pin>({
       id: "pin-glow",
@@ -163,9 +200,9 @@ export default function MapCanvas({
       stroked: true,
       filled: true,
       lineWidthMinPixels: 2,
-      lineWidthMaxPixels: 4,
+      lineWidthMaxPixels: 5,
       getPosition: (pin) => [pin.lng, pin.lat],
-      getRadius: (pin) => pinGlowPixels(zoom, pin.id === selectedPinId),
+      getRadius: (pin) => pinGlowPixels(zoom, pin.id === selectedPinId) + 2,
       getFillColor: (pin) => KIND_COLORS[pin.kind].glow,
       getLineColor: (pin) => KIND_COLORS[pin.kind].fill,
     });
@@ -185,18 +222,18 @@ export default function MapCanvas({
       getElevation: (pin) =>
         pin.id === selectedPinId ? elevation * 1.35 : elevation,
       material: {
-        ambient: 0.45,
-        diffuse: 0.7,
-        shininess: 48,
+        ambient: 0.62,
+        diffuse: 0.78,
+        shininess: 40,
         specularColor: [255, 255, 255],
       },
     });
 
     return [basemap, glow, columns];
-  }, [googleMapsApiKey, pins, radius, elevation, selectedPinId, zoom]);
+  }, [useGoogle3d, pins, radius, elevation, selectedPinId, zoom]);
 
   return (
-    <div className="relative h-full w-full bg-[#0B0F17]">
+    <div className="relative h-full w-full bg-[#F8FAFC]">
       <DeckGL
         viewState={viewState}
         controller={{
@@ -205,6 +242,7 @@ export default function MapCanvas({
           dragRotate: true,
           inertia: true,
         }}
+        effects={[daylightEffect]}
         layers={layers}
         getCursor={({ isDragging, isHovering }) =>
           isDragging ? "grabbing" : isHovering ? "pointer" : "grab"
@@ -222,14 +260,14 @@ export default function MapCanvas({
             onMapClick(coordinate[1], coordinate[0]);
           }
         }}
-        style={{ width: "100%", height: "100%", background: "#0B0F17" }}
+        style={{ width: "100%", height: "100%", background: "#F8FAFC" }}
       />
-      <div className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[70%] rounded-lg bg-[#0B0F17]/75 px-2.5 py-1.5 text-[10px] leading-4 text-zinc-400 backdrop-blur-sm">
+      <div className="pointer-events-none absolute bottom-3 left-3 z-10 max-w-[70%] rounded-lg border border-[#00529C]/20 bg-white/90 px-2.5 py-1.5 text-[10px] leading-4 text-[#00529C] shadow-sm backdrop-blur-sm">
         <p>Drag to pan · Ctrl/right-drag to orbit · Scroll to zoom</p>
-        <p className="mt-0.5 text-zinc-500">
-          {googleMapsApiKey
+        <p className="mt-0.5 text-slate-500">
+          {useGoogle3d
             ? credits
-            : "Add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for Google Photorealistic 3D Tiles"}
+            : "Light OSM/Carto basemap · add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY for Google 3D Tiles"}
         </p>
       </div>
     </div>
