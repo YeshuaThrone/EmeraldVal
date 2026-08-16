@@ -1,15 +1,27 @@
 # ATX Live — Austin Live Music Map
 
-Dark-mode Next.js app for finding and dropping live street-performer pins around Downtown Austin (6th Street, Rainey Street, and South Congress).
+Dark-mode Next.js app for finding live street performers and festivals around Downtown Austin (6th Street, Rainey Street, Red River, and South Congress).
 
 ## Features
 
-- Interactive dark map centered on downtown Austin
-- Search any street or intersection; Nominatim geocodes it and drops a glowing pin
-- Click a marker to open an editable performer drawer (name, location, tip amount, Cash App, Venmo)
+- Google Photorealistic 3D Tiles via Deck.gl `Tile3DLayer` (pitch + orbit)
+- 3D glowing pins that scale with camera zoom (neon green = live, gold = festivals)
+- Search any street or intersection; Nominatim geocodes it and drops a pin
+- Genre chips: All, Festivals, Acoustic, Hip-Hop, Rock, Electronic
+- Festival Finder bottom sheet with stages and set times
+- Live pins expire after 2 hours, with a countdown in the performer card
 - **Send Tip** shows a success toast
-- **Drop Pin / Go Live** modal: name, genre, street address, Cash App/Venmo handle
-- **Clear All Pins** resets map state
+- **Drop Pin / Go Live** modal
+
+## Google 3D Tiles
+
+Copy `.env.example` to `.env.local` and set a Map Tiles API key:
+
+```bash
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_key_here
+```
+
+Without a key, the map still loads a dark 3D-tilted basemap so pins, filters, and timers work.
 
 ## Run locally
 

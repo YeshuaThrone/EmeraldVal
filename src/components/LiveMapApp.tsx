@@ -4,29 +4,48 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { AudioLines, LoaderCircle, Plus } from "lucide-react";
 import { INITIAL_PINS, PIN_ZOOM } from "@/lib/constants";
+import { LIVE_TTL_MS, isPinExpired } from "@/lib/countdown";
 import {
   geocodeQuery,
   parseTipHandle,
   reverseGeocode,
   shortenDisplayName,
 } from "@/lib/geocode";
-import type { FlyToTarget, Pin, ToastMessage } from "@/lib/types";
+import type {
+  FlyToTarget,
+  GenreFilter,
+  MapViewMode,
+  Pin,
+  ToastMessage,
+} from "@/lib/types";
 import SearchBar from "@/components/SearchBar";
 import PerformerDrawer from "@/components/PerformerDrawer";
 import GoLiveModal from "@/components/GoLiveModal";
 import Toast from "@/components/Toast";
+import ViewToggle from "@/components/ViewToggle";
+import GenreChips from "@/components/GenreChips";
+import FestivalFinder from "@/components/FestivalFinder";
 
 const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
   ssr: false,
   loading: () => (
     <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#0B0F17] text-[#c4b5fd]">
       <LoaderCircle className="h-8 w-8 animate-spin text-[#8B5CF6]" />
-      <p className="text-sm tracking-wide">Loading Austin map…</p>
+      <p className="text-sm tracking-wide">Loading 3D Austin map…</p>
     </div>
   ),
 });
 
 function createPin(partial: Pick<Pin, "lat" | "lng" | "source"> & Partial<Pin>): Pin {
+  const liveAt = partial.liveAt ?? Date.now();
+  const kind =
+    partial.kind ??
+    (partial.source === "live"
+      ? "live"
+      : partial.source === "festival"
+        ? "festival"
+        : "drop");
+
   return {
     id: crypto.randomUUID(),
     performerName: "",
@@ -35,8 +54,26 @@ function createPin(partial: Pick<Pin, "lat" | "lng" | "source"> & Partial<Pin>):
     tipAmount: "",
     cashApp: "",
     venmo: "",
+    kind,
+    liveAt,
+    liveUntil: partial.liveUntil ?? liveAt + LIVE_TTL_MS,
     ...partial,
   };
+}
+
+function matchesGenreFilter(pin: Pin, filter: GenreFilter): boolean {
+  if (filter === "All") {
+    return true;
+  }
+  if (filter === "Festivals") {
+    return pin.kind === "festival";
+  }
+  if (pin.kind === "festival") {
+    return (pin.stages ?? []).some((stage) =>
+      stage.sets.some((set) => set.genre === filter),
+    );
+  }
+  return pin.genre === filter;
 }
 
 export default function LiveMapApp() {
@@ -49,14 +86,48 @@ export default function LiveMapApp() {
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [flyTo, setFlyTo] = useState<FlyToTarget | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [viewMode, setViewMode] = useState<MapViewMode>("map");
+  const [genreFilter, setGenreFilter] = useState<GenreFilter>("All");
+  const [now, setNow] = useState(() => Date.now());
+
+  const visiblePins = useMemo(
+    () =>
+      pins.filter(
+        (pin) => !isPinExpired(pin.liveUntil, now) && matchesGenreFilter(pin, genreFilter),
+      ),
+    [genreFilter, now, pins],
+  );
 
   const selectedPin = useMemo(
-    () => pins.find((pin) => pin.id === selectedPinId) ?? null,
-    [pins, selectedPinId],
+    () => visiblePins.find((pin) => pin.id === selectedPinId) ?? null,
+    [selectedPinId, visiblePins],
+  );
+
+  const festivals = useMemo(
+    () =>
+      pins.filter(
+        (pin) =>
+          pin.kind === "festival" &&
+          !isPinExpired(pin.liveUntil, now) &&
+          matchesGenreFilter(pin, genreFilter === "Festivals" ? "All" : genreFilter),
+      ),
+    [genreFilter, now, pins],
   );
 
   const dismissToast = useCallback(() => {
     setToast(null);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      setPins((existing) => {
+        const next = existing.filter((pin) => !isPinExpired(pin.liveUntil, current));
+        return next.length === existing.length ? existing : next;
+      });
+    }, 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -70,16 +141,21 @@ export default function LiveMapApp() {
       }
       if (selectedPinId) {
         setSelectedPinId(null);
+        return;
+      }
+      if (viewMode === "festivals") {
+        setViewMode("map");
       }
     }
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goLiveOpen, selectedPinId]);
+  }, [goLiveOpen, selectedPinId, viewMode]);
 
   const addPinAndFocus = useCallback((pin: Pin) => {
     setPins((current) => [...current, pin]);
     setSelectedPinId(pin.id);
+    setViewMode("map");
     setFlyTo({ lat: pin.lat, lng: pin.lng, zoom: PIN_ZOOM });
   }, []);
 
@@ -107,6 +183,7 @@ export default function LiveMapApp() {
           lng: result.lng,
           locationName: shortenDisplayName(result.displayName),
           source: "search",
+          kind: "drop",
         }),
       );
       setToast({
@@ -125,7 +202,7 @@ export default function LiveMapApp() {
 
   const handleMapClick = useCallback(
     async (lat: number, lng: number) => {
-      if (isClicking || goLiveOpen) {
+      if (isClicking || goLiveOpen || viewMode === "festivals") {
         return;
       }
 
@@ -142,6 +219,7 @@ export default function LiveMapApp() {
             lng,
             locationName,
             source: "map",
+            kind: "drop",
           }),
         );
       } catch {
@@ -153,7 +231,7 @@ export default function LiveMapApp() {
         setIsClicking(false);
       }
     },
-    [addPinAndFocus, goLiveOpen, isClicking],
+    [addPinAndFocus, goLiveOpen, isClicking, viewMode],
   );
 
   const handleGoLive = useCallback(
@@ -182,6 +260,7 @@ export default function LiveMapApp() {
             cashApp: handles.cashApp,
             venmo: handles.venmo,
             source: "live",
+            kind: "live",
           }),
         );
         setGoLiveOpen(false);
@@ -261,21 +340,36 @@ export default function LiveMapApp() {
     [selectedPinId],
   );
 
+  const handleSelectFestival = useCallback((id: string) => {
+    const festival = pins.find((pin) => pin.id === id);
+    if (!festival) {
+      return;
+    }
+    setSelectedPinId(id);
+    setViewMode("map");
+    setFlyTo({ lat: festival.lat, lng: festival.lng, zoom: PIN_ZOOM });
+  }, [pins]);
+
+  const festivalFinderOpen = viewMode === "festivals" && !selectedPin;
+
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-[#0B0F17] text-white">
       <div className="absolute inset-0 z-0">
         <MapCanvas
-          pins={pins}
+          pins={visiblePins}
           selectedPinId={selectedPinId}
           flyTo={flyTo}
-          onSelectPin={setSelectedPinId}
+          onSelectPin={(id) => {
+            setViewMode("map");
+            setSelectedPinId(id);
+          }}
           onMapClick={handleMapClick}
         />
       </div>
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 p-4 md:p-5">
-        <div className="mx-auto flex max-w-5xl flex-col gap-4">
-          <div className="pointer-events-auto flex items-center justify-between gap-3">
+        <div className="mx-auto flex max-w-5xl flex-col gap-3">
+          <div className="pointer-events-auto flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#8B5CF6] shadow-[0_0_24px_rgba(139,92,246,0.55)]">
                 <AudioLines className="h-5 w-5 text-white" />
@@ -289,17 +383,27 @@ export default function LiveMapApp() {
                 </p>
               </div>
             </div>
-            <div className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-[#0B0F17]/80 px-3 py-2 text-xs text-zinc-400 backdrop-blur-md sm:flex">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#8B5CF6] shadow-[0_0_10px_#8B5CF6]" />
-                Live
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#F59E0B] shadow-[0_0_10px_#F59E0B]" />
-                Dropped
-              </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <ViewToggle
+                mode={viewMode}
+                onModeChange={(mode) => {
+                  setSelectedPinId(null);
+                  setViewMode(mode);
+                }}
+              />
+              <div className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-[#0B0F17]/80 px-3 py-2 text-xs text-zinc-400 backdrop-blur-md sm:flex">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#22FF88] shadow-[0_0_10px_#22FF88]" />
+                  Live
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#FFD700] shadow-[0_0_10px_#FFD700]" />
+                  Festivals
+                </span>
+              </div>
             </div>
           </div>
+          <GenreChips value={genreFilter} onChange={setGenreFilter} />
           <SearchBar
             query={searchQuery}
             onQueryChange={setSearchQuery}
@@ -315,15 +419,25 @@ export default function LiveMapApp() {
         type="button"
         onClick={() => setGoLiveOpen(true)}
         className={`fixed right-5 bottom-6 z-30 inline-flex items-center gap-2 rounded-full bg-[#8B5CF6] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_0_32px_rgba(139,92,246,0.55)] transition hover:bg-[#7c4eef] md:bottom-8 ${
-          selectedPin ? "pointer-events-none opacity-0" : ""
+          selectedPin || festivalFinderOpen ? "pointer-events-none opacity-0" : ""
         }`}
       >
         <Plus className="h-5 w-5" />
         Drop Pin / Go Live
       </button>
 
+      <FestivalFinder
+        open={festivalFinderOpen}
+        festivals={festivals}
+        now={now}
+        genreFilter={genreFilter}
+        onClose={() => setViewMode("map")}
+        onSelect={handleSelectFestival}
+      />
+
       <PerformerDrawer
         pin={selectedPin}
+        now={now}
         onChange={handlePinChange}
         onClose={() => setSelectedPinId(null)}
         onSendTip={handleSendTip}

@@ -1,11 +1,13 @@
 "use client";
 
-import { DollarSign, MapPin, Music2, Send, X } from "lucide-react";
+import { Clock, DollarSign, MapPin, Music2, Send, X } from "lucide-react";
 import { FIELD_CLASS } from "@/lib/constants";
+import { formatLiveCountdown } from "@/lib/countdown";
 import type { Pin } from "@/lib/types";
 
 type PerformerDrawerProps = {
   pin: Pin | null;
+  now: number;
   onChange: (patch: Partial<Pin>) => void;
   onClose: () => void;
   onSendTip: () => void;
@@ -13,11 +15,13 @@ type PerformerDrawerProps = {
 
 export default function PerformerDrawer({
   pin,
+  now,
   onChange,
   onClose,
   onSendTip,
 }: PerformerDrawerProps) {
   const open = pin !== null;
+  const isFestival = pin?.kind === "festival";
 
   return (
     <>
@@ -30,7 +34,7 @@ export default function PerformerDrawer({
         }`}
       />
       <section
-        className={`fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl rounded-t-3xl border border-white/10 border-b-0 bg-[#0B0F17] px-5 pt-3 pb-6 shadow-[0_-20px_80px_rgba(139,92,246,0.18)] transition-transform duration-300 ${
+        className={`fixed inset-x-0 bottom-0 z-50 mx-auto w-full max-w-2xl rounded-t-3xl border border-white/10 border-b-0 bg-[#0B0F17] px-5 pt-3 pb-6 shadow-[0_-20px_80px_rgba(34,255,136,0.12)] transition-transform duration-300 ${
           open ? "translate-y-0" : "translate-y-full"
         }`}
         aria-hidden={!open}
@@ -38,18 +42,36 @@ export default function PerformerDrawer({
         <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-white/20" />
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold tracking-[0.2em] text-[#F59E0B] uppercase">
-              Performer
+            <p
+              className={`text-xs font-semibold tracking-[0.2em] uppercase ${
+                isFestival ? "text-[#FFD700]" : "text-[#22FF88]"
+              }`}
+            >
+              {isFestival ? "Festival" : "Performer"}
             </p>
             <h2 className="font-display mt-1 text-xl font-semibold text-white">
               {pin?.performerName || "Untitled set"}
             </h2>
-            {pin?.genre ? (
-              <span className="mt-2 inline-flex items-center gap-1 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/15 px-2.5 py-1 text-xs text-[#c4b5fd]">
-                <Music2 className="h-3 w-3" />
-                {pin.genre}
-              </span>
-            ) : null}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              {pin?.genre ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/15 px-2.5 py-1 text-xs text-[#c4b5fd]">
+                  <Music2 className="h-3 w-3" />
+                  {pin.genre}
+                </span>
+              ) : null}
+              {pin ? (
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                    isFestival
+                      ? "border-[#FFD700]/40 bg-[#FFD700]/10 text-[#FFD700]"
+                      : "border-[#22FF88]/40 bg-[#22FF88]/10 text-[#22FF88]"
+                  }`}
+                >
+                  <Clock className="h-3 w-3" />
+                  {formatLiveCountdown(pin.liveUntil, now)}
+                </span>
+              ) : null}
+            </div>
           </div>
           <button
             type="button"
@@ -138,6 +160,34 @@ export default function PerformerDrawer({
               </div>
             </label>
           </div>
+
+          {isFestival && pin?.stages ? (
+            <div className="grid gap-2">
+              {pin.stages.map((stage) => (
+                <div
+                  key={stage.name}
+                  className="rounded-xl border border-[#FFD700]/20 bg-[#121826] px-3 py-2"
+                >
+                  <p className="text-[11px] font-semibold tracking-wide text-[#FFD700] uppercase">
+                    {stage.name}
+                  </p>
+                  <ul className="mt-1.5 grid gap-1 text-sm text-zinc-200">
+                    {stage.sets.map((set) => (
+                      <li
+                        key={`${stage.name}-${set.artist}`}
+                        className="flex justify-between gap-2"
+                      >
+                        <span>{set.artist}</span>
+                        <span className="text-xs text-zinc-500">
+                          {set.startTime} – {set.endTime}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : null}
 
           <button
             type="button"
