@@ -23,6 +23,19 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_key_here
 
 If the key is missing, the map stays on a bright 2D Austin-flag basemap (no 3D tile requests, no console errors). When Photorealistic 3D Tiles load, the camera keeps a 45° daylight pitch.
 
+## Municipal Data Room
+
+The capture SDK (`src/lib/atx-live-sdk.ts`) emits anonymous session, corridor heat, attendance, and physical-only Luminate POS events to `/api/sdk/events`. Super-admins can review aggregates at `/admin/data-room` after signing in at `/admin/login`.
+
+Set a password (8+ characters) and JWT secret (16+ characters):
+
+```bash
+ADMIN_PASSWORD=your-admin-password
+ADMIN_JWT_SECRET=a-long-random-secret
+```
+
+The data room is JWT-cookie protected. It does not change the public map UI.
+
 ## Run locally
 
 ```bash

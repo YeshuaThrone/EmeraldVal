@@ -1,12 +1,15 @@
 /**
- * ATX Live Municipal Data SDK
+ * ATX Live Municipal & Luminate Data SDK
  *
  * Standalone, non-blocking client service for City of Austin HOT / cultural-impact
- * metrics. Collects only anonymous, session-scoped signals:
+ * metrics and physical-only Luminate POS formatting. Capture modules emit events
+ * to `/api/sdk/events` for the Admin Data Room (`/admin/data-room`).
+ *
  *   1. Isolated session tokens (sessionStorage, no accounts)
- *   2. Network-origin heuristics (tourist vs local)
+ *   2. Network-origin heuristics (tourist vs local / HOT ratio)
  *   3. Cultural-corridor heat pings
  *   4. Event-driven attendance checks (geolocation only when invoked)
+ *   5. Physical-only Luminate POS rows with venue manager sign-off anchors
  *
  * No PII, no persistent device fingerprint, no continuous GPS.
  */
@@ -68,8 +71,39 @@ export type MunicipalSnapshot = {
   corridorHeat: Record<CulturalCorridor, number>;
   heatPings: number;
   verifiedAttendanceCount: number;
+  luminatePending: number;
+  luminateSigned: number;
   generatedAt: number;
 };
+
+export type LuminateSaleInput = {
+  upcCode: string;
+  registeredVenueId: string;
+  managerSignoffId?: string | null;
+  quantity: number;
+  unitPriceCents: number;
+  soldAt?: number;
+  channel?: "PHYSICAL" | "DIGITAL";
+  title?: string;
+};
+
+export type LuminateSale = {
+  upcCode: string;
+  registeredVenueId: string;
+  managerSignoffId: string | null;
+  quantity: number;
+  unitPriceCents: number;
+  soldAt: number;
+  channel: "PHYSICAL";
+  title: string;
+  signed: boolean;
+};
+
+export type SdkCaptureEvent =
+  | { kind: "session"; sessionId: string; origin: OriginClass; networkClass: NetworkClass; at: number }
+  | { kind: "heat"; ping: HeatPing }
+  | { kind: "attendance"; event: VerifiedAttendanceEvent }
+  | { kind: "luminate"; sale: LuminateSale };
 
 type NetworkHints = {
   isp?: string;
@@ -135,6 +169,8 @@ type StoredMetrics = {
   localCount: number;
   corridorHeat: Record<CulturalCorridor, number>;
   verifiedAttendanceCount: number;
+  luminatePending: number;
+  luminateSigned: number;
 };
 
 const emptyHeat = (): Record<CulturalCorridor, number> => ({
@@ -145,19 +181,26 @@ const emptyHeat = (): Record<CulturalCorridor, number> => ({
   "downtown-warehouse": 0,
 });
 
+const EVENTS_ENDPOINT = "/api/sdk/events";
+const UPC_PATTERN = /^\d{12,13}$/;
+
 const memory: {
   session: SessionRecord | null;
   heatLog: HeatPing[];
+  luminateQueue: LuminateSale[];
   metrics: StoredMetrics;
   originReady: boolean;
 } = {
   session: null,
   heatLog: [],
+  luminateQueue: [],
   metrics: {
     touristCount: 0,
     localCount: 0,
     corridorHeat: emptyHeat(),
     verifiedAttendanceCount: 0,
+    luminatePending: 0,
+    luminateSigned: 0,
   },
   originReady: false,
 };
@@ -206,7 +249,35 @@ function loadMetrics(): StoredMetrics {
     localCount: stored.localCount ?? 0,
     corridorHeat: { ...emptyHeat(), ...stored.corridorHeat },
     verifiedAttendanceCount: stored.verifiedAttendanceCount ?? 0,
+    luminatePending: stored.luminatePending ?? 0,
+    luminateSigned: stored.luminateSigned ?? 0,
   };
+}
+
+function emitCapture(event: SdkCaptureEvent): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  try {
+    const body = JSON.stringify(event);
+    if (typeof navigator.sendBeacon === "function") {
+      const queued = navigator.sendBeacon(
+        EVENTS_ENDPOINT,
+        new Blob([body], { type: "application/json" }),
+      );
+      if (queued) {
+        return;
+      }
+    }
+    void fetch(EVENTS_ENDPOINT, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body,
+      keepalive: true,
+    });
+  } catch {
+    /* capture must never block the map */
+  }
 }
 
 function persistMetrics(): void {
@@ -359,6 +430,13 @@ function applyOrigin(origin: OriginClass, networkClass: NetworkClass): void {
       memory.metrics.localCount += 1;
     }
     persistMetrics();
+    emitCapture({
+      kind: "session",
+      sessionId: memory.session.id,
+      origin,
+      networkClass,
+      at: Date.now(),
+    });
     return;
   }
 
@@ -369,6 +447,13 @@ function applyOrigin(origin: OriginClass, networkClass: NetworkClass): void {
     memory.metrics.localCount += 1;
   }
   persistMetrics();
+  emitCapture({
+    kind: "session",
+    sessionId: memory.session.id,
+    origin,
+    networkClass,
+    at: Date.now(),
+  });
 }
 
 async function refineOriginFromPublicHints(): Promise<void> {
@@ -419,6 +504,13 @@ export function initAtxLiveSdk(): SessionRecord {
   if (existing?.id) {
     memory.session = existing;
     memory.originReady = existing.origin !== "unknown";
+    emitCapture({
+      kind: "session",
+      sessionId: existing.id,
+      origin: existing.origin,
+      networkClass: existing.networkClass,
+      at: Date.now(),
+    });
     return existing;
   }
 
@@ -458,6 +550,7 @@ export function pingCorridor(action: HeatAction, point?: LatLng | null): HeatPin
     memory.metrics.corridorHeat[corridor] += 1;
     persistMetrics();
   }
+  emitCapture({ kind: "heat", ping });
   return ping;
 }
 
@@ -510,7 +603,72 @@ export async function verifyAttendance(
     memory.metrics.verifiedAttendanceCount += 1;
     persistMetrics();
   }
+  emitCapture({ kind: "attendance", event });
   return event;
+}
+
+export function recordPhysicalSale(input: LuminateSaleInput): LuminateSale | null {
+  if (input.channel === "DIGITAL") {
+    return null;
+  }
+  const upcCode = input.upcCode.replace(/\s+/g, "");
+  if (!UPC_PATTERN.test(upcCode) || !input.registeredVenueId.trim()) {
+    return null;
+  }
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+    return null;
+  }
+  const managerSignoffId = input.managerSignoffId?.trim() || null;
+  const sale: LuminateSale = {
+    upcCode,
+    registeredVenueId: input.registeredVenueId.trim(),
+    managerSignoffId,
+    quantity: Math.round(input.quantity),
+    unitPriceCents: Math.max(0, Math.round(input.unitPriceCents)),
+    soldAt: input.soldAt ?? Date.now(),
+    channel: "PHYSICAL",
+    title: input.title?.trim() ?? "",
+    signed: Boolean(managerSignoffId),
+  };
+  memory.luminateQueue.push(sale);
+  if (sale.signed) {
+    memory.metrics.luminateSigned += 1;
+  } else {
+    memory.metrics.luminatePending += 1;
+  }
+  persistMetrics();
+  emitCapture({ kind: "luminate", sale });
+  return sale;
+}
+
+export function formatLuminatePipeFeed(sales: LuminateSale[]): string {
+  const header = [
+    "UPC_Code",
+    "Registered_Venue_ID",
+    "Manager_Signoff_ID",
+    "Quantity",
+    "Unit_Price_Cents",
+    "Sold_At",
+    "Channel",
+  ].join("|");
+  const rows = sales
+    .filter((sale) => sale.channel === "PHYSICAL" && sale.signed && sale.managerSignoffId)
+    .map((sale) =>
+      [
+        sale.upcCode,
+        sale.registeredVenueId,
+        sale.managerSignoffId,
+        String(sale.quantity),
+        String(sale.unitPriceCents),
+        new Date(sale.soldAt).toISOString(),
+        sale.channel,
+      ].join("|"),
+    );
+  return [header, ...rows].join("\n");
+}
+
+export function exportLuminatePipeFeed(): string {
+  return formatLuminatePipeFeed(memory.luminateQueue);
 }
 
 export function getMunicipalSnapshot(): MunicipalSnapshot {
@@ -527,6 +685,8 @@ export function getMunicipalSnapshot(): MunicipalSnapshot {
     corridorHeat: { ...corridorHeat },
     heatPings: memory.heatLog.length,
     verifiedAttendanceCount,
+    luminatePending: memory.metrics.luminatePending,
+    luminateSigned: memory.metrics.luminateSigned,
     generatedAt: Date.now(),
   };
 }
@@ -537,6 +697,9 @@ export const atxLiveSdk = {
   classifyNetworkOrigin,
   pingCorridor,
   verifyAttendance,
+  recordPhysicalSale,
+  formatLuminatePipeFeed,
+  exportLuminatePipeFeed,
   getMunicipalSnapshot,
   corridorAt,
   distanceMeters,
