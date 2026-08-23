@@ -4,23 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Download, Gauge, LogOut, MapPinned, Radio, Receipt } from "lucide-react";
 import type { AdminDataPayload } from "@/lib/admin-types";
-import type { CulturalCorridor } from "@/lib/atx-live-sdk";
-
-const CORRIDOR_LABELS: Record<CulturalCorridor, string> = {
-  "red-river": "Red River Cultural District",
-  rainey: "Rainey Street Historic District",
-  "east-6th": "East 6th Street Corridor",
-  "south-congress": "South Congress (SoCo)",
-  "downtown-warehouse": "Downtown / Warehouse District",
-};
-
-const CORRIDOR_ORDER: CulturalCorridor[] = [
-  "east-6th",
-  "red-river",
-  "downtown-warehouse",
-  "rainey",
-  "south-congress",
-];
 
 function formatWhen(at: number): string {
   return new Date(at).toLocaleString("en-US", {
@@ -74,7 +57,7 @@ export default function DataRoomPage() {
     if (!data) {
       return 1;
     }
-    return Math.max(1, ...Object.values(data.corridorHeat));
+    return Math.max(1, ...data.zoneHeat.map((row) => row.count));
   }, [data]);
 
   const attendanceLogs = useMemo(() => {
@@ -124,7 +107,7 @@ export default function DataRoomPage() {
             </p>
             <h1 className="font-display text-2xl font-semibold">Municipal Data Room</h1>
             <p className="text-sm text-[#00529C]">
-              HOT allocation metrics · corridor heat · verified attendance · Luminate POS
+              Citywide HOT · Slaughter to North Lamar heat · 150m attendance · Luminate POS
             </p>
           </div>
           <button
@@ -149,7 +132,7 @@ export default function DataRoomPage() {
           <article className="rounded-3xl border border-[#00529C]/15 bg-white p-5 shadow-sm">
             <p className="inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-[#00529C] uppercase">
               <Gauge className="h-3.5 w-3.5" />
-              City HOT Tax Ratio Meter
+              Citywide HOT Tax Ratio Meter
             </p>
             <div className="mt-4 flex items-center gap-5">
               <svg viewBox="0 0 120 120" className="h-28 w-28 shrink-0">
@@ -200,21 +183,25 @@ export default function DataRoomPage() {
           <article className="rounded-3xl border border-[#00529C]/15 bg-white p-5 shadow-sm">
             <p className="inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-[#00529C] uppercase">
               <MapPinned className="h-3.5 w-3.5" />
-              Corridor Heat Map
+              Full Austin Heat Map
             </p>
-            <div className="mt-4 grid gap-3">
-              {CORRIDOR_ORDER.map((id) => {
-                const value = data?.corridorHeat[id] ?? 0;
-                const width = Math.max(6, Math.round((value / maxHeat) * 100));
+            <div className="mt-4 grid max-h-72 gap-3 overflow-y-auto pr-1">
+              {(data?.zoneHeat ?? []).map((row) => {
+                const width = Math.max(6, Math.round((row.count / maxHeat) * 100));
                 return (
-                  <div key={id}>
+                  <div key={row.zoneTag}>
                     <div className="mb-1 flex justify-between text-xs text-[#00529C]">
-                      <span>{CORRIDOR_LABELS[id]}</span>
-                      <span className="font-semibold text-[#003366]">{value}</span>
+                      <span>
+                        {row.label}
+                        <span className="ml-2 rounded-full bg-[#F8FAFC] px-1.5 py-0.5 text-[10px] font-semibold uppercase">
+                          {row.kind === "district" ? "District" : "Zip zone"}
+                        </span>
+                      </span>
+                      <span className="font-semibold text-[#003366]">{row.count}</span>
                     </div>
                     <div className="h-2.5 overflow-hidden rounded-full bg-[#F8FAFC]">
                       <div
-                        className="h-full rounded-full bg-[#E0144C]"
+                        className={`h-full rounded-full ${row.kind === "district" ? "bg-[#E0144C]" : "bg-[#00529C]"}`}
                         style={{ width: `${width}%` }}
                       />
                     </div>
@@ -250,7 +237,7 @@ export default function DataRoomPage() {
           </div>
           <p className="mt-3 text-sm text-[#003366]">
             {attendanceScope === "daily" ? data?.attendance.daily ?? 0 : data?.attendance.weekly ?? 0}{" "}
-            verified check-ins within 150m of active stages
+            verified check-ins within 150m of active stages, citywide
           </p>
           <div className="mt-3 overflow-x-auto">
             <table className="min-w-full text-left text-sm">
@@ -258,7 +245,7 @@ export default function DataRoomPage() {
                 <tr>
                   <th className="py-2 pr-4">When</th>
                   <th className="py-2 pr-4">Venue</th>
-                  <th className="py-2 pr-4">Corridor</th>
+                  <th className="py-2 pr-4">Zone / Zip</th>
                   <th className="py-2">Distance</th>
                 </tr>
               </thead>
@@ -268,7 +255,8 @@ export default function DataRoomPage() {
                     <td className="py-2 pr-4 whitespace-nowrap">{formatWhen(row.at)}</td>
                     <td className="py-2 pr-4">{row.venueName}</td>
                     <td className="py-2 pr-4">
-                      {row.corridor ? CORRIDOR_LABELS[row.corridor] : "—"}
+                      {row.zoneTag.replaceAll("_", " ")}
+                      {row.zipCode ? ` · ${row.zipCode}` : ""}
                     </td>
                     <td className="py-2">{row.distanceMeters != null ? `${Math.round(row.distanceMeters)}m` : "—"}</td>
                   </tr>
@@ -289,8 +277,9 @@ export default function DataRoomPage() {
                 Luminate Sales Audit Queue
               </p>
               <p className="mt-1 text-sm text-[#003366]">
-                Physical-only POS · {data?.luminate.signed ?? 0} signed · {data?.luminate.pending ?? 0} awaiting
-                manager sign-off
+                Vinyl / CD / Cassette only · {data?.luminate.signed ?? 0} chart-eligible ·{" "}
+                {data?.luminate.pending ?? 0} pending sign-off · {data?.luminate.ineligible ?? 0}{" "}
+                ineligible digital
               </p>
             </div>
             <button
@@ -308,7 +297,8 @@ export default function DataRoomPage() {
               <thead className="text-xs tracking-wide text-[#00529C] uppercase">
                 <tr>
                   <th className="py-2 pr-4">UPC_Code</th>
-                  <th className="py-2 pr-4">Registered_Venue_ID</th>
+                  <th className="py-2 pr-4">Format</th>
+                  <th className="py-2 pr-4">Location_ID</th>
                   <th className="py-2 pr-4">Manager_Signoff_ID</th>
                   <th className="py-2 pr-4">Qty</th>
                   <th className="py-2">Status</th>
@@ -316,20 +306,27 @@ export default function DataRoomPage() {
               </thead>
               <tbody>
                 {(data?.luminate.sales ?? []).map((sale) => (
-                  <tr key={`${sale.upcCode}-${sale.soldAt}`} className="border-t border-[#00529C]/10">
+                  <tr key={sale.transactionId} className="border-t border-[#00529C]/10">
                     <td className="py-2 pr-4 font-mono text-xs">{sale.upcCode}</td>
-                    <td className="py-2 pr-4">{sale.registeredVenueId}</td>
+                    <td className="py-2 pr-4">{sale.physicalFormatType ?? "DIGITAL"}</td>
+                    <td className="py-2 pr-4">{sale.registeredVenueOrLocationId}</td>
                     <td className="py-2 pr-4">{sale.managerSignoffId ?? "—"}</td>
                     <td className="py-2 pr-4">{sale.quantity}</td>
                     <td className="py-2">
                       <span
                         className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
-                          sale.signed
+                          sale.eligible
                             ? "bg-[#10B981]/15 text-[#0f766e]"
-                            : "bg-[#FFE317]/40 text-[#003366]"
+                            : sale.channel === "DIGITAL"
+                              ? "bg-[#E0144C]/10 text-[#E0144C]"
+                              : "bg-[#FFE317]/40 text-[#003366]"
                         }`}
                       >
-                        {sale.signed ? "Signed" : "Pending sign-off"}
+                        {sale.eligible
+                          ? "Chart-eligible"
+                          : sale.channel === "DIGITAL"
+                            ? "Ineligible digital"
+                            : "Pending sign-off"}
                       </span>
                     </td>
                   </tr>

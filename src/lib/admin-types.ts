@@ -4,6 +4,13 @@ export type AttendanceLog = VerifiedAttendanceEvent & {
   venueName: string;
 };
 
+export type ZoneHeatRow = {
+  zoneTag: string;
+  label: string;
+  count: number;
+  kind: "district" | "zip-zone";
+};
+
 export type AdminDataPayload = {
   hot: {
     touristCount: number;
@@ -13,6 +20,7 @@ export type AdminDataPayload = {
     localPercent: number;
   };
   corridorHeat: Record<CulturalCorridor, number>;
+  zoneHeat: ZoneHeatRow[];
   attendance: {
     daily: number;
     weekly: number;
@@ -21,6 +29,7 @@ export type AdminDataPayload = {
   luminate: {
     pending: number;
     signed: number;
+    ineligible: number;
     sales: LuminateSale[];
   };
   generatedAt: number;

@@ -1,25 +1,36 @@
 /**
- * ATX Live Municipal & Luminate Data SDK
+ * ATX Live Universal Municipal & Luminate Data SDK
  *
- * Standalone, non-blocking client service for City of Austin HOT / cultural-impact
+ * Standalone, non-blocking client service for citywide HOT / cultural-impact
  * metrics and physical-only Luminate POS formatting. Capture modules emit events
  * to `/api/sdk/events` for the Admin Data Room (`/admin/data-room`).
  *
  *   1. Isolated session tokens (sessionStorage, no accounts)
  *   2. Network-origin heuristics (tourist vs local / HOT ratio)
- *   3. Cultural-corridor heat pings
- *   4. Event-driven attendance checks (geolocation only when invoked)
- *   5. Physical-only Luminate POS rows with venue manager sign-off anchors
+ *   3. Citywide heat pings (district tag or Austin_{zip}_{neighborhood})
+ *   4. Event-driven attendance checks anywhere in the municipal box
+ *   5. Physical-only Luminate POS rows with venue / pop-up sign-off anchors
  *
  * No PII, no persistent device fingerprint, no continuous GPS.
  */
 
-export type CulturalCorridor =
-  | "red-river"
-  | "rainey"
-  | "east-6th"
-  | "south-congress"
-  | "downtown-warehouse";
+import {
+  type CulturalCorridor,
+  type LatLng,
+  type LocationIndex,
+  corridorAt,
+  indexLocation,
+  isWithinMunicipalBounds,
+  labelForZoneTag,
+} from "@/lib/austin-geo";
+
+export type {
+  CulturalCorridor,
+  LatLng,
+  LocationIndex,
+  LocationKind,
+} from "@/lib/austin-geo";
+export { corridorAt, indexLocation, isWithinMunicipalBounds, labelForZoneTag };
 
 export type HeatAction = "view" | "search" | "filter";
 
@@ -32,11 +43,6 @@ export type NetworkClass =
 
 export type OriginClass = "local" | "tourist" | "unknown";
 
-export type LatLng = {
-  lat: number;
-  lng: number;
-};
-
 export type VenueAttendanceTarget = LatLng & {
   id?: string;
   liveAt?: number;
@@ -46,7 +52,12 @@ export type VenueAttendanceTarget = LatLng & {
 export type HeatPing = {
   sessionId: string;
   action: HeatAction;
+  lat: number | null;
+  lng: number | null;
   corridor: CulturalCorridor | null;
+  zoneTag: string;
+  zipCode: string | null;
+  neighborhood: string | null;
   at: number;
 };
 
@@ -54,10 +65,13 @@ export type VerifiedAttendanceEvent = {
   sessionId: string;
   venueId: string | null;
   corridor: CulturalCorridor | null;
+  zoneTag: string;
+  zipCode: string | null;
   distanceMeters: number | null;
   withinRadius: boolean;
   duringShowtime: boolean;
   verified: boolean;
+  inAustin: boolean;
   at: number;
 };
 
@@ -69,6 +83,7 @@ export type MunicipalSnapshot = {
   localCount: number;
   touristToLocalRatio: number | null;
   corridorHeat: Record<CulturalCorridor, number>;
+  zoneHeat: Record<string, number>;
   heatPings: number;
   verifiedAttendanceCount: number;
   luminatePending: number;
@@ -76,27 +91,36 @@ export type MunicipalSnapshot = {
   generatedAt: number;
 };
 
+export type PhysicalFormatType = "VINYL" | "CD" | "CASSETTE";
+
 export type LuminateSaleInput = {
   upcCode: string;
-  registeredVenueId: string;
+  registeredVenueId?: string;
+  locationAnchor?: LatLng & { address?: string };
   managerSignoffId?: string | null;
   quantity: number;
-  unitPriceCents: number;
+  priceUsd?: number;
+  unitPriceCents?: number;
   soldAt?: number;
   channel?: "PHYSICAL" | "DIGITAL";
+  physicalFormatType?: PhysicalFormatType | "DIGITAL_DOWNLOAD";
   title?: string;
 };
 
 export type LuminateSale = {
+  transactionId: string;
   upcCode: string;
-  registeredVenueId: string;
-  managerSignoffId: string | null;
+  physicalFormatType: PhysicalFormatType | null;
   quantity: number;
-  unitPriceCents: number;
-  soldAt: number;
-  channel: "PHYSICAL";
+  priceUsd: number;
+  currency: "USD";
+  registeredVenueOrLocationId: string;
+  managerSignoffId: string | null;
+  timestamp: number;
+  channel: "PHYSICAL" | "DIGITAL";
   title: string;
   signed: boolean;
+  eligible: boolean;
 };
 
 export type SdkCaptureEvent =
@@ -126,22 +150,6 @@ const ATTENDANCE_RADIUS_M = 150;
 const AUSTIN_TZ = "America/Chicago";
 const MAX_HEAT_LOG = 200;
 
-const CORRIDOR_BOUNDS: Record<
-  CulturalCorridor,
-  { south: number; north: number; west: number; east: number }
-> = {
-  "red-river": { south: 30.2648, north: 30.2712, west: -97.7396, east: -97.7346 },
-  rainey: { south: 30.2548, north: 30.2616, west: -97.7418, east: -97.7364 },
-  "east-6th": { south: 30.2654, north: 30.2694, west: -97.7428, east: -97.7268 },
-  "south-congress": { south: 30.2448, north: 30.2588, west: -97.7526, east: -97.7452 },
-  "downtown-warehouse": {
-    south: 30.2638,
-    north: 30.2718,
-    west: -97.7518,
-    east: -97.7416,
-  },
-};
-
 const HOTEL_HINTS = [
   "hotel",
   "marriott",
@@ -168,6 +176,7 @@ type StoredMetrics = {
   touristCount: number;
   localCount: number;
   corridorHeat: Record<CulturalCorridor, number>;
+  zoneHeat: Record<string, number>;
   verifiedAttendanceCount: number;
   luminatePending: number;
   luminateSigned: number;
@@ -198,6 +207,7 @@ const memory: {
     touristCount: 0,
     localCount: 0,
     corridorHeat: emptyHeat(),
+    zoneHeat: {},
     verifiedAttendanceCount: 0,
     luminatePending: 0,
     luminateSigned: 0,
@@ -248,6 +258,7 @@ function loadMetrics(): StoredMetrics {
     touristCount: stored.touristCount ?? 0,
     localCount: stored.localCount ?? 0,
     corridorHeat: { ...emptyHeat(), ...stored.corridorHeat },
+    zoneHeat: stored.zoneHeat ?? {},
     verifiedAttendanceCount: stored.verifiedAttendanceCount ?? 0,
     luminatePending: stored.luminatePending ?? 0,
     luminateSigned: stored.luminateSigned ?? 0,
@@ -320,33 +331,6 @@ export function distanceMeters(a: LatLng, b: LatLng): number {
     Math.sin(dLat / 2) ** 2 +
     Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
   return 2 * earth * Math.asin(Math.min(1, Math.sqrt(h)));
-}
-
-export function corridorAt(point: LatLng): CulturalCorridor | null {
-  const matches: CulturalCorridor[] = [];
-  for (const [id, box] of Object.entries(CORRIDOR_BOUNDS) as [
-    CulturalCorridor,
-    (typeof CORRIDOR_BOUNDS)[CulturalCorridor],
-  ][]) {
-    if (
-      point.lat >= box.south &&
-      point.lat <= box.north &&
-      point.lng >= box.west &&
-      point.lng <= box.east
-    ) {
-      matches.push(id);
-    }
-  }
-  if (matches.length === 0) {
-    return null;
-  }
-  if (matches.includes("red-river")) {
-    return "red-river";
-  }
-  if (matches.includes("east-6th")) {
-    return "east-6th";
-  }
-  return matches[0];
 }
 
 export function isWithinAttendanceRadius(
@@ -533,25 +517,35 @@ export function getSessionId(): string {
   return initAtxLiveSdk().id;
 }
 
-export function pingCorridor(action: HeatAction, point?: LatLng | null): HeatPing {
+export function pingLocation(action: HeatAction, point?: LatLng | null): HeatPing {
   const sessionId = getSessionId();
-  const corridor = point ? corridorAt(point) : null;
+  const indexed: LocationIndex | null = point ? indexLocation(point) : null;
   const ping: HeatPing = {
     sessionId,
     action,
-    corridor,
+    lat: point?.lat ?? null,
+    lng: point?.lng ?? null,
+    corridor: indexed?.corridor ?? null,
+    zoneTag: indexed?.zoneTag ?? "Austin_Citywide_Popup",
+    zipCode: indexed?.zipCode ?? null,
+    neighborhood: indexed?.neighborhood ?? null,
     at: Date.now(),
   };
   memory.heatLog.push(ping);
   if (memory.heatLog.length > MAX_HEAT_LOG) {
     memory.heatLog.splice(0, memory.heatLog.length - MAX_HEAT_LOG);
   }
-  if (corridor) {
-    memory.metrics.corridorHeat[corridor] += 1;
-    persistMetrics();
+  memory.metrics.zoneHeat[ping.zoneTag] = (memory.metrics.zoneHeat[ping.zoneTag] ?? 0) + 1;
+  if (ping.corridor) {
+    memory.metrics.corridorHeat[ping.corridor] += 1;
   }
+  persistMetrics();
   emitCapture({ kind: "heat", ping });
   return ping;
+}
+
+export function pingCorridor(action: HeatAction, point?: LatLng | null): HeatPing {
+  return pingLocation(action, point);
 }
 
 function readBrowserPosition(): Promise<LatLng | null> {
@@ -589,14 +583,18 @@ export async function verifyAttendance(
   const distance = user ? distanceMeters(user, venue) : null;
   const withinRadius = distance != null && distance <= ATTENDANCE_RADIUS_M;
   const verified = withinRadius && duringShowtime;
+  const indexed = indexLocation(venue);
   const event: VerifiedAttendanceEvent = {
     sessionId,
     venueId: venue.id ?? null,
-    corridor: corridorAt(venue),
+    corridor: indexed.corridor,
+    zoneTag: indexed.zoneTag,
+    zipCode: indexed.zipCode,
     distanceMeters: distance,
     withinRadius,
     duringShowtime,
     verified,
+    inAustin: indexed.inAustin,
     at: Date.now(),
   };
   if (verified) {
@@ -608,30 +606,53 @@ export async function verifyAttendance(
 }
 
 export function recordPhysicalSale(input: LuminateSaleInput): LuminateSale | null {
-  if (input.channel === "DIGITAL") {
-    return null;
-  }
   const upcCode = input.upcCode.replace(/\s+/g, "");
-  if (!UPC_PATTERN.test(upcCode) || !input.registeredVenueId.trim()) {
+  if (!UPC_PATTERN.test(upcCode)) {
     return null;
   }
   if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
     return null;
   }
+
+  const locationId =
+    input.registeredVenueId?.trim() ||
+    (input.locationAnchor
+      ? `POPUP_${input.locationAnchor.lat.toFixed(5)}_${input.locationAnchor.lng.toFixed(5)}`
+      : "");
+  if (!locationId) {
+    return null;
+  }
+
+  const digital =
+    input.channel === "DIGITAL" || input.physicalFormatType === "DIGITAL_DOWNLOAD";
+  const format: PhysicalFormatType | null = digital
+    ? null
+    : input.physicalFormatType === "VINYL" ||
+        input.physicalFormatType === "CD" ||
+        input.physicalFormatType === "CASSETTE"
+      ? input.physicalFormatType
+      : "VINYL";
   const managerSignoffId = input.managerSignoffId?.trim() || null;
+  const priceUsd =
+    input.priceUsd ??
+    (input.unitPriceCents != null ? input.unitPriceCents / 100 : 0);
   const sale: LuminateSale = {
+    transactionId: createToken(),
     upcCode,
-    registeredVenueId: input.registeredVenueId.trim(),
-    managerSignoffId,
+    physicalFormatType: format,
     quantity: Math.round(input.quantity),
-    unitPriceCents: Math.max(0, Math.round(input.unitPriceCents)),
-    soldAt: input.soldAt ?? Date.now(),
-    channel: "PHYSICAL",
+    priceUsd: Math.max(0, Number(priceUsd.toFixed(2))),
+    currency: "USD",
+    registeredVenueOrLocationId: locationId,
+    managerSignoffId,
+    timestamp: input.soldAt ?? Date.now(),
+    channel: digital ? "DIGITAL" : "PHYSICAL",
     title: input.title?.trim() ?? "",
     signed: Boolean(managerSignoffId),
+    eligible: !digital && Boolean(format) && Boolean(managerSignoffId),
   };
   memory.luminateQueue.push(sale);
-  if (sale.signed) {
+  if (sale.eligible) {
     memory.metrics.luminateSigned += 1;
   } else {
     memory.metrics.luminatePending += 1;
@@ -643,25 +664,29 @@ export function recordPhysicalSale(input: LuminateSaleInput): LuminateSale | nul
 
 export function formatLuminatePipeFeed(sales: LuminateSale[]): string {
   const header = [
+    "Transaction_ID",
     "UPC_Code",
-    "Registered_Venue_ID",
-    "Manager_Signoff_ID",
+    "Physical_Format_Type",
     "Quantity",
-    "Unit_Price_Cents",
-    "Sold_At",
-    "Channel",
+    "Price_USD",
+    "Currency",
+    "Registered_Venue_or_Location_ID",
+    "Manager_Signoff_ID",
+    "Timestamp",
   ].join("|");
   const rows = sales
-    .filter((sale) => sale.channel === "PHYSICAL" && sale.signed && sale.managerSignoffId)
+    .filter((sale) => sale.eligible && sale.channel === "PHYSICAL" && sale.signed)
     .map((sale) =>
       [
+        sale.transactionId,
         sale.upcCode,
-        sale.registeredVenueId,
-        sale.managerSignoffId,
+        sale.physicalFormatType ?? "",
         String(sale.quantity),
-        String(sale.unitPriceCents),
-        new Date(sale.soldAt).toISOString(),
-        sale.channel,
+        sale.priceUsd.toFixed(2),
+        sale.currency,
+        sale.registeredVenueOrLocationId,
+        sale.managerSignoffId ?? "",
+        new Date(sale.timestamp).toISOString(),
       ].join("|"),
     );
   return [header, ...rows].join("\n");
@@ -683,6 +708,7 @@ export function getMunicipalSnapshot(): MunicipalSnapshot {
     localCount,
     touristToLocalRatio: localCount === 0 ? null : touristCount / localCount,
     corridorHeat: { ...corridorHeat },
+    zoneHeat: { ...memory.metrics.zoneHeat },
     heatPings: memory.heatLog.length,
     verifiedAttendanceCount,
     luminatePending: memory.metrics.luminatePending,
@@ -695,6 +721,7 @@ export const atxLiveSdk = {
   init: initAtxLiveSdk,
   getSessionId,
   classifyNetworkOrigin,
+  pingLocation,
   pingCorridor,
   verifyAttendance,
   recordPhysicalSale,
@@ -702,6 +729,9 @@ export const atxLiveSdk = {
   exportLuminatePipeFeed,
   getMunicipalSnapshot,
   corridorAt,
+  indexLocation,
+  isWithinMunicipalBounds,
+  labelForZoneTag,
   distanceMeters,
   isWithinAttendanceRadius,
   isDuringShowtime,

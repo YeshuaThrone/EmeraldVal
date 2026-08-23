@@ -25,7 +25,7 @@ If the key is missing, the map stays on a bright 2D Austin-flag basemap (no 3D t
 
 ## Municipal Data Room
 
-The capture SDK (`src/lib/atx-live-sdk.ts`) emits anonymous session, corridor heat, attendance, and physical-only Luminate POS events to `/api/sdk/events`. Super-admins can review aggregates at `/admin/data-room` after signing in at `/admin/login`.
+The capture SDK (`src/lib/atx-live-sdk.ts`) indexes any Austin lat/lng — cultural districts when they apply, otherwise zip + neighborhood zones such as `Austin_78749_Slaughter` and `Austin_78758_North_Lamar`. It emits anonymous session, citywide heat, attendance, and physical-only Luminate POS events to `/api/sdk/events`. Super-admins can review aggregates at `/admin/data-room` after signing in at `/admin/login`.
 
 Set a password (8+ characters) and JWT secret (16+ characters):
 
