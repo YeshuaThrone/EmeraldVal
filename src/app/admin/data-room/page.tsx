@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Download, Gauge, LogOut, MapPinned, Radio, Receipt } from "lucide-react";
+import { Download, Gauge, LogOut, MapPinned, Radio, Receipt, Users } from "lucide-react";
 import type { AdminDataPayload } from "@/lib/admin-types";
+import type { FanCapture } from "@/lib/fan-captures";
 
 function formatWhen(at: number): string {
   return new Date(at).toLocaleString("en-US", {
@@ -21,6 +22,9 @@ export default function DataRoomPage() {
   const [error, setError] = useState<string | null>(null);
   const [attendanceScope, setAttendanceScope] = useState<"daily" | "weekly">("daily");
   const [exporting, setExporting] = useState(false);
+  const [captures, setCaptures] = useState<FanCapture[]>([]);
+  const [capturesConfigured, setCapturesConfigured] = useState(false);
+  const [capturesNote, setCapturesNote] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -35,6 +39,18 @@ export default function DataRoomPage() {
       }
       setData((await response.json()) as AdminDataPayload);
       setError(null);
+
+      const captureResponse = await fetch("/api/admin/captures", { cache: "no-store" });
+      if (captureResponse.ok) {
+        const payload = (await captureResponse.json()) as {
+          configured?: boolean;
+          captures?: FanCapture[];
+          error?: string;
+        };
+        setCapturesConfigured(Boolean(payload.configured));
+        setCaptures(payload.captures ?? []);
+        setCapturesNote(payload.error ?? null);
+      }
     } catch {
       setError("Could not load municipal metrics.");
     }
@@ -333,6 +349,49 @@ export default function DataRoomPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </article>
+
+        <article className="rounded-3xl border border-[#00529C]/15 bg-white p-5 shadow-sm">
+          <p className="inline-flex items-center gap-2 text-xs font-semibold tracking-wide text-[#00529C] uppercase">
+            <Users className="h-3.5 w-3.5" />
+            Fan Captures
+          </p>
+          <p className="mt-1 text-sm text-[#003366]">
+            JWT-only telemetry from Supabase fan_captures. Public map still has no login.
+          </p>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="text-xs tracking-wide text-[#00529C] uppercase">
+                <tr>
+                  <th className="py-2 pr-4">ID / Contact</th>
+                  <th className="py-2 pr-4">Name</th>
+                  <th className="py-2 pr-4">Artist / Stage</th>
+                  <th className="py-2">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {captures.map((row) => (
+                  <tr key={row.id} className="border-t border-[#00529C]/10">
+                    <td className="py-2 pr-4">{row.phone || row.email || row.id}</td>
+                    <td className="py-2 pr-4">{row.first_name || "Anonymous"}</td>
+                    <td className="py-2 pr-4">{row.artist_id || row.stage || "Main Floor"}</td>
+                    <td className="py-2">
+                      {row.created_at ? new Date(row.created_at).toLocaleString() : "N/A"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {captures.length === 0 ? (
+              <p className="py-6 text-sm text-[#00529C]">
+                {capturesNote
+                  ? capturesNote
+                  : capturesConfigured
+                    ? "No fan captures recorded yet."
+                    : "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to load fan captures."}
+              </p>
+            ) : null}
           </div>
         </article>
       </main>

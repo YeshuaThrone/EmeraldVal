@@ -25,6 +25,7 @@ import {
   pinRadiusMeters,
 } from "@/lib/constants";
 import type { FlyToTarget, Pin, PinKind } from "@/lib/types";
+import Google3DMap from "@/components/Google3DMap";
 
 const LIGHT_FALLBACK_TILES =
   "https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png";
@@ -97,6 +98,46 @@ export default function MapCanvas({
   onMapClick,
 }: MapCanvasProps) {
   const googleMapsApiKey = (process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "").trim();
+  const [engine, setEngine] = useState<"google3d" | "deck">(
+    googleMapsApiKey ? "google3d" : "deck",
+  );
+
+  if (googleMapsApiKey && engine === "google3d") {
+    return (
+      <Google3DMap
+        apiKey={googleMapsApiKey}
+        pins={pins}
+        selectedPinId={selectedPinId}
+        flyTo={flyTo}
+        onSelectPin={onSelectPin}
+        onMapClick={onMapClick}
+        onUnavailable={() => {
+          window.setTimeout(() => setEngine("deck"), 0);
+        }}
+      />
+    );
+  }
+
+  return (
+    <DeckMapCanvas
+      pins={pins}
+      selectedPinId={selectedPinId}
+      flyTo={flyTo}
+      onSelectPin={onSelectPin}
+      onMapClick={onMapClick}
+      googleMapsApiKey={googleMapsApiKey}
+    />
+  );
+}
+
+function DeckMapCanvas({
+  pins,
+  selectedPinId,
+  flyTo,
+  onSelectPin,
+  onMapClick,
+  googleMapsApiKey,
+}: MapCanvasProps & { googleMapsApiKey: string }) {
   const [credits, setCredits] = useState("© Google");
   const [tilesFailed, setTilesFailed] = useState(false);
   const [viewState, setViewState] = useState<AustinViewState>({
