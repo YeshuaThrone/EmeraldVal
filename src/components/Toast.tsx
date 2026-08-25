@@ -27,22 +27,20 @@ export default function Toast({ toast, onDismiss }: ToastProps) {
   return (
     <div
       role="status"
-      className={`fixed top-4 right-4 z-[70] flex max-w-sm items-start gap-3 rounded-2xl border px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${
-        success
-          ? "border-[#F59E0B]/40 bg-[#121826] text-white"
-          : "border-red-400/40 bg-[#121826] text-white"
+      className={`fixed top-4 right-4 z-[70] flex max-w-sm items-start gap-3 rounded-2xl border bg-white px-4 py-3 text-[#003366] shadow-lg ${
+        success ? "border-[#10B981]/50" : "border-[#E0144C]/50"
       }`}
     >
       {success ? (
-        <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#F59E0B]" />
+        <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#10B981]" />
       ) : (
-        <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+        <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-[#E0144C]" />
       )}
       <p className="text-sm leading-5">{toast.message}</p>
       <button
         type="button"
         onClick={onDismiss}
-        className="ml-1 rounded-full p-1 text-zinc-500 transition hover:text-white"
+        className="ml-1 rounded-full p-1 text-slate-400 transition hover:text-[#003366]"
         aria-label="Dismiss notification"
       >
         <X className="h-3.5 w-3.5" />

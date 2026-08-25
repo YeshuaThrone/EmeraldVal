@@ -1,14 +1,35 @@
-export const GENRES = [
-  "Acoustic",
-  "Hip-Hop",
-  "Blues/Rock",
-  "Brass",
-  "Country",
-] as const;
+export const GENRES = ["Acoustic", "Hip-Hop", "Rock", "Electronic"] as const;
 
 export type Genre = (typeof GENRES)[number];
 
-export type PinSource = "search" | "live" | "map";
+export const GENRE_FILTERS = [
+  "All",
+  "Festivals",
+  "Acoustic",
+  "Hip-Hop",
+  "Rock",
+  "Electronic",
+] as const;
+
+export type GenreFilter = (typeof GENRE_FILTERS)[number];
+
+export type MapViewMode = "map" | "festivals";
+
+export type PinKind = "live" | "festival" | "drop";
+
+export type PinSource = "search" | "live" | "map" | "festival";
+
+export type FestivalSet = {
+  artist: string;
+  startTime: string;
+  endTime: string;
+  genre: Genre;
+};
+
+export type FestivalStage = {
+  name: string;
+  sets: FestivalSet[];
+};
 
 export type Pin = {
   id: string;
@@ -17,10 +38,14 @@ export type Pin = {
   performerName: string;
   locationName: string;
   genre: Genre | "";
+  kind: PinKind;
   tipAmount: string;
   cashApp: string;
   venmo: string;
   source: PinSource;
+  liveAt: number;
+  liveUntil: number;
+  stages?: FestivalStage[];
 };
 
 export type FlyToTarget = {
