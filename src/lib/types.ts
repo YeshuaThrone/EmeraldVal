@@ -10,6 +10,8 @@ export type Genre = (typeof GENRES)[number];
 
 export type PinSource = "search" | "live" | "map";
 
+export type District = "Downtown" | "North" | "South" | "East" | "West";
+
 export type Pin = {
   id: string;
   lat: number;
@@ -21,6 +23,10 @@ export type Pin = {
   cashApp: string;
   venmo: string;
   source: PinSource;
+  /** Set at creation (seed or districtForPoint); admin analytics groups by it. */
+  district?: District;
+  /** Local act vs touring act. Undefined for user-created pins (search/map/live). */
+  isLocal?: boolean;
 };
 
 export type FlyToTarget = {
