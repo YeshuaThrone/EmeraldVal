@@ -10,8 +10,10 @@ import {
   reverseGeocode,
   shortenDisplayName,
 } from "@/lib/geocode";
+import { EMPTY_FILTER, filterPins, type PinFilter } from "@/lib/filters";
 import type { FlyToTarget, Pin, ToastMessage } from "@/lib/types";
 import SearchBar from "@/components/SearchBar";
+import FilterBar from "@/components/FilterBar";
 import PerformerDrawer from "@/components/PerformerDrawer";
 import GoLiveModal from "@/components/GoLiveModal";
 import Toast from "@/components/Toast";
@@ -41,6 +43,7 @@ function createPin(partial: Pick<Pin, "lat" | "lng" | "source"> & Partial<Pin>):
 
 export default function LiveMapApp() {
   const [pins, setPins] = useState<Pin[]>(INITIAL_PINS);
+  const [filter, setFilter] = useState<PinFilter>(EMPTY_FILTER);
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -50,9 +53,14 @@ export default function LiveMapApp() {
   const [flyTo, setFlyTo] = useState<FlyToTarget | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
+  const visiblePins = useMemo(() => filterPins(pins, filter), [pins, filter]);
+
+  // Derived from visiblePins (not pins) so the drawer closes on its own when
+  // an active filter hides the selected pin, instead of the map floating a
+  // detail panel for a marker the user can no longer see.
   const selectedPin = useMemo(
-    () => pins.find((pin) => pin.id === selectedPinId) ?? null,
-    [pins, selectedPinId],
+    () => visiblePins.find((pin) => pin.id === selectedPinId) ?? null,
+    [visiblePins, selectedPinId],
   );
 
   const dismissToast = useCallback(() => {
@@ -265,7 +273,7 @@ export default function LiveMapApp() {
     <div className="relative h-dvh w-full overflow-hidden bg-[#0B0F17] text-white">
       <div className="absolute inset-0 z-0">
         <MapCanvas
-          pins={pins}
+          pins={visiblePins}
           selectedPinId={selectedPinId}
           flyTo={flyTo}
           onSelectPin={setSelectedPinId}
@@ -307,6 +315,12 @@ export default function LiveMapApp() {
             onClearAll={handleClearAll}
             isSearching={isSearching}
             pinCount={pins.length}
+          />
+          <FilterBar
+            filter={filter}
+            onChange={setFilter}
+            visibleCount={visiblePins.length}
+            totalCount={pins.length}
           />
         </div>
       </header>
