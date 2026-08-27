@@ -28,8 +28,8 @@ import Toast from "@/components/Toast";
 const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
   ssr: false,
   loading: () => (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-[#0B0F17] text-[#c4b5fd]">
-      <LoaderCircle className="h-8 w-8 animate-spin text-[#8B5CF6]" />
+    <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-atx-paper text-atx-blue-deep">
+      <LoaderCircle className="h-8 w-8 animate-spin text-atx-blue" />
       <p className="text-sm tracking-wide">Loading Austin map…</p>
     </div>
   ),
@@ -307,7 +307,7 @@ export default function LiveMapApp() {
   );
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-[#0B0F17] text-white">
+    <div className="relative h-dvh w-full overflow-hidden bg-atx-paper text-atx-ink">
       <div className="absolute inset-0 z-0">
         <MapCanvas
           pins={visiblePins}
@@ -320,14 +320,14 @@ export default function LiveMapApp() {
 
       {showEmptyOverlay ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4">
-          <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-3 rounded-2xl border border-white/10 bg-[#0B0F17]/90 p-6 text-center shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-md">
-            <p className="text-sm font-medium text-zinc-200">
+          <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-3 rounded-2xl border border-atx-line bg-atx-paper/95 p-6 text-center shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md">
+            <p className="text-sm font-medium text-atx-ink">
               No venues match your filters
             </p>
             <button
               type="button"
               onClick={() => setFilter(EMPTY_FILTER)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-[#8B5CF6] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#7c4eef]"
+              className="inline-flex items-center gap-1.5 rounded-full bg-atx-red px-4 py-2 text-xs font-semibold text-white transition hover:bg-atx-red-deep"
             >
               Clear filters
             </button>
@@ -339,14 +339,14 @@ export default function LiveMapApp() {
         <div className="mx-auto flex max-w-5xl flex-col gap-4">
           <div className="pointer-events-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#8B5CF6] shadow-[0_0_24px_rgba(139,92,246,0.55)]">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-atx-red shadow-[0_0_24px_rgba(155,27,48,0.45)]">
                 <AudioLines className="h-5 w-5 text-white" />
               </div>
               <div>
-                <h1 className="font-display text-xl font-semibold tracking-tight text-white md:text-2xl">
+                <h1 className="font-display text-xl font-semibold tracking-tight text-atx-ink md:text-2xl">
                   ATX Live
                 </h1>
-                <p className="text-xs text-zinc-400 md:text-sm">
+                <p className="text-xs text-stone-500 md:text-sm">
                   Austin Live Music Map · 6th · Rainey · South Congress
                 </p>
               </div>
@@ -354,19 +354,19 @@ export default function LiveMapApp() {
             <div
               role="group"
               aria-label="Filter by status"
-              className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-[#0B0F17]/80 px-3 py-2 text-xs backdrop-blur-md sm:flex"
+              className="hidden items-center gap-3 rounded-2xl border border-atx-line bg-atx-paper/80 px-3 py-2 text-xs backdrop-blur-md sm:flex"
             >
               <button
                 type="button"
                 aria-pressed={liveActive}
                 onClick={() => toggleLegendSources(["live"])}
                 className={`inline-flex items-center gap-1.5 rounded-full transition ${
-                  liveActive ? "text-white" : "text-zinc-500 opacity-60"
+                  liveActive ? "text-atx-ink" : "text-stone-400 opacity-60"
                 }`}
               >
                 <span
-                  className={`h-2.5 w-2.5 rounded-full bg-[#8B5CF6] ${
-                    liveActive ? "shadow-[0_0_10px_#8B5CF6]" : ""
+                  className={`h-2.5 w-2.5 rounded-full bg-atx-red ${
+                    liveActive ? "shadow-[0_0_10px_#9B1B30]" : ""
                   }`}
                 />
                 {liveActive ? "Live" : "Live · off"}
@@ -376,12 +376,12 @@ export default function LiveMapApp() {
                 aria-pressed={droppedActive}
                 onClick={() => toggleLegendSources(DROPPED_SOURCES)}
                 className={`inline-flex items-center gap-1.5 rounded-full transition ${
-                  droppedActive ? "text-white" : "text-zinc-500 opacity-60"
+                  droppedActive ? "text-atx-ink" : "text-stone-400 opacity-60"
                 }`}
               >
                 <span
-                  className={`h-2.5 w-2.5 rounded-full bg-[#F59E0B] ${
-                    droppedActive ? "shadow-[0_0_10px_#F59E0B]" : ""
+                  className={`h-2.5 w-2.5 rounded-full bg-atx-blue ${
+                    droppedActive ? "shadow-[0_0_10px_#00A8E8]" : ""
                   }`}
                 />
                 {droppedActive ? "Dropped" : "Dropped · off"}
@@ -408,7 +408,7 @@ export default function LiveMapApp() {
       <button
         type="button"
         onClick={() => setGoLiveOpen(true)}
-        className={`fixed right-5 bottom-6 z-30 inline-flex items-center gap-2 rounded-full bg-[#8B5CF6] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_0_32px_rgba(139,92,246,0.55)] transition hover:bg-[#7c4eef] md:bottom-8 ${
+        className={`fixed right-5 bottom-6 z-30 inline-flex items-center gap-2 rounded-full bg-atx-red px-5 py-3.5 text-sm font-semibold text-white shadow-[0_0_32px_rgba(155,27,48,0.45)] transition hover:bg-atx-red-deep md:bottom-8 ${
           selectedPin ? "pointer-events-none opacity-0" : ""
         }`}
       >

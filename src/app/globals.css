@@ -1,9 +1,13 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-atx: #0b0f17;
-  --color-atx-purple: #8b5cf6;
-  --color-atx-amber: #f59e0b;
+  --color-atx-paper: #ffffff;
+  --color-atx-ink: #1c1917;
+  --color-atx-red: #9b1b30;
+  --color-atx-red-deep: #7a1425;
+  --color-atx-blue: #00a8e8;
+  --color-atx-blue-deep: #0089bd;
+  --color-atx-line: #e7e5e4;
   --font-sans: var(--font-dm-sans);
   --font-display: var(--font-outfit);
 }
@@ -11,8 +15,8 @@
 html,
 body {
   height: 100%;
-  background: #0b0f17;
-  color: #ffffff;
+  background: #ffffff;
+  color: #1c1917;
 }
 
 body {
@@ -26,7 +30,7 @@ body {
 .leaflet-container {
   height: 100%;
   width: 100%;
-  background: #0b0f17;
+  background: #ffffff;
   font-family: var(--font-dm-sans), system-ui, sans-serif;
   z-index: 0;
 }
@@ -37,28 +41,28 @@ body {
 }
 
 .leaflet-control-zoom a {
-  background: #121826 !important;
-  color: #f59e0b !important;
-  border: 1px solid rgba(139, 92, 246, 0.35) !important;
+  background: #ffffff !important;
+  color: #9b1b30 !important;
+  border: 1px solid rgba(231, 229, 228, 1) !important;
 }
 
 .leaflet-control-zoom a:hover {
-  background: #1a2233 !important;
-  color: #ffffff !important;
+  background: #e7e5e4 !important;
+  color: #7a1425 !important;
 }
 
 .leaflet-bar {
   border: 0 !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  box-shadow: 0 8px 24px rgba(28, 25, 23, 0.18) !important;
 }
 
 .leaflet-control-attribution {
-  background: rgba(11, 15, 23, 0.82) !important;
-  color: #a1a1aa !important;
+  background: rgba(255, 255, 255, 0.82) !important;
+  color: #57534e !important;
 }
 
 .leaflet-control-attribution a {
-  color: #c4b5fd !important;
+  color: #00a8e8 !important;
 }
 
 .atx-marker {
@@ -76,49 +80,49 @@ body {
 }
 
 .atx-pin-live {
-  background: #8b5cf6;
+  background: #9b1b30;
   box-shadow:
-    0 0 0 4px rgba(139, 92, 246, 0.35),
-    0 0 18px 6px rgba(139, 92, 246, 0.65);
-  animation: atx-pulse-purple 1.8s ease-in-out infinite;
+    0 0 0 4px rgba(155, 27, 48, 0.35),
+    0 0 18px 6px rgba(155, 27, 48, 0.65);
+  animation: atx-pulse-red 1.8s ease-in-out infinite;
 }
 
 .atx-pin-drop {
-  background: #f59e0b;
+  background: #00a8e8;
   box-shadow:
-    0 0 0 4px rgba(245, 158, 11, 0.35),
-    0 0 18px 6px rgba(245, 158, 11, 0.65);
-  animation: atx-pulse-amber 1.8s ease-in-out infinite;
+    0 0 0 4px rgba(0, 168, 232, 0.35),
+    0 0 18px 6px rgba(0, 168, 232, 0.65);
+  animation: atx-pulse-blue 1.8s ease-in-out infinite;
 }
 
 .atx-pin.is-on {
   animation-duration: 1s;
 }
 
-@keyframes atx-pulse-purple {
+@keyframes atx-pulse-red {
   0%,
   100% {
     box-shadow:
-      0 0 0 4px rgba(139, 92, 246, 0.25),
-      0 0 14px 4px rgba(139, 92, 246, 0.5);
+      0 0 0 4px rgba(155, 27, 48, 0.25),
+      0 0 14px 4px rgba(155, 27, 48, 0.5);
   }
   50% {
     box-shadow:
-      0 0 0 8px rgba(139, 92, 246, 0.15),
-      0 0 26px 10px rgba(139, 92, 246, 0.85);
+      0 0 0 8px rgba(155, 27, 48, 0.15),
+      0 0 26px 10px rgba(155, 27, 48, 0.85);
   }
 }
 
-@keyframes atx-pulse-amber {
+@keyframes atx-pulse-blue {
   0%,
   100% {
     box-shadow:
-      0 0 0 4px rgba(245, 158, 11, 0.25),
-      0 0 14px 4px rgba(245, 158, 11, 0.5);
+      0 0 0 4px rgba(0, 168, 232, 0.25),
+      0 0 14px 4px rgba(0, 168, 232, 0.5);
   }
   50% {
     box-shadow:
-      0 0 0 8px rgba(245, 158, 11, 0.15),
-      0 0 26px 10px rgba(245, 158, 11, 0.85);
+      0 0 0 8px rgba(0, 168, 232, 0.15),
+      0 0 26px 10px rgba(0, 168, 232, 0.85);
   }
 }
