@@ -15,7 +15,7 @@ const linkClass = (active: boolean) =>
 
 /**
  * Shared top-bar toggle between the fan map, the admin dashboard, and the
- * Festival & Founders Hub. Rendered in all three headers so any view is
+ * Festival Finder. Rendered in all three headers so any view is
  * always one click away from the other two; the active view is marked
  * with aria-current="page".
  */
@@ -44,7 +44,7 @@ export default function ViewToggle({ variant }: ViewToggleProps) {
         aria-current={variant === "festival" ? "page" : undefined}
         className={linkClass(variant === "festival")}
       >
-        Festival & Founders Hub
+        Festival Finder
       </Link>
     </nav>
   );
