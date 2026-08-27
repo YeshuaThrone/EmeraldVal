@@ -15,6 +15,7 @@ type FilterBarProps = {
   onChange: (next: PinFilter) => void;
   visibleCount: number;
   totalCount: number;
+  onClose?: () => void;
 };
 
 const GENRE_CHIPS: Array<{ value: Genre | ""; label: string }> = [
@@ -40,6 +41,7 @@ export default function FilterBar({
   onChange,
   visibleCount,
   totalCount,
+  onClose,
 }: FilterBarProps) {
   const liveActive = filter.sources.includes("live");
   const droppedActive = DROPPED_SOURCES.every((source) =>
@@ -53,8 +55,9 @@ export default function FilterBar({
 
   return (
     <section
+      id="filter-panel"
       aria-label="Filter venues"
-      className="pointer-events-auto flex w-full flex-col gap-3 rounded-2xl border border-atx-line bg-atx-paper/95 p-4 text-sm shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md"
+      className="pointer-events-auto flex max-h-[60vh] w-full flex-col gap-3 overflow-y-auto rounded-2xl border border-atx-line bg-atx-paper/95 p-4 text-sm shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md"
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 text-stone-500">
@@ -63,9 +66,21 @@ export default function FilterBar({
             Filter venues
           </span>
         </div>
-        <span className="text-xs text-stone-400">
-          {visibleCount} / {totalCount} venues
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-stone-400">
+            {visibleCount} / {totalCount} venues
+          </span>
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close filter panel"
+              className="rounded-full p-1 text-stone-400 transition hover:bg-atx-line/60 hover:text-atx-ink"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2" role="group" aria-label="Genre">

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { AudioLines, LoaderCircle, Plus } from "lucide-react";
+import { AudioLines, Filter, LoaderCircle, Plus } from "lucide-react";
 import { PIN_ZOOM } from "@/lib/constants";
 import { districtForPoint } from "@/lib/district";
 import {
@@ -63,6 +63,7 @@ export default function LiveMapApp() {
   const [isSearching, setIsSearching] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [goLiveOpen, setGoLiveOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(true);
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [flyTo, setFlyTo] = useState<FlyToTarget | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -120,6 +121,10 @@ export default function LiveMapApp() {
         setGoLiveOpen(false);
         return;
       }
+      if (filtersOpen) {
+        setFiltersOpen(false);
+        return;
+      }
       if (selectedPinId) {
         setSelectedPinId(null);
       }
@@ -127,7 +132,7 @@ export default function LiveMapApp() {
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [goLiveOpen, selectedPinId]);
+  }, [goLiveOpen, filtersOpen, selectedPinId]);
 
   const addPinAndFocus = useCallback((pin: Pin) => {
     setPins((current) => [...current, pin]);
@@ -325,6 +330,15 @@ export default function LiveMapApp() {
         />
       </div>
 
+      {filtersOpen ? (
+        <button
+          type="button"
+          aria-label="Close filter panel"
+          onClick={() => setFiltersOpen(false)}
+          className="absolute inset-0 z-[15] cursor-default bg-transparent"
+        />
+      ) : null}
+
       {showEmptyOverlay ? (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4">
           <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-3 rounded-2xl border border-atx-line bg-atx-paper/95 p-6 text-center shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md">
@@ -396,6 +410,19 @@ export default function LiveMapApp() {
               </button>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((open) => !open)}
+            aria-expanded={filtersOpen}
+            aria-controls="filter-panel"
+            className="pointer-events-auto inline-flex items-center gap-2 self-start rounded-2xl border border-atx-line bg-atx-paper/95 px-4 py-2.5 text-sm font-semibold text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md transition hover:border-atx-blue/40"
+          >
+            <Filter className="h-4 w-4 text-atx-blue" />
+            Filters
+            <span className="text-xs font-normal text-stone-400">
+              {visiblePins.length} / {pins.length}
+            </span>
+          </button>
           <SearchBar
             query={searchQuery}
             onQueryChange={setSearchQuery}
@@ -404,12 +431,15 @@ export default function LiveMapApp() {
             isSearching={isSearching}
             pinCount={pins.length}
           />
-          <FilterBar
-            filter={filter}
-            onChange={setFilter}
-            visibleCount={visiblePins.length}
-            totalCount={pins.length}
-          />
+          {filtersOpen ? (
+            <FilterBar
+              filter={filter}
+              onChange={setFilter}
+              visibleCount={visiblePins.length}
+              totalCount={pins.length}
+              onClose={() => setFiltersOpen(false)}
+            />
+          ) : null}
         </div>
       </header>
 
