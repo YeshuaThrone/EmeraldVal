@@ -1,5 +1,26 @@
-import { BarChart3, Guitar, MapPinned, Radio, Users } from "lucide-react";
+import {
+  BarChart3,
+  Building2,
+  Guitar,
+  MapPinned,
+  Music4,
+  Radio,
+  ShieldAlert,
+  TrendingUp,
+  Users,
+  Volume2,
+} from "lucide-react";
 import { DISTRICTS, summarizeAnalytics } from "@/lib/analytics";
+import {
+  COUNCIL_DISTRICT_SHOW_DENSITY,
+  DISTRICT_SOUND_DENSITY_INDEX,
+  LOCAL_ARTIST_SHARE_PERCENT,
+  MUNICIPAL_DATA,
+  NIGHTTIME_ECONOMY_IMPACT_USD,
+  OUTDOOR_STAGES,
+  classifyDecibel,
+  type ComplianceStatus,
+} from "@/lib/municipal";
 import { CITY_PINS } from "@/lib/seedData";
 import ViewToggle from "@/components/ViewToggle";
 import AnimatedBar from "./AnimatedBar";
@@ -87,6 +108,122 @@ function StatCard({
   );
 }
 
+/**
+ * A single civic data card: icon chip + headline value + caption, in the
+ * same white/dark-red/electric-blue admin palette as the headline
+ * StatCards above. Used for the three flat contract figures (foot
+ * traffic, local share, nighttime impact) that don't carry a progress bar.
+ */
+function CivicStatCard({
+  icon: Icon,
+  label,
+  value,
+  caption,
+}: {
+  icon: typeof Radio;
+  label: string;
+  value: string;
+  caption: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-atx-line bg-white p-5 shadow-[0_0_0_1px_rgba(28,25,23,0.05)]">
+      <div className="flex items-center gap-2">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8B0000]/15 text-[#8B0000]">
+          <Icon className="h-5 w-5" />
+        </span>
+        <span className="text-xs font-semibold tracking-[0.15em] text-stone-500 uppercase">
+          {label}
+        </span>
+      </div>
+      <span className="font-display text-3xl font-bold text-atx-blue-deep md:text-4xl">
+        {value}
+      </span>
+      <span className="text-xs text-stone-500">{caption}</span>
+    </div>
+  );
+}
+
+/**
+ * Card 4 — District Sound & Density Index. Renders each district's index
+ * as an animated bar row (reusing AnimatedBar) with the percent label, all
+ * inside the same civic-card shell as the other three cards.
+ */
+function SoundDensityIndexCard() {
+  return (
+    <div className="flex flex-col gap-4 rounded-2xl border border-atx-line bg-white p-5 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:col-span-2 lg:col-span-1">
+      <div className="flex items-center gap-2">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0055FF]/15 text-[#0055FF]">
+          <Volume2 className="h-5 w-5" />
+        </span>
+        <span className="text-xs font-semibold tracking-[0.15em] text-stone-500 uppercase">
+          District sound &amp; density index
+        </span>
+      </div>
+      <div className="flex flex-col gap-3">
+        {DISTRICT_SOUND_DENSITY_INDEX.map((entry) => (
+          <div key={entry.district} className="flex items-center gap-3">
+            <span className="w-28 shrink-0 text-sm text-stone-600">
+              {entry.district}
+            </span>
+            <AnimatedBar
+              percent={entry.indexPercent}
+              fillClassName="bg-gradient-to-r from-[#8B0000] to-[#0055FF]"
+              className="flex-1"
+            />
+            <span className="w-20 shrink-0 text-right text-sm font-semibold text-atx-ink">
+              {entry.indexPercent}% index
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** One horizontal row in the council-district distribution chart. */
+function CouncilDistrictRow({
+  number,
+  name,
+  showDensity,
+}: {
+  number: number;
+  name: string;
+  showDensity: number;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-40 shrink-0 text-sm text-stone-600">
+        District {number} &middot; {name}
+      </span>
+      <AnimatedBar
+        percent={showDensity}
+        fillClassName={ADMIN_GRADIENT_FILL}
+        className="flex-1"
+      />
+      <span className="w-8 shrink-0 text-right text-sm font-semibold text-atx-ink">
+        {showDensity}
+      </span>
+    </div>
+  );
+}
+
+/** Status chip tone per compliance state — matches the admin dark-red/blue palette. */
+const COMPLIANCE_CHIP_CLASSES: Record<ComplianceStatus, string> = {
+  Compliant: "bg-atx-blue/15 text-atx-blue-deep",
+  Warning: "bg-amber-100 text-amber-700",
+  "Over Limit": "bg-[#8B0000]/15 text-[#8B0000]",
+};
+
+function ComplianceChip({ status }: { status: ComplianceStatus }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${COMPLIANCE_CHIP_CLASSES[status]}`}
+    >
+      {status}
+    </span>
+  );
+}
+
 export default function AdminDashboardPage() {
   const summary = summarizeAnalytics(CITY_PINS);
   const localSharePercent =
@@ -110,6 +247,21 @@ export default function AdminDashboardPage() {
   const maxGenreCount = Math.max(1, ...genreCounts.map((g) => g.count));
 
   const { local, touring, unspecified } = summary.localVsTouring;
+
+  const stageCompliance = OUTDOOR_STAGES.map((stage) => ({
+    ...stage,
+    status: classifyDecibel(stage.currentDb, stage.zoningLimitDb),
+  }));
+  const complianceSummary = stageCompliance.reduce(
+    (acc, stage) => {
+      acc[stage.status] += 1;
+      return acc;
+    },
+    { Compliant: 0, Warning: 0, "Over Limit": 0 } as Record<
+      ComplianceStatus,
+      number
+    >,
+  );
 
   return (
     <div className="h-auto min-h-screen max-h-screen w-full overflow-y-auto bg-atx-paper text-atx-ink">
@@ -239,6 +391,94 @@ export default function AdminDashboardPage() {
               <p className="text-xs text-stone-500">Unspecified</p>
             </div>
           </div>
+        </section>
+
+        <section
+          aria-label="Municipal analytics"
+          className="flex flex-col gap-4"
+        >
+          <div className="flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-[#8B0000]" />
+            <h2 className="text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
+              Municipal analytics
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <CivicStatCard
+              icon={TrendingUp}
+              label="Citywide real-time foot traffic"
+              value={MUNICIPAL_DATA.activeFans.toLocaleString()}
+              caption={`Active fans tracked across ${MUNICIPAL_DATA.activeVenueCount} active live venues`}
+            />
+            <CivicStatCard
+              icon={Music4}
+              label="Local artist economic share"
+              value={`${LOCAL_ARTIST_SHARE_PERCENT}%`}
+              caption="Local Austin indie talent vs. national touring acts"
+            />
+            <CivicStatCard
+              icon={Building2}
+              label="Est. nighttime economy impact"
+              value={`$${NIGHTTIME_ECONOMY_IMPACT_USD.toLocaleString()}`}
+              caption="Projected venue/hospitality spend tonight"
+            />
+            <SoundDensityIndexCard />
+          </div>
+        </section>
+
+        <section
+          aria-label="Council district distribution"
+          className="rounded-2xl border border-atx-line bg-white p-5"
+        >
+          <h2 className="mb-4 text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
+            Council district distribution
+          </h2>
+          <div className="flex flex-col gap-3">
+            {COUNCIL_DISTRICT_SHOW_DENSITY.map((entry) => (
+              <CouncilDistrictRow
+                key={entry.number}
+                number={entry.number}
+                name={entry.name}
+                showDensity={entry.showDensity}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section
+          aria-label="Live audio compliance and zoning"
+          className="rounded-2xl border border-atx-line bg-atx-paper p-5"
+        >
+          <div className="mb-4 flex items-center gap-2">
+            <ShieldAlert className="h-4 w-4 text-[#8B0000]" />
+            <h2 className="text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
+              Live audio compliance &amp; zoning
+            </h2>
+          </div>
+          <div className="flex flex-col gap-2">
+            {stageCompliance.map((stage) => (
+              <div
+                key={stage.name}
+                className="flex items-center justify-between gap-3 rounded-xl border border-atx-line bg-white p-3"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-atx-ink">
+                    {stage.name}
+                  </p>
+                  <p className="text-xs text-stone-500">
+                    {stage.district} &middot; {stage.currentDb} dB (zoning
+                    limit {stage.zoningLimitDb} dB)
+                  </p>
+                </div>
+                <ComplianceChip status={stage.status} />
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-xs font-semibold text-stone-500">
+            {complianceSummary.Compliant} compliant &middot;{" "}
+            {complianceSummary.Warning} warning &middot;{" "}
+            {complianceSummary["Over Limit"]} over limit
+          </p>
         </section>
       </main>
     </div>
