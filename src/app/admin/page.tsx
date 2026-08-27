@@ -2,6 +2,7 @@ import { BarChart3, Guitar, MapPinned, Radio, Users } from "lucide-react";
 import { DISTRICTS, summarizeAnalytics } from "@/lib/analytics";
 import { CITY_PINS } from "@/lib/seedData";
 import ViewToggle from "@/components/ViewToggle";
+import AnimatedBar from "./AnimatedBar";
 
 export const metadata = {
   title: "ATX Live — Civic / Admin Analytics Dashboard",
@@ -9,28 +10,32 @@ export const metadata = {
     "City-wide venue analytics for ATX Live: totals, live status, district breakdown, genre mix, and local vs. touring share.",
 };
 
+// Admin-local high-contrast palette. Scoped to this page only — the shared
+// --color-atx-* theme tokens (used by the fan map and festival hub) are
+// untouched.
+const ADMIN_GRADIENT_FILL = "bg-gradient-to-r from-[#0055FF] to-[#00D2FF]";
+
 /** Horizontal bar row shared by the district and genre breakdowns. */
 function BarRow({
   label,
   count,
   maxCount,
-  barClassName,
+  fillClassName,
 }: {
   label: string;
   count: number;
   maxCount: number;
-  barClassName: string;
+  fillClassName: string;
 }) {
-  const widthPercent = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+  const percent = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
   return (
     <div className="flex items-center gap-3">
       <span className="w-24 shrink-0 text-sm text-stone-600">{label}</span>
-      <div className="h-3 flex-1 overflow-hidden rounded-full bg-atx-line">
-        <div
-          className={`h-full rounded-full ${barClassName}`}
-          style={{ width: `${widthPercent}%` }}
-        />
-      </div>
+      <AnimatedBar
+        percent={percent}
+        fillClassName={fillClassName}
+        className="flex-1"
+      />
       <span className="w-8 shrink-0 text-right text-sm font-semibold text-atx-ink">
         {count}
       </span>
@@ -42,32 +47,42 @@ function StatCard({
   icon: Icon,
   label,
   value,
-  accent,
+  percent,
+  caption,
+  tone,
 }: {
   icon: typeof Radio;
   label: string;
   value: string;
-  accent: "red" | "blue";
+  percent: number;
+  caption: string;
+  tone: "primary" | "secondary";
 }) {
-  const iconWrapClass =
-    accent === "red"
-      ? "bg-atx-red/15 text-atx-red-deep"
-      : "bg-atx-blue/15 text-atx-blue-deep";
+  // Dark-red admin palette: #8B0000 primary, #B22222 secondary accent.
+  const toneClasses =
+    tone === "primary"
+      ? { chip: "bg-[#8B0000]/15 text-[#8B0000]", value: "text-[#8B0000]" }
+      : { chip: "bg-[#B22222]/15 text-[#B22222]", value: "text-[#B22222]" };
+
   return (
-    <div className="flex flex-col gap-2 rounded-2xl border border-atx-line bg-atx-paper p-5 shadow-[0_0_0_1px_rgba(28,25,23,0.05)]">
+    <div className="flex flex-col gap-3 rounded-2xl border border-atx-line bg-white p-5 shadow-[0_0_0_1px_rgba(28,25,23,0.05)]">
       <div className="flex items-center gap-2">
         <span
-          className={`flex h-8 w-8 items-center justify-center rounded-full ${iconWrapClass}`}
+          className={`flex h-10 w-10 items-center justify-center rounded-full ${toneClasses.chip}`}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-5 w-5" />
         </span>
         <span className="text-xs font-semibold tracking-[0.15em] text-stone-500 uppercase">
           {label}
         </span>
       </div>
-      <span className="font-display text-3xl font-semibold text-atx-ink">
+      <span
+        className={`font-display text-4xl font-bold md:text-5xl ${toneClasses.value}`}
+      >
         {value}
       </span>
+      <AnimatedBar percent={percent} fillClassName={ADMIN_GRADIENT_FILL} />
+      <span className="text-xs text-stone-500">{caption}</span>
     </div>
   );
 }
@@ -77,6 +92,10 @@ export default function AdminDashboardPage() {
   const localSharePercent =
     summary.totalVenues > 0
       ? Math.round((summary.localVsTouring.local / summary.totalVenues) * 100)
+      : 0;
+  const liveSharePercent =
+    summary.totalVenues > 0
+      ? Math.round((summary.liveNowCount / summary.totalVenues) * 100)
       : 0;
 
   const districtCounts = DISTRICTS.map((district) => ({
@@ -93,12 +112,12 @@ export default function AdminDashboardPage() {
   const { local, touring, unspecified } = summary.localVsTouring;
 
   return (
-    <div className="min-h-dvh w-full bg-atx-paper text-atx-ink">
+    <div className="h-auto min-h-screen max-h-screen w-full overflow-y-auto bg-atx-paper text-atx-ink">
       <header className="border-b border-atx-line bg-atx-paper/95 p-4 backdrop-blur-md md:p-5">
         <div className="mx-auto flex max-w-5xl flex-col gap-4">
           <ViewToggle variant="admin" />
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-atx-blue shadow-[0_0_24px_rgba(0,168,232,0.45)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#8B0000] shadow-[0_0_24px_rgba(139,0,0,0.45)]">
               <BarChart3 className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -122,28 +141,34 @@ export default function AdminDashboardPage() {
             icon={MapPinned}
             label="Total venues"
             value={summary.totalVenues.toString()}
-            accent="blue"
+            percent={100}
+            caption="100% of tracked Austin venues"
+            tone="primary"
           />
           <StatCard
             icon={Radio}
-            label="Live now"
+            label="Live streams"
             value={summary.liveNowCount.toString()}
-            accent="red"
+            percent={liveSharePercent}
+            caption={`${liveSharePercent}% of venues broadcasting now`}
+            tone="secondary"
           />
           <StatCard
             icon={Users}
             label="Local share"
             value={`${localSharePercent}%`}
-            accent="blue"
+            percent={localSharePercent}
+            caption="Share of venues tagged as local acts"
+            tone="primary"
           />
         </section>
 
         <section
           aria-label="Venues by district"
-          className="rounded-2xl border border-atx-line bg-atx-paper p-5"
+          className="rounded-2xl border border-atx-line bg-white p-5"
         >
           <h2 className="mb-4 text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
-            Venues by district
+            District distribution
           </h2>
           <div className="flex flex-col gap-3">
             {districtCounts.map((row) => (
@@ -152,7 +177,7 @@ export default function AdminDashboardPage() {
                 label={row.label}
                 count={row.count}
                 maxCount={maxDistrictCount}
-                barClassName="bg-atx-blue"
+                fillClassName={ADMIN_GRADIENT_FILL}
               />
             ))}
           </div>
@@ -175,7 +200,7 @@ export default function AdminDashboardPage() {
                 label={row.label}
                 count={row.count}
                 maxCount={maxGenreCount}
-                barClassName="bg-atx-red"
+                fillClassName="bg-atx-red"
               />
             ))}
             {summary.unspecifiedGenreCount > 0 ? (
@@ -183,7 +208,7 @@ export default function AdminDashboardPage() {
                 label="Unspecified"
                 count={summary.unspecifiedGenreCount}
                 maxCount={maxGenreCount}
-                barClassName="bg-stone-400"
+                fillClassName="bg-stone-400"
               />
             ) : null}
           </div>
@@ -197,10 +222,8 @@ export default function AdminDashboardPage() {
             Local vs. touring
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-atx-line bg-atx-red/10 p-4 text-center">
-              <p className="text-2xl font-semibold text-atx-red-deep">
-                {local}
-              </p>
+            <div className="rounded-xl border border-atx-line bg-[#8B0000]/10 p-4 text-center">
+              <p className="text-2xl font-semibold text-[#8B0000]">{local}</p>
               <p className="text-xs text-stone-500">Local acts</p>
             </div>
             <div className="rounded-xl border border-atx-line bg-atx-blue/10 p-4 text-center">
