@@ -10,7 +10,7 @@ export const AUSTIN_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 export const FIELD_CLASS =
-  "w-full rounded-xl border border-white/10 bg-[#121826] px-3 py-2.5 text-sm text-white placeholder:text-zinc-500 outline-none transition focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/40";
+  "w-full rounded-xl border border-atx-line bg-atx-paper px-3 py-2.5 text-sm text-atx-ink placeholder:text-stone-400 outline-none transition focus:border-atx-blue focus:ring-2 focus:ring-atx-blue/40";
 
 export const INITIAL_PINS: Pin[] = [
   {

@@ -32,7 +32,7 @@ const chipClass = (pressed: boolean, activeBorder: string, activeBg: string, act
   `rounded-full border px-3 py-1.5 text-xs font-medium transition ${
     pressed
       ? `${activeBorder} ${activeBg} ${activeText}`
-      : "border-white/10 bg-[#121826] text-zinc-300 hover:border-[#8B5CF6]/40 hover:text-white"
+      : "border-atx-line bg-atx-paper text-stone-500 hover:border-atx-blue/40 hover:text-atx-ink"
   }`;
 
 export default function FilterBar({
@@ -54,16 +54,16 @@ export default function FilterBar({
   return (
     <section
       aria-label="Filter venues"
-      className="pointer-events-auto flex w-full flex-col gap-3 rounded-2xl border border-white/10 bg-[#0B0F17]/90 p-4 text-sm shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-md"
+      className="pointer-events-auto flex w-full flex-col gap-3 rounded-2xl border border-atx-line bg-atx-paper/95 p-4 text-sm shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md"
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-zinc-300">
-          <Filter className="h-4 w-4 text-[#8B5CF6]" />
-          <span className="text-xs font-semibold tracking-[0.15em] text-zinc-300 uppercase">
+        <div className="flex items-center gap-2 text-stone-500">
+          <Filter className="h-4 w-4 text-atx-blue" />
+          <span className="text-xs font-semibold tracking-[0.15em] text-stone-500 uppercase">
             Filter venues
           </span>
         </div>
-        <span className="text-xs text-zinc-400">
+        <span className="text-xs text-stone-400">
           {visibleCount} / {totalCount} venues
         </span>
       </div>
@@ -84,9 +84,9 @@ export default function FilterBar({
               }
               className={chipClass(
                 pressed,
-                "border-[#8B5CF6]",
-                "bg-[#8B5CF6]/20",
-                "text-[#c4b5fd]",
+                "border-atx-blue",
+                "bg-atx-blue/15",
+                "text-atx-blue-deep",
               )}
             >
               {chip.label}
@@ -107,12 +107,12 @@ export default function FilterBar({
           }
           className={`inline-flex items-center gap-1.5 ${chipClass(
             liveActive,
-            "border-[#8B5CF6]",
-            "bg-[#8B5CF6]/20",
-            "text-[#c4b5fd]",
+            "border-atx-red",
+            "bg-atx-red/15",
+            "text-atx-red-deep",
           )}`}
         >
-          <span className="h-2 w-2 rounded-full bg-[#8B5CF6] shadow-[0_0_8px_#8B5CF6]" />
+          <span className="h-2 w-2 rounded-full bg-atx-red shadow-[0_0_8px_#9B1B30]" />
           Live
         </button>
         <button
@@ -126,19 +126,19 @@ export default function FilterBar({
           }
           className={`inline-flex items-center gap-1.5 ${chipClass(
             droppedActive,
-            "border-[#F59E0B]",
-            "bg-[#F59E0B]/20",
-            "text-[#fde3a7]",
+            "border-atx-blue",
+            "bg-atx-blue/15",
+            "text-atx-blue-deep",
           )}`}
         >
-          <span className="h-2 w-2 rounded-full bg-[#F59E0B] shadow-[0_0_8px_#F59E0B]" />
+          <span className="h-2 w-2 rounded-full bg-atx-blue shadow-[0_0_8px_#00A8E8]" />
           Dropped
         </button>
       </div>
 
       <label className="relative block">
         <span className="sr-only">Search performer or venue name</span>
-        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-[#8B5CF6]" />
+        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-atx-blue" />
         <input
           value={filter.query}
           onChange={(event) => onChange({ ...filter, query: event.target.value })}
@@ -147,7 +147,7 @@ export default function FilterBar({
         />
       </label>
 
-      <div className="flex items-center justify-between gap-3 text-xs text-zinc-400">
+      <div className="flex items-center justify-between gap-3 text-xs text-stone-500">
         <span>
           {activeCount > 0
             ? `${activeCount} active filter${activeCount === 1 ? "" : "s"}`
@@ -157,7 +157,7 @@ export default function FilterBar({
           type="button"
           onClick={() => onChange(EMPTY_FILTER)}
           disabled={activeCount === 0}
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-[#121826]/90 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition hover:border-[#F59E0B]/50 hover:text-[#F59E0B] disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-full border border-atx-line bg-atx-paper px-3 py-1.5 text-xs font-semibold text-stone-600 transition hover:border-atx-red/50 hover:text-atx-red disabled:cursor-not-allowed disabled:opacity-40"
         >
           <X className="h-3.5 w-3.5" />
           Clear all
