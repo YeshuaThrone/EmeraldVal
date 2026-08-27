@@ -15,6 +15,30 @@ export interface PinFilter {
 
 export const EMPTY_FILTER: PinFilter = { genres: [], sources: [], query: "" };
 
+/**
+ * "Dropped" is a single toggle in the UI (legend badge, FilterBar chip) but
+ * spans two underlying Pin sources. Shared here so the legend and FilterBar
+ * can never drift on what "dropped" means.
+ */
+export const DROPPED_SOURCES: PinSource[] = ["search", "map"];
+
+/**
+ * Toggles a group of sources together: on if any are missing from `current`,
+ * off (removing all of them) if every source in the group is already active.
+ * Used for both the single-source "live" toggle and the two-source "dropped"
+ * toggle so the on/off semantics match everywhere sources are toggled.
+ */
+export function toggleSources(
+  current: PinSource[],
+  sources: PinSource[],
+): PinSource[] {
+  const allActive = sources.every((source) => current.includes(source));
+  if (allActive) {
+    return current.filter((source) => !sources.includes(source));
+  }
+  return [...new Set([...current, ...sources])];
+}
+
 export function isActive(filter: PinFilter): boolean {
   return (
     filter.genres.length > 0 ||

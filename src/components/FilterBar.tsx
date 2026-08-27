@@ -2,8 +2,13 @@
 
 import { Filter, Search, X } from "lucide-react";
 import { FIELD_CLASS } from "@/lib/constants";
-import { EMPTY_FILTER, type PinFilter } from "@/lib/filters";
-import { GENRES, type Genre, type PinSource } from "@/lib/types";
+import {
+  DROPPED_SOURCES,
+  EMPTY_FILTER,
+  toggleSources,
+  type PinFilter,
+} from "@/lib/filters";
+import { GENRES, type Genre } from "@/lib/types";
 
 type FilterBarProps = {
   filter: PinFilter;
@@ -17,21 +22,10 @@ const GENRE_CHIPS: Array<{ value: Genre | ""; label: string }> = [
   { value: "", label: "Unspecified" },
 ];
 
-/** "Dropped" is a single toggle in the UI but spans two underlying sources. */
-const DROPPED_SOURCES: PinSource[] = ["search", "map"];
-
 function toggleValue<T>(list: T[], value: T): T[] {
   return list.includes(value)
     ? list.filter((item) => item !== value)
     : [...list, value];
-}
-
-function toggleSources(current: PinSource[], sources: PinSource[]): PinSource[] {
-  const allActive = sources.every((source) => current.includes(source));
-  if (allActive) {
-    return current.filter((source) => !sources.includes(source));
-  }
-  return [...new Set([...current, ...sources])];
 }
 
 const chipClass = (pressed: boolean, activeBorder: string, activeBg: string, activeText: string) =>
