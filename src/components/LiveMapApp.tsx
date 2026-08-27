@@ -366,7 +366,7 @@ export default function LiveMapApp() {
               </div>
               <div>
                 <h1 className="font-display text-xl font-semibold tracking-tight text-atx-ink md:text-2xl">
-                  ATX Live
+                  ATXLive
                 </h1>
                 <p className="text-xs text-stone-500 md:text-sm">
                   All Austin Districts &amp; Venues

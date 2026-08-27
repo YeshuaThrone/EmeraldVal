@@ -5,9 +5,9 @@ import ViewToggle from "@/components/ViewToggle";
 import AnimatedBar from "./AnimatedBar";
 
 export const metadata = {
-  title: "ATX Live — Civic / Admin Analytics Dashboard",
+  title: "ATXLive — Civic / Admin Analytics Dashboard",
   description:
-    "City-wide venue analytics for ATX Live: totals, live status, district breakdown, genre mix, and local vs. touring share.",
+    "City-wide venue analytics for ATXLive: totals, live status, district breakdown, genre mix, and local vs. touring share.",
 };
 
 // Admin-local high-contrast palette. Scoped to this page only — the shared

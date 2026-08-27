@@ -13,7 +13,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "ATX Live — Austin Live Music Map",
+  title: "ATXLive — Austin Live Music Map",
   description:
     "Find live street performers around 6th Street, Rainey Street, and South Congress. Drop a pin, go live, and send tips.",
 };
