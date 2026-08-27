@@ -26,6 +26,7 @@ import FilterBar from "@/components/FilterBar";
 import PerformerDrawer from "@/components/PerformerDrawer";
 import GoLiveModal from "@/components/GoLiveModal";
 import Toast from "@/components/Toast";
+import ViewToggle from "@/components/ViewToggle";
 
 const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
   ssr: false,
@@ -343,6 +344,7 @@ export default function LiveMapApp() {
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 p-4 md:p-5">
         <div className="mx-auto flex max-w-5xl flex-col gap-4">
+          <ViewToggle variant="fan" />
           <div className="pointer-events-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-atx-red shadow-[0_0_24px_rgba(155,27,48,0.45)]">
