@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { AudioLines, LoaderCircle, Plus } from "lucide-react";
-import { INITIAL_PINS, PIN_ZOOM } from "@/lib/constants";
+import { PIN_ZOOM } from "@/lib/constants";
+import { districtForPoint } from "@/lib/district";
 import {
   geocodeQuery,
   parseTipHandle,
@@ -18,6 +19,7 @@ import {
   toggleSources,
   type PinFilter,
 } from "@/lib/filters";
+import { CITY_PINS } from "@/lib/seedData";
 import type { FlyToTarget, Pin, ToastMessage } from "@/lib/types";
 import SearchBar from "@/components/SearchBar";
 import FilterBar from "@/components/FilterBar";
@@ -44,12 +46,16 @@ function createPin(partial: Pick<Pin, "lat" | "lng" | "source"> & Partial<Pin>):
     tipAmount: "",
     cashApp: "",
     venmo: "",
+    // districtForPoint classifies every user-created pin (search, map-drop,
+    // Go-Live) the same way the seed does; isLocal is intentionally left
+    // undefined here — that flag only means something for seeded venues.
+    district: districtForPoint(partial.lat, partial.lng),
     ...partial,
   };
 }
 
 export default function LiveMapApp() {
-  const [pins, setPins] = useState<Pin[]>(INITIAL_PINS);
+  const [pins, setPins] = useState<Pin[]>(CITY_PINS);
   const [filter, setFilter] = useState<PinFilter>(EMPTY_FILTER);
   const [selectedPinId, setSelectedPinId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -347,7 +353,7 @@ export default function LiveMapApp() {
                   ATX Live
                 </h1>
                 <p className="text-xs text-stone-500 md:text-sm">
-                  Austin Live Music Map · 6th · Rainey · South Congress
+                  All Austin Districts &amp; Venues
                 </p>
               </div>
             </div>
