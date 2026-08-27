@@ -24,6 +24,8 @@ type MapCanvasProps = {
   flyTo: FlyToTarget | null;
   onSelectPin: (id: string) => void;
   onMapClick: (lat: number, lng: number) => void;
+  /** Fired the moment the user starts dragging/panning the map. */
+  onPanStart?: () => void;
 };
 
 function glowIcon(pin: Pin, selected: boolean): L.DivIcon {
@@ -40,15 +42,20 @@ function glowIcon(pin: Pin, selected: boolean): L.DivIcon {
 function MapController({
   flyTo,
   onMapClick,
+  onPanStart,
 }: {
   flyTo: FlyToTarget | null;
   onMapClick: (lat: number, lng: number) => void;
+  onPanStart?: () => void;
 }) {
   const map = useMap();
 
   useMapEvents({
     click(event) {
       onMapClick(event.latlng.lat, event.latlng.lng);
+    },
+    movestart() {
+      onPanStart?.();
     },
   });
 
@@ -75,6 +82,7 @@ export default function MapCanvas({
   flyTo,
   onSelectPin,
   onMapClick,
+  onPanStart,
 }: MapCanvasProps) {
   return (
     <MapContainer
@@ -94,7 +102,7 @@ export default function MapCanvas({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <MapController flyTo={flyTo} onMapClick={onMapClick} />
+      <MapController flyTo={flyTo} onMapClick={onMapClick} onPanStart={onPanStart} />
       {pins.map((pin) => (
         <Marker
           key={pin.id}

@@ -64,6 +64,9 @@ export default function LiveMapApp() {
   const [isClicking, setIsClicking] = useState(false);
   const [goLiveOpen, setGoLiveOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
+  // Starts collapsed to match filtersOpen's initial true so the two never
+  // overlap on first paint.
+  const [searchCollapsed, setSearchCollapsed] = useState(filtersOpen);
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [flyTo, setFlyTo] = useState<FlyToTarget | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
@@ -97,6 +100,27 @@ export default function LiveMapApp() {
   const dismissToast = useCallback(() => {
     setToast(null);
   }, []);
+
+  const expandSearch = useCallback(() => {
+    setSearchCollapsed(false);
+  }, []);
+
+  const collapseSearchForPan = useCallback(() => {
+    setSearchCollapsed(true);
+  }, []);
+
+  // Opening the venue filter panel recedes the search bar so the two
+  // controls never fight for the same header space; closing filters does
+  // not auto re-expand it — that only happens via focus or the compact tap.
+  // Adjusted during render (same pattern as the visiblePins reset below)
+  // rather than a useEffect, which would cause an extra cascading render.
+  const [prevFiltersOpen, setPrevFiltersOpen] = useState(filtersOpen);
+  if (filtersOpen !== prevFiltersOpen) {
+    setPrevFiltersOpen(filtersOpen);
+    if (filtersOpen) {
+      setSearchCollapsed(true);
+    }
+  }
 
   // When an active filter hides the selected pin, drop the stale id so it
   // doesn't silently resurface (with the drawer reopening) once the filter
@@ -327,6 +351,7 @@ export default function LiveMapApp() {
           flyTo={flyTo}
           onSelectPin={setSelectedPinId}
           onMapClick={handleMapClick}
+          onPanStart={collapseSearchForPan}
         />
       </div>
 
@@ -430,6 +455,8 @@ export default function LiveMapApp() {
             onClearAll={handleClearAll}
             isSearching={isSearching}
             pinCount={pins.length}
+            collapsed={searchCollapsed}
+            onExpand={expandSearch}
           />
           {filtersOpen ? (
             <FilterBar
