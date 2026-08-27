@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { AudioLines, Filter, LoaderCircle, Plus } from "lucide-react";
+import { AudioLines, Filter, Flame, LoaderCircle, Plus } from "lucide-react";
 import { PIN_ZOOM } from "@/lib/constants";
 import { districtForPoint } from "@/lib/district";
 import {
@@ -64,6 +64,7 @@ export default function LiveMapApp() {
   const [isClicking, setIsClicking] = useState(false);
   const [goLiveOpen, setGoLiveOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(true);
+  const [heatmapOn, setHeatmapOn] = useState(false);
   // Starts collapsed to match filtersOpen's initial true so the two never
   // overlap on first paint.
   const [searchCollapsed, setSearchCollapsed] = useState(filtersOpen);
@@ -352,8 +353,21 @@ export default function LiveMapApp() {
           onSelectPin={setSelectedPinId}
           onMapClick={handleMapClick}
           onPanStart={collapseSearchForPan}
+          heatmapOn={heatmapOn}
         />
       </div>
+
+      {heatmapOn ? (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-24 left-4 z-20 flex items-center gap-2 rounded-2xl border border-atx-line bg-atx-paper/90 px-3 py-2 text-xs text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md md:bottom-28"
+        >
+          <span className="h-2 w-16 rounded-full bg-gradient-to-r from-atx-blue via-yellow-400 to-atx-red" />
+          <span className="font-medium">
+            Low Density (Cool Blue) &rarr; Peak Foot Traffic (Hot Red)
+          </span>
+        </div>
+      ) : null}
 
       {filtersOpen ? (
         <button
@@ -435,19 +449,34 @@ export default function LiveMapApp() {
               </button>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setFiltersOpen((open) => !open)}
-            aria-expanded={filtersOpen}
-            aria-controls="filter-panel"
-            className="pointer-events-auto inline-flex items-center gap-2 self-start rounded-2xl border border-atx-line bg-atx-paper/95 px-4 py-2.5 text-sm font-semibold text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md transition hover:border-atx-blue/40"
-          >
-            <Filter className="h-4 w-4 text-atx-blue" />
-            Filters
-            <span className="text-xs font-normal text-stone-400">
-              {visiblePins.length} / {pins.length}
-            </span>
-          </button>
+          <div className="pointer-events-auto flex items-center gap-2 self-start">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((open) => !open)}
+              aria-expanded={filtersOpen}
+              aria-controls="filter-panel"
+              className="inline-flex items-center gap-2 rounded-2xl border border-atx-line bg-atx-paper/95 px-4 py-2.5 text-sm font-semibold text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md transition hover:border-atx-blue/40"
+            >
+              <Filter className="h-4 w-4 text-atx-blue" />
+              Filters
+              <span className="text-xs font-normal text-stone-400">
+                {visiblePins.length} / {pins.length}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setHeatmapOn((on) => !on)}
+              aria-pressed={heatmapOn}
+              className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md transition ${
+                heatmapOn
+                  ? "border-atx-red/40 bg-atx-red text-white"
+                  : "border-atx-line bg-atx-paper/95 text-atx-ink hover:border-atx-red/40"
+              }`}
+            >
+              <Flame className={`h-4 w-4 ${heatmapOn ? "text-white" : "text-atx-red"}`} />
+              Heatmap
+            </button>
+          </div>
           <SearchBar
             query={searchQuery}
             onQueryChange={setSearchQuery}

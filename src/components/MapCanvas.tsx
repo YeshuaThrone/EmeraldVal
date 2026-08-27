@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import L from "leaflet";
 import {
   MapContainer,
@@ -16,7 +16,9 @@ import {
   DEFAULT_ZOOM,
   DOWNTOWN_AUSTIN,
 } from "@/lib/constants";
+import { generateHeatPoints } from "@/lib/heat";
 import type { FlyToTarget, Pin } from "@/lib/types";
+import HeatmapLayer from "@/components/HeatmapLayer";
 
 type MapCanvasProps = {
   pins: Pin[];
@@ -26,6 +28,8 @@ type MapCanvasProps = {
   onMapClick: (lat: number, lng: number) => void;
   /** Fired the moment the user starts dragging/panning the map. */
   onPanStart?: () => void;
+  /** Mounts/unmounts the corridor heat overlay; reflects the currently visible pins. */
+  heatmapOn?: boolean;
 };
 
 function glowIcon(pin: Pin, selected: boolean): L.DivIcon {
@@ -83,7 +87,12 @@ export default function MapCanvas({
   onSelectPin,
   onMapClick,
   onPanStart,
+  heatmapOn = false,
 }: MapCanvasProps) {
+  // Heat reflects whatever pins are currently visible (post-filter); the
+  // five corridor clusters themselves are filter-independent (see heat.ts).
+  const heatPoints = useMemo(() => generateHeatPoints(pins), [pins]);
+
   return (
     <MapContainer
       center={DOWNTOWN_AUSTIN}
@@ -103,6 +112,7 @@ export default function MapCanvas({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapController flyTo={flyTo} onMapClick={onMapClick} onPanStart={onPanStart} />
+      {heatmapOn ? <HeatmapLayer points={heatPoints} /> : null}
       {pins.map((pin) => (
         <Marker
           key={pin.id}
