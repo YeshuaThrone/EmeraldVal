@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { ADMIN_ROUTE, FAN_MAP_ROUTE } from "@/lib/routes";
+import { ADMIN_ROUTE, FAN_MAP_ROUTE, FESTIVAL_ROUTE } from "@/lib/routes";
 
 interface ViewToggleProps {
   /** Which view is currently active — drives which link gets aria-current. */
-  variant: "fan" | "admin";
+  variant: "fan" | "admin" | "festival";
 }
 
 const linkClass = (active: boolean) =>
@@ -14,15 +14,16 @@ const linkClass = (active: boolean) =>
   }`;
 
 /**
- * Shared top-bar toggle between the fan map and the admin dashboard.
- * Rendered in both headers so either view is always one click away from
- * the other; the active view is marked with aria-current="page".
+ * Shared top-bar toggle between the fan map, the admin dashboard, and the
+ * Festival & Founders Hub. Rendered in all three headers so any view is
+ * always one click away from the other two; the active view is marked
+ * with aria-current="page".
  */
 export default function ViewToggle({ variant }: ViewToggleProps) {
   return (
     <nav
       aria-label="View switcher"
-      className="pointer-events-auto flex items-center gap-2 rounded-full border border-atx-line bg-atx-paper/80 p-1 backdrop-blur-md"
+      className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-full border border-atx-line bg-atx-paper/80 p-1 backdrop-blur-md"
     >
       <Link
         href={FAN_MAP_ROUTE}
@@ -37,6 +38,13 @@ export default function ViewToggle({ variant }: ViewToggleProps) {
         className={linkClass(variant === "admin")}
       >
         Civic / Admin Analytics Dashboard
+      </Link>
+      <Link
+        href={FESTIVAL_ROUTE}
+        aria-current={variant === "festival" ? "page" : undefined}
+        className={linkClass(variant === "festival")}
+      >
+        Festival & Founders Hub
       </Link>
     </nav>
   );

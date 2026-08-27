@@ -5,3 +5,4 @@
  */
 export const FAN_MAP_ROUTE = "/";
 export const ADMIN_ROUTE = "/admin";
+export const FESTIVAL_ROUTE = "/festival";
