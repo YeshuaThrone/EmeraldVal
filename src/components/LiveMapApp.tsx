@@ -10,7 +10,14 @@ import {
   reverseGeocode,
   shortenDisplayName,
 } from "@/lib/geocode";
-import { EMPTY_FILTER, filterPins, type PinFilter } from "@/lib/filters";
+import {
+  DROPPED_SOURCES,
+  EMPTY_FILTER,
+  filterPins,
+  isActive,
+  toggleSources,
+  type PinFilter,
+} from "@/lib/filters";
 import type { FlyToTarget, Pin, ToastMessage } from "@/lib/types";
 import SearchBar from "@/components/SearchBar";
 import FilterBar from "@/components/FilterBar";
@@ -55,6 +62,22 @@ export default function LiveMapApp() {
 
   const visiblePins = useMemo(() => filterPins(pins, filter), [pins, filter]);
 
+  // Drives both the header legend and FilterBar's status row from the same
+  // filter.sources so the two controls never disagree about what's toggled.
+  const liveActive = filter.sources.includes("live");
+  const droppedActive = DROPPED_SOURCES.every((source) =>
+    filter.sources.includes(source),
+  );
+
+  const toggleLegendSources = useCallback((sources: Pin["source"][]) => {
+    setFilter((current) => ({
+      ...current,
+      sources: toggleSources(current.sources, sources),
+    }));
+  }, []);
+
+  const showEmptyOverlay = visiblePins.length === 0 && isActive(filter);
+
   // Derived from visiblePins (not pins) so the drawer closes on its own when
   // an active filter hides the selected pin, instead of the map floating a
   // detail panel for a marker the user can no longer see.
@@ -66,6 +89,20 @@ export default function LiveMapApp() {
   const dismissToast = useCallback(() => {
     setToast(null);
   }, []);
+
+  // When an active filter hides the selected pin, drop the stale id so it
+  // doesn't silently resurface (with the drawer reopening) once the filter
+  // is later relaxed and the pin becomes visible again. Adjusted during
+  // render (React's documented pattern for resetting state when a derived
+  // value changes: https://react.dev/learn/you-might-not-need-an-effect)
+  // rather than in a useEffect, which would cause an extra cascading render.
+  const [prevVisiblePins, setPrevVisiblePins] = useState(visiblePins);
+  if (visiblePins !== prevVisiblePins) {
+    setPrevVisiblePins(visiblePins);
+    if (selectedPinId && !visiblePins.some((pin) => pin.id === selectedPinId)) {
+      setSelectedPinId(null);
+    }
+  }
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -281,6 +318,23 @@ export default function LiveMapApp() {
         />
       </div>
 
+      {showEmptyOverlay ? (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-4">
+          <div className="pointer-events-auto flex max-w-xs flex-col items-center gap-3 rounded-2xl border border-white/10 bg-[#0B0F17]/90 p-6 text-center shadow-[0_0_0_1px_rgba(139,92,246,0.18),0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-md">
+            <p className="text-sm font-medium text-zinc-200">
+              No venues match your filters
+            </p>
+            <button
+              type="button"
+              onClick={() => setFilter(EMPTY_FILTER)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-[#8B5CF6] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#7c4eef]"
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 p-4 md:p-5">
         <div className="mx-auto flex max-w-5xl flex-col gap-4">
           <div className="pointer-events-auto flex items-center justify-between gap-3">
@@ -297,15 +351,41 @@ export default function LiveMapApp() {
                 </p>
               </div>
             </div>
-            <div className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-[#0B0F17]/80 px-3 py-2 text-xs text-zinc-400 backdrop-blur-md sm:flex">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#8B5CF6] shadow-[0_0_10px_#8B5CF6]" />
-                Live
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#F59E0B] shadow-[0_0_10px_#F59E0B]" />
-                Dropped
-              </span>
+            <div
+              role="group"
+              aria-label="Filter by status"
+              className="hidden items-center gap-3 rounded-2xl border border-white/10 bg-[#0B0F17]/80 px-3 py-2 text-xs backdrop-blur-md sm:flex"
+            >
+              <button
+                type="button"
+                aria-pressed={liveActive}
+                onClick={() => toggleLegendSources(["live"])}
+                className={`inline-flex items-center gap-1.5 rounded-full transition ${
+                  liveActive ? "text-white" : "text-zinc-500 opacity-60"
+                }`}
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full bg-[#8B5CF6] ${
+                    liveActive ? "shadow-[0_0_10px_#8B5CF6]" : ""
+                  }`}
+                />
+                {liveActive ? "Live" : "Live · off"}
+              </button>
+              <button
+                type="button"
+                aria-pressed={droppedActive}
+                onClick={() => toggleLegendSources(DROPPED_SOURCES)}
+                className={`inline-flex items-center gap-1.5 rounded-full transition ${
+                  droppedActive ? "text-white" : "text-zinc-500 opacity-60"
+                }`}
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full bg-[#F59E0B] ${
+                    droppedActive ? "shadow-[0_0_10px_#F59E0B]" : ""
+                  }`}
+                />
+                {droppedActive ? "Dropped" : "Dropped · off"}
+              </button>
             </div>
           </div>
           <SearchBar
