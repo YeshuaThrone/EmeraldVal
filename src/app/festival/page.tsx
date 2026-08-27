@@ -4,9 +4,9 @@ import FestivalHub from "@/components/FestivalHub";
 import FoundersTiers from "@/components/FoundersTiers";
 
 export const metadata = {
-  title: "ATX Live — Festival & Founders Hub",
+  title: "ATXLive — Festival & Founders Hub",
   description:
-    "Active Austin festival lineups drawn from live pins, plus Founders support tiers for ATX Live.",
+    "Active Austin festival lineups drawn from live pins, plus Founders support tiers for ATXLive.",
 };
 
 export default function FestivalPage() {

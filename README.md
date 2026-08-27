@@ -1,4 +1,4 @@
-# ATX Live — Austin Live Music Map
+# ATXLive — Austin Live Music Map
 
 Dark-mode Next.js app for finding and dropping live street-performer pins around Downtown Austin (6th Street, Rainey Street, and South Congress).
 
