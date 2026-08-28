@@ -5,9 +5,13 @@ import {
   ATXLiveArtistSDK,
   buildLivePingPayload,
   buildUploadShowPayload,
+  COUNCIL_DISTRICTS,
+  councilDistrictBucket,
+  normalizeTicketing,
   validateUploadShowInput,
   type UploadShowInput,
 } from "@/lib/artistSdk";
+import type { District, Ticketing } from "@/lib/types";
 
 // No network in tests: the geocoders are the app's client-side utilities
 // (the same flow the Go-Live modal uses), mocked at the module boundary.
@@ -29,6 +33,7 @@ const SIXTH_STREET = {
 
 const VALID_INPUT: UploadShowInput = {
   venueName: "Continental Club",
+  artistName: "The Night Owls",
   address: "1315 S Congress Ave",
   district: "South",
   setTime: "2026-09-05T21:00",
@@ -106,10 +111,14 @@ describe("buildUploadShowPayload", () => {
       [
         "address",
         "artist_id",
+        "artist_name",
         "created_at",
         "district",
+        "native_ticket_capacity",
+        "native_ticket_price",
         "set_time",
         "ticket_url",
+        "ticketing_type",
         "venue_name",
       ].sort(),
     );
@@ -121,6 +130,10 @@ describe("buildUploadShowPayload", () => {
       set_time: "2026-09-05T21:00:00.000Z",
       ticket_url: "https://tickets.example.com/continental",
       created_at: "2026-08-28T18:00:00.000Z",
+      artist_name: "The Night Owls",
+      ticketing_type: "external",
+      native_ticket_price: null,
+      native_ticket_capacity: null,
     });
   });
 
@@ -128,6 +141,7 @@ describe("buildUploadShowPayload", () => {
     const payload = buildUploadShowPayload(
       {
         venueName: "Saxon Pub",
+        artistName: "The Night Owls",
         district: "South",
         setTime: "2026-09-05T20:00",
       },
@@ -136,6 +150,10 @@ describe("buildUploadShowPayload", () => {
     );
     expect(payload.address).toBe("");
     expect(payload.ticket_url).toBe("");
+    // No ticketing given at all — the v2 fields say so explicitly.
+    expect(payload.ticketing_type).toBe("");
+    expect(payload.native_ticket_price).toBeNull();
+    expect(payload.native_ticket_capacity).toBeNull();
   });
 });
 
@@ -237,6 +255,7 @@ describe("ATXLiveArtistSDK.uploadShow", () => {
     expect(result.pin.ticketUrl).toBe(
       "https://tickets.example.com/continental",
     );
+    expect(result.pin.artistName).toBe("The Night Owls");
     expect(result.pinId).toBe(result.pin.id);
     expect(sdk.artistPins).toHaveLength(1);
   });
@@ -249,6 +268,7 @@ describe("ATXLiveArtistSDK.uploadShow", () => {
     mockedGeocodeQuery.mockClear();
     await initializedSdk().uploadShow({
       venueName: "Saxon Pub",
+      artistName: "The Night Owls",
       district: "South",
       setTime: "2026-09-05T20:00",
     });
@@ -413,5 +433,326 @@ describe("ATXLiveArtistSDK construction", () => {
     } else {
       expect.unreachable("uploadShow should have succeeded");
     }
+  });
+});
+
+describe("COUNCIL_DISTRICTS", () => {
+  // Independently transcribed from the v2 panel's pasted select options —
+  // deliberately not derived from the implementation table.
+  const EXPECTED: ReadonlyArray<{
+    label: string;
+    area: string;
+    district: District;
+  }> = [
+    { label: "District 1", area: "East Austin", district: "East" },
+    { label: "District 2", area: "Southeast Austin", district: "East" },
+    { label: "District 3", area: "East / South Central", district: "East" },
+    { label: "District 4", area: "North Central", district: "North" },
+    { label: "District 5", area: "South Austin", district: "South" },
+    { label: "District 6", area: "Northwest / Lakeline", district: "North" },
+    { label: "District 7", area: "North Austin / Burnet", district: "North" },
+    { label: "District 8", area: "Southwest / Oak Hill", district: "South" },
+    { label: "District 9", area: "Downtown / UT Campus", district: "Downtown" },
+    { label: "District 10", area: "West Austin / NW", district: "West" },
+  ];
+
+  it("lists all ten council districts verbatim, in order", () => {
+    expect(COUNCIL_DISTRICTS).toHaveLength(10);
+    expect([...COUNCIL_DISTRICTS]).toEqual(EXPECTED);
+  });
+
+  it("maps every council district to the app's five-district buckets", () => {
+    for (const { label, district } of EXPECTED) {
+      expect(councilDistrictBucket(label)).toBe(district);
+    }
+  });
+
+  it("returns undefined for a label outside the ten options", () => {
+    expect(councilDistrictBucket("District 11")).toBeUndefined();
+    expect(councilDistrictBucket("")).toBeUndefined();
+  });
+});
+
+describe("ticketing validation", () => {
+  it("accepts a valid native ticketing block", () => {
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "native", price: 15, capacity: 150 },
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts a zero price (free show)", () => {
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "native", price: 0, capacity: 1 },
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects a negative native price", () => {
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "native", price: -1, capacity: 150 },
+      }),
+    ).toBe("invalid_ticket_price");
+  });
+
+  it("rejects a non-finite native price", () => {
+    for (const price of [Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(
+        validateUploadShowInput({
+          ...VALID_INPUT,
+          ticketing: { type: "native", price, capacity: 150 },
+        }),
+      ).toBe("invalid_ticket_price");
+    }
+  });
+
+  it("rejects a fractional capacity", () => {
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "native", price: 15, capacity: 149.5 },
+      }),
+    ).toBe("invalid_ticket_capacity");
+  });
+
+  it("rejects a zero or negative capacity", () => {
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "native", price: 15, capacity: 0 },
+      }),
+    ).toBe("invalid_ticket_capacity");
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "native", price: 15, capacity: -5 },
+      }),
+    ).toBe("invalid_ticket_capacity");
+  });
+
+  it("rejects a native block missing capacity at runtime (JS callers)", () => {
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "native", price: 15 } as unknown as Ticketing,
+      }),
+    ).toBe("invalid_ticket_capacity");
+  });
+
+  it("rejects a malformed union type", () => {
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "bogus" } as unknown as Ticketing,
+      }),
+    ).toBe("invalid_ticketing");
+  });
+
+  it("accepts an external block with an empty URL (no link)", () => {
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "external", ticketUrl: "" },
+      }),
+    ).toBeNull();
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "external", ticketUrl: "   " },
+      }),
+    ).toBeNull();
+    expect(
+      validateUploadShowInput({
+        ...VALID_INPUT,
+        ticketing: { type: "external" },
+      }),
+    ).toBeNull();
+  });
+
+  it("rejects an artist name that is empty or whitespace", () => {
+    expect(validateUploadShowInput({ ...VALID_INPUT, artistName: "" })).toBe(
+      "missing_artist_name",
+    );
+    expect(validateUploadShowInput({ ...VALID_INPUT, artistName: "   " })).toBe(
+      "missing_artist_name",
+    );
+  });
+});
+
+describe("normalizeTicketing", () => {
+  it("normalizes the legacy flat ticketUrl to an external block", () => {
+    expect(
+      normalizeTicketing({ ticketUrl: "https://tickets.example.com/x" }),
+    ).toEqual({ type: "external", ticketUrl: "https://tickets.example.com/x" });
+  });
+
+  it("passes the v2 union through untouched", () => {
+    const native: Ticketing = { type: "native", price: 15, capacity: 150 };
+    expect(normalizeTicketing({ ticketing: native })).toBe(native);
+  });
+
+  it("returns undefined when neither form is given", () => {
+    expect(normalizeTicketing({})).toBeUndefined();
+  });
+
+  it("lets the v2 union take precedence over the legacy flat form", () => {
+    const native: Ticketing = { type: "native", price: 15, capacity: 150 };
+    expect(
+      normalizeTicketing({
+        ticketing: native,
+        ticketUrl: "https://legacy.example.com",
+      }),
+    ).toBe(native);
+  });
+});
+
+describe("buildUploadShowPayload v2 fields", () => {
+  const CREATED_AT = new Date("2026-08-28T18:00:00.000Z");
+
+  it("emits native price and capacity with an empty ticket_url", () => {
+    const payload = buildUploadShowPayload(
+      {
+        ...VALID_INPUT,
+        ticketing: { type: "native", price: 15.5, capacity: 150 },
+      },
+      "artist-42",
+      CREATED_AT,
+    );
+    expect(payload.ticketing_type).toBe("native");
+    expect(payload.native_ticket_price).toBe(15.5);
+    expect(payload.native_ticket_capacity).toBe(150);
+    expect(payload.ticket_url).toBe("");
+    expect(payload.artist_name).toBe("The Night Owls");
+  });
+
+  it("emits null native fields for external ticketing and trims the URL", () => {
+    const payload = buildUploadShowPayload(
+      {
+        ...VALID_INPUT,
+        ticketing: {
+          type: "external",
+          ticketUrl: "  https://t.example.com/x  ",
+        },
+      },
+      "artist-42",
+      CREATED_AT,
+    );
+    expect(payload.ticketing_type).toBe("external");
+    expect(payload.ticket_url).toBe("https://t.example.com/x");
+    expect(payload.native_ticket_price).toBeNull();
+    expect(payload.native_ticket_capacity).toBeNull();
+  });
+
+  it("normalizes the legacy flat ticketUrl to external in the payload", () => {
+    const payload = buildUploadShowPayload(
+      {
+        ...VALID_INPUT,
+        ticketing: undefined,
+        ticketUrl: "https://legacy.example.com",
+      },
+      "artist-42",
+      CREATED_AT,
+    );
+    expect(payload.ticketing_type).toBe("external");
+    expect(payload.ticket_url).toBe("https://legacy.example.com");
+    expect(payload.native_ticket_price).toBeNull();
+    expect(payload.native_ticket_capacity).toBeNull();
+  });
+});
+
+describe("ATXLiveArtistSDK.uploadShow v2", () => {
+  it("carries artistName, councilDistrict, and native ticketing onto the pin", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    const result = await initializedSdk("artist-42").uploadShow({
+      ...VALID_INPUT,
+      ticketing: { type: "native", price: 15, capacity: 150 },
+      councilDistrict: "District 9",
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+    expect(result.pin.artistName).toBe("The Night Owls");
+    expect(result.pin.councilDistrict).toBe("District 9");
+    expect(result.pin.ticketing).toEqual({
+      type: "native",
+      price: 15,
+      capacity: 150,
+    });
+    expect(result.pin.ticketUrl).toBeUndefined();
+    expect(result.payload.ticketing_type).toBe("native");
+    expect(result.payload.native_ticket_price).toBe(15);
+    expect(result.payload.native_ticket_capacity).toBe(150);
+  });
+
+  it("still accepts the legacy flat ticketUrl and normalizes it to external", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    const result = await initializedSdk("artist-42").uploadShow({
+      venueName: "Continental Club",
+      artistName: "The Night Owls",
+      district: "South",
+      setTime: "2026-09-05T21:00",
+      ticketUrl: "https://tickets.example.com/continental",
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+    expect(result.pin.ticketUrl).toBe(
+      "https://tickets.example.com/continental",
+    );
+    expect(result.pin.ticketing).toEqual({
+      type: "external",
+      ticketUrl: "https://tickets.example.com/continental",
+    });
+    expect(result.payload.ticketing_type).toBe("external");
+  });
+
+  it("returns a typed failure for a negative native price without geocoding", async () => {
+    const result = await initializedSdk().uploadShow({
+      ...VALID_INPUT,
+      ticketing: { type: "native", price: -1, capacity: 150 },
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.code).toBe("invalid_ticket_price");
+    }
+    expect(mockedGeocodeQuery).not.toHaveBeenCalled();
+  });
+
+  it("returns a typed failure for an empty artist name", async () => {
+    const result = await initializedSdk().uploadShow({
+      ...VALID_INPUT,
+      artistName: "  ",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.code).toBe("missing_artist_name");
+    }
+    expect(mockedGeocodeQuery).not.toHaveBeenCalled();
+  });
+
+  it("keeps the geocoded point driving classification alongside the council label", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    const result = await initializedSdk().uploadShow({
+      ...VALID_INPUT,
+      ticketing: { type: "external", ticketUrl: "" },
+      councilDistrict: "District 5",
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+    // Independently computed: the point classifies to Downtown even though
+    // the selected council district (5) maps to the South bucket.
+    expect(result.pin.district).toBe("Downtown");
+    expect(result.pin.councilDistrict).toBe("District 5");
+    expect(result.pin.ticketing).toEqual({ type: "external", ticketUrl: "" });
   });
 });
