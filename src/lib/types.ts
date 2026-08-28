@@ -10,6 +10,24 @@ export type Genre = (typeof GENRES)[number];
 
 export type PinSource = "search" | "live" | "map" | "artist";
 
+/** How tickets are sold for a show — an external link or ATXLive native ticketing. */
+export type ExternalTicketing = {
+  type: "external";
+  /** Empty or whitespace-only means "no link" (the field was cleared). */
+  ticketUrl?: string;
+};
+
+/** Native ticketing is data, not checkout — no payment backend exists yet. */
+export type NativeTicketing = {
+  type: "native";
+  /** Price in dollars; finite and ≥ 0. */
+  price: number;
+  /** Whole number of tickets; integer ≥ 1. */
+  capacity: number;
+};
+
+export type Ticketing = ExternalTicketing | NativeTicketing;
+
 export type District = "Downtown" | "North" | "South" | "East" | "West";
 
 export type Pin = {
@@ -27,6 +45,13 @@ export type Pin = {
   district?: District;
   /** Local act vs touring act. Undefined for user-created pins (search/map/live). */
   isLocal?: boolean;
+  /** Artist v2 metadata — set by the artist SDK on show pins. */
+  /** Verbatim City Council District select label, e.g. "District 1". */
+  councilDistrict?: string;
+  /** Display name from the v2 panel's Artist Name field. */
+  artistName?: string;
+  /** Ticketing method captured by the v2 panel. */
+  ticketing?: Ticketing;
 };
 
 export type FlyToTarget = {

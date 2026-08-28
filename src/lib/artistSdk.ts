@@ -1,6 +1,6 @@
 import { geocodeQuery, reverseGeocode } from "@/lib/geocode";
 import { districtForPoint } from "@/lib/district";
-import type { District, Pin } from "@/lib/types";
+import type { District, Pin, Ticketing } from "@/lib/types";
 
 /**
  * ATXLiveArtistSDK — client-side backing for the pasted ATXLiveArtistSDK.
@@ -45,11 +45,24 @@ export type ArtistShowPin = Pin & {
 
 export type UploadShowInput = {
   venueName: string;
+  /** Required, non-empty after trim (v2 panel contract). */
+  artistName: string;
   address?: string;
   district: District;
   /** datetime-local string or any value `new Date()` can parse. */
   setTime: string;
+  /**
+   * v2 ticketing — a discriminated union. When present it takes precedence
+   * over the legacy flat `ticketUrl` below.
+   */
+  ticketing?: Ticketing;
+  /**
+   * Legacy flat form kept for pre-v2 callers: normalized to
+   * `{ type: "external", ticketUrl }`. Ignored when `ticketing` is set.
+   */
   ticketUrl?: string;
+  /** Verbatim City Council District select label, e.g. "District 1" (v2). */
+  councilDistrict?: string;
 };
 
 export type LivePingInput = {
@@ -67,7 +80,11 @@ export type ATXLiveArtistSDKConfig = {
   baseUrl?: string;
 };
 
-/** Wire shape for a future transport — field names match the pasted SDK. */
+/**
+ * Wire shape for a future transport — field names match the pasted SDK.
+ * The v2 fields below are additive; the original seven keep their names and
+ * value shapes byte-compatible so an old transport keeps parsing.
+ */
 export type UploadShowPayload = {
   artist_id: string;
   venue_name: string;
@@ -76,6 +93,14 @@ export type UploadShowPayload = {
   set_time: string;
   ticket_url: string;
   created_at: string;
+  /** v2: display name from the panel's Artist Name field. */
+  artist_name: string;
+  /** v2: "external" | "native", or "" when no ticketing was given. */
+  ticketing_type: "external" | "native" | "";
+  /** v2: native-only; null for external or no ticketing. */
+  native_ticket_price: number | null;
+  /** v2: native-only; null for external or no ticketing. */
+  native_ticket_capacity: number | null;
 };
 
 /** Wire shape for a future transport — field names match the pasted SDK. */
@@ -90,9 +115,13 @@ export type LivePingPayload = {
 export type ArtistSdkErrorCode =
   | "not_initialized"
   | "missing_venue"
+  | "missing_artist_name"
   | "invalid_district"
   | "missing_set_time"
   | "invalid_set_time"
+  | "invalid_ticketing"
+  | "invalid_ticket_price"
+  | "invalid_ticket_capacity"
   | "invalid_coords"
   | "geocode_failed";
 
@@ -127,12 +156,52 @@ export const ARTIST_SDK_DISTRICTS: readonly District[] = [
   "West",
 ];
 
+/** One row of the City Council District select, verbatim from the v2 panel. */
+export type CouncilDistrictEntry = {
+  /** Select option label, e.g. "District 1". */
+  label: string;
+  /** Area descriptor shown alongside the label in the select. */
+  area: string;
+  /** The app's five-district filter bucket this council district maps to. */
+  district: District;
+};
+
+/**
+ * All ten Austin City Council District options, verbatim, each mapped to the
+ * app's five-district filter model. Display contract: the panel shows these
+ * labels; the geocoded point still drives `districtForPoint` for filter
+ * classification, and the chosen label is stored on the pin as metadata.
+ */
+export const COUNCIL_DISTRICTS: readonly CouncilDistrictEntry[] = [
+  { label: "District 1", area: "East Austin", district: "East" },
+  { label: "District 2", area: "Southeast Austin", district: "East" },
+  { label: "District 3", area: "East / South Central", district: "East" },
+  { label: "District 4", area: "North Central", district: "North" },
+  { label: "District 5", area: "South Austin", district: "South" },
+  { label: "District 6", area: "Northwest / Lakeline", district: "North" },
+  { label: "District 7", area: "North Austin / Burnet", district: "North" },
+  { label: "District 8", area: "Southwest / Oak Hill", district: "South" },
+  { label: "District 9", area: "Downtown / UT Campus", district: "Downtown" },
+  { label: "District 10", area: "West Austin / NW", district: "West" },
+];
+
+/** Pure lookup: the five-district bucket for a council-district label. */
+export function councilDistrictBucket(label: string): District | undefined {
+  return COUNCIL_DISTRICTS.find((entry) => entry.label === label)?.district;
+}
+
 const ERROR_MESSAGES: Record<ArtistSdkErrorCode, string> = {
   not_initialized: "Initialize the SDK with init(artistId) first.",
   missing_venue: "Venue name is required.",
+  missing_artist_name: "Artist name is required.",
   invalid_district: "District must be one of the five Austin districts.",
   missing_set_time: "Set time is required.",
   invalid_set_time: "Set time must be a valid date and time.",
+  invalid_ticketing: "Ticketing must be an external link or native ticketing.",
+  invalid_ticket_price:
+    "Native ticket price must be a number that is zero or more.",
+  invalid_ticket_capacity:
+    "Native ticket capacity must be a whole number of at least 1.",
   invalid_coords: "Live ping needs valid latitude and longitude.",
   geocode_failed: "Could not find that venue on the map.",
 };
@@ -154,14 +223,71 @@ function isFiniteCoord(value: number): boolean {
 }
 
 /**
+ * Normalizes the two ticketing input forms into the v2 union: the
+ * discriminated `ticketing` field wins; the legacy flat `ticketUrl` string
+ * becomes `{ type: "external", ticketUrl }`. Undefined when neither is set.
+ */
+export function normalizeTicketing(
+  input: Pick<UploadShowInput, "ticketing" | "ticketUrl">,
+): Ticketing | undefined {
+  if (input.ticketing !== undefined) {
+    return input.ticketing;
+  }
+  if (input.ticketUrl !== undefined) {
+    return { type: "external", ticketUrl: input.ticketUrl };
+  }
+  return undefined;
+}
+
+/**
+ * Pure ticketing validator. External accepts any string URL (empty or
+ * whitespace means "no link"); native requires a finite price ≥ 0 and an
+ * integer capacity ≥ 1. Runtime typeof guards catch malformed unions from
+ * untyped (JS) callers that the compiler would otherwise assume away.
+ */
+function validateTicketing(ticketing: Ticketing): ArtistSdkErrorCode | null {
+  if (ticketing.type === "external") {
+    if (
+      ticketing.ticketUrl !== undefined &&
+      typeof ticketing.ticketUrl !== "string"
+    ) {
+      return "invalid_ticketing";
+    }
+    return null;
+  }
+  if (ticketing.type === "native") {
+    if (
+      typeof ticketing.price !== "number" ||
+      !Number.isFinite(ticketing.price) ||
+      ticketing.price < 0
+    ) {
+      return "invalid_ticket_price";
+    }
+    if (
+      typeof ticketing.capacity !== "number" ||
+      !Number.isInteger(ticketing.capacity) ||
+      ticketing.capacity < 1
+    ) {
+      return "invalid_ticket_capacity";
+    }
+    return null;
+  }
+  return "invalid_ticketing";
+}
+
+/**
  * Pure validator. Returns the error code for the first invalid field, or
- * null when the input would pass. Order: venue → district → setTime.
+ * null when the input would pass. Order: venue → artistName → district →
+ * setTime → ticketing.
  */
 export function validateUploadShowInput(
   input: UploadShowInput,
 ): ArtistSdkErrorCode | null {
   if (isBlank(input.venueName)) {
     return "missing_venue";
+  }
+  if (isBlank(input.artistName)) {
+    return "missing_artist_name";
   }
   if (
     !ARTIST_SDK_DISTRICTS.includes(input.district)
@@ -174,6 +300,13 @@ export function validateUploadShowInput(
   if (!isParseableDate(input.setTime)) {
     return "invalid_set_time";
   }
+  const ticketing = normalizeTicketing(input);
+  if (ticketing !== undefined) {
+    const ticketingError = validateTicketing(ticketing);
+    if (ticketingError !== null) {
+      return ticketingError;
+    }
+  }
   return null;
 }
 
@@ -183,14 +316,21 @@ export function buildUploadShowPayload(
   artistId: string,
   createdAt: Date,
 ): UploadShowPayload {
+  const ticketing = normalizeTicketing(input);
   return {
     artist_id: artistId,
     venue_name: input.venueName.trim(),
     address: input.address?.trim() ?? "",
     district: input.district,
     set_time: new Date(input.setTime).toISOString(),
-    ticket_url: input.ticketUrl?.trim() ?? "",
+    ticket_url:
+      ticketing?.type === "external" ? (ticketing.ticketUrl?.trim() ?? "") : "",
     created_at: createdAt.toISOString(),
+    artist_name: input.artistName.trim(),
+    ticketing_type: ticketing?.type ?? "",
+    native_ticket_price: ticketing?.type === "native" ? ticketing.price : null,
+    native_ticket_capacity:
+      ticketing?.type === "native" ? ticketing.capacity : null,
   };
 }
 
@@ -218,6 +358,9 @@ function createArtistPin(partial: {
   district: District | undefined;
   setTime: string;
   ticketUrl?: string;
+  artistName?: string;
+  councilDistrict?: string;
+  ticketing?: Ticketing;
 }): ArtistShowPin {
   return {
     id: crypto.randomUUID(),
@@ -237,6 +380,15 @@ function createArtistPin(partial: {
     status: partial.status,
     setTime: partial.setTime,
     ...(partial.ticketUrl ? { ticketUrl: partial.ticketUrl } : {}),
+    ...(partial.artistName !== undefined
+      ? { artistName: partial.artistName }
+      : {}),
+    ...(partial.councilDistrict !== undefined
+      ? { councilDistrict: partial.councilDistrict }
+      : {}),
+    ...(partial.ticketing !== undefined
+      ? { ticketing: partial.ticketing }
+      : {}),
   };
 }
 
@@ -296,6 +448,7 @@ export class ATXLiveArtistSDK {
     }
 
     const payload = buildUploadShowPayload(input, this.artistId, new Date());
+    const ticketing = normalizeTicketing(input);
 
     // districtForPoint classifies the geocoded point the same way it does
     // every other user-created pin; the user-selected district is the
@@ -310,7 +463,12 @@ export class ATXLiveArtistSDK {
       locationName: geo.displayName,
       district: classified ?? input.district,
       setTime: payload.set_time,
-      ...(input.ticketUrl?.trim() ? { ticketUrl: input.ticketUrl.trim() } : {}),
+      ...(ticketing?.type === "external" && ticketing.ticketUrl?.trim()
+        ? { ticketUrl: ticketing.ticketUrl.trim() }
+        : {}),
+      artistName: input.artistName.trim(),
+      councilDistrict: input.councilDistrict?.trim() || undefined,
+      ticketing,
     });
     this.pins.push(pin);
 

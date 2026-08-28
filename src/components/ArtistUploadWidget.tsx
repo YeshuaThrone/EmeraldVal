@@ -110,6 +110,9 @@ export default function ArtistUploadWidget() {
       setFeedback(null);
       try {
         const result = await getSdk().uploadShow({
+          // v2 contract: the panel's Artist Name field is the SDK's
+          // artistName (required, non-empty). Full panel upgrade is PR 20.
+          artistName: artistId,
           venueName: form.venueName,
           address: form.address.trim() === "" ? undefined : form.address,
           district: form.district,
@@ -139,7 +142,7 @@ export default function ArtistUploadWidget() {
         setIsPublishing(false);
       }
     },
-    [form, isInitialized, syncPinsToStore],
+    [artistId, form, isInitialized, syncPinsToStore],
   );
 
   const handleGoLive = useCallback(() => {
