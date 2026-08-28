@@ -25,6 +25,13 @@ function getSdk(): ATXLiveArtistSDK {
   return sdkInstance;
 }
 
+/**
+ * The artist name survives in-session navigation, like the pins it labels —
+ * without this, leaving the studio and coming back would blank the field
+ * and re-lock GO LIVE even though the SDK singleton is still initialized.
+ */
+let sessionArtistId = "";
+
 type Feedback = { type: "success" | "error"; message: string };
 
 type ArtistForm = {
@@ -54,7 +61,7 @@ const GEOLOCATION_TIMEOUT_MS = 10_000;
  * below the actions states so the behavior isn't surprising.
  */
 export default function ArtistUploadWidget() {
-  const [artistId, setArtistId] = useState("");
+  const [artistId, setArtistId] = useState(sessionArtistId);
   const [form, setForm] = useState<ArtistForm>(EMPTY_FORM);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isGoingLive, setIsGoingLive] = useState(false);
@@ -77,6 +84,7 @@ export default function ArtistUploadWidget() {
     const trimmed = value.trim();
     if (trimmed !== "") {
       getSdk().init(trimmed);
+      sessionArtistId = trimmed;
     }
   }, []);
 
