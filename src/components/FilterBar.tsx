@@ -47,10 +47,12 @@ export default function FilterBar({
   const droppedActive = DROPPED_SOURCES.every((source) =>
     filter.sources.includes(source),
   );
+  const artistActive = filter.sources.includes("artist");
   const activeCount =
     filter.genres.length +
     (liveActive ? 1 : 0) +
     (droppedActive ? 1 : 0) +
+    (artistActive ? 1 : 0) +
     (filter.query.trim() !== "" ? 1 : 0);
 
   return (
@@ -148,6 +150,25 @@ export default function FilterBar({
         >
           <span className="h-2 w-2 rounded-full bg-atx-blue shadow-[0_0_8px_#00A8E8]" />
           Dropped
+        </button>
+        <button
+          type="button"
+          aria-pressed={artistActive}
+          onClick={() =>
+            onChange({
+              ...filter,
+              sources: toggleSources(filter.sources, ["artist"]),
+            })
+          }
+          className={`inline-flex items-center gap-1.5 ${chipClass(
+            artistActive,
+            "border-atx-electric",
+            "bg-atx-electric/15",
+            "text-atx-electric-deep",
+          )}`}
+        >
+          <span className="h-2 w-2 rounded-full bg-atx-electric shadow-[0_0_8px_#0055FF]" />
+          Artist
         </button>
       </div>
 
