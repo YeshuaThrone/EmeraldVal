@@ -8,7 +8,7 @@ export const GENRES = [
 
 export type Genre = (typeof GENRES)[number];
 
-export type PinSource = "search" | "live" | "map";
+export type PinSource = "search" | "live" | "map" | "artist";
 
 export type District = "Downtown" | "North" | "South" | "East" | "West";
 
