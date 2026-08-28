@@ -7,6 +7,12 @@
   --color-atx-red-deep: #7a1425;
   --color-atx-blue: #00a8e8;
   --color-atx-blue-deep: #0089bd;
+  /* Artist Studio palette (locked in the Artist SDK & Upload Studio spec):
+     electric blue for Publish Show / show pins, dark red for GO LIVE. */
+  --color-atx-electric: #0055ff;
+  --color-atx-electric-deep: #0040c0;
+  --color-atx-stage: #8b0000;
+  --color-atx-stage-deep: #660000;
   --color-atx-line: #e7e5e4;
   --font-sans: var(--font-dm-sans);
   --font-display: var(--font-outfit);
@@ -95,8 +101,54 @@ body {
   animation: atx-pulse-blue 1.8s ease-in-out infinite;
 }
 
+.atx-pin-artist {
+  background: #0055ff;
+  box-shadow:
+    0 0 0 4px rgba(0, 85, 255, 0.35),
+    0 0 18px 6px rgba(0, 85, 255, 0.65);
+  animation: atx-pulse-electric 1.8s ease-in-out infinite;
+}
+
+/* An artist pin marked ON_STAGE pulses like the existing live pins, in the
+   dark-red stage color so fans can tell a live artist from a scheduled show. */
+.atx-pin-artist-live {
+  background: #8b0000;
+  box-shadow:
+    0 0 0 4px rgba(139, 0, 0, 0.35),
+    0 0 18px 6px rgba(139, 0, 0, 0.65);
+  animation: atx-pulse-stage 1.8s ease-in-out infinite;
+}
+
 .atx-pin.is-on {
   animation-duration: 1s;
+}
+
+@keyframes atx-pulse-electric {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(0, 85, 255, 0.25),
+      0 0 14px 4px rgba(0, 85, 255, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(0, 85, 255, 0.15),
+      0 0 26px 10px rgba(0, 85, 255, 0.85);
+  }
+}
+
+@keyframes atx-pulse-stage {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 4px rgba(139, 0, 0, 0.25),
+      0 0 14px 4px rgba(139, 0, 0, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 0 8px rgba(139, 0, 0, 0.15),
+      0 0 26px 10px rgba(139, 0, 0, 0.85);
+  }
 }
 
 @keyframes atx-pulse-red {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import { AudioLines, Filter, Flame, LoaderCircle, Plus } from "lucide-react";
 import { PIN_ZOOM } from "@/lib/constants";
@@ -19,6 +19,11 @@ import {
   toggleSources,
   type PinFilter,
 } from "@/lib/filters";
+import {
+  getArtistPins,
+  patchArtistPin,
+  subscribeArtistPins,
+} from "@/lib/artistPinStore";
 import { CITY_PINS } from "@/lib/seedData";
 import type { FlyToTarget, Pin, ToastMessage } from "@/lib/types";
 import SearchBar from "@/components/SearchBar";
@@ -72,7 +77,25 @@ export default function LiveMapApp() {
   const [flyTo, setFlyTo] = useState<FlyToTarget | null>(null);
   const [toast, setToast] = useState<ToastMessage | null>(null);
 
-  const visiblePins = useMemo(() => filterPins(pins, filter), [pins, filter]);
+  // Artist Studio pins (published shows, ON_STAGE pings) live in a
+  // module-level store so they survive App Router navigation — LiveMapApp
+  // unmounts when the artist leaves the fan map, plain state would not.
+  // Same persistence contract as Go-Live pins: client state only, a reload
+  // clears them. The studio owns these pins; the fan map renders and
+  // filters them but "clear all" leaves them alone.
+  // The module store is plain client state; during SSR prerender it is
+  // simply empty, and the same getter serves as the server snapshot.
+  const artistPins = useSyncExternalStore(
+    subscribeArtistPins,
+    getArtistPins,
+    getArtistPins,
+  );
+  const allPins = useMemo(() => [...pins, ...artistPins], [pins, artistPins]);
+
+  const visiblePins = useMemo(
+    () => filterPins(allPins, filter),
+    [allPins, filter],
+  );
 
   // Drives both the header legend and FilterBar's status row from the same
   // filter.sources so the two controls never disagree about what's toggled.
@@ -80,6 +103,7 @@ export default function LiveMapApp() {
   const droppedActive = DROPPED_SOURCES.every((source) =>
     filter.sources.includes(source),
   );
+  const artistActive = filter.sources.includes("artist");
 
   const toggleLegendSources = useCallback((sources: Pin["source"][]) => {
     setFilter((current) => ({
@@ -334,6 +358,14 @@ export default function LiveMapApp() {
       if (!selectedPinId) {
         return;
       }
+      // Artist pins live in the studio store, not the fan-map pins state —
+      // route their edits there so the drawer doesn't silently drop them.
+      // (A later studio action re-syncs from the SDK, which stays the
+      // source of truth for artist pins.)
+      if (getArtistPins().some((pin) => pin.id === selectedPinId)) {
+        patchArtistPin(selectedPinId, patch);
+        return;
+      }
       setPins((current) =>
         current.map((pin) =>
           pin.id === selectedPinId ? { ...pin, ...patch } : pin,
@@ -447,6 +479,21 @@ export default function LiveMapApp() {
                 />
                 {droppedActive ? "Dropped" : "Dropped · off"}
               </button>
+              <button
+                type="button"
+                aria-pressed={artistActive}
+                onClick={() => toggleLegendSources(["artist"])}
+                className={`inline-flex items-center gap-1.5 rounded-full transition ${
+                  artistActive ? "text-atx-ink" : "text-stone-400 opacity-60"
+                }`}
+              >
+                <span
+                  className={`h-2.5 w-2.5 rounded-full bg-atx-electric ${
+                    artistActive ? "shadow-[0_0_10px_#0055FF]" : ""
+                  }`}
+                />
+                {artistActive ? "Artist" : "Artist · off"}
+              </button>
             </div>
           </div>
           <div className="pointer-events-auto flex items-center gap-2 self-start">
@@ -483,7 +530,7 @@ export default function LiveMapApp() {
             onSearch={handleSearch}
             onClearAll={handleClearAll}
             isSearching={isSearching}
-            pinCount={pins.length}
+            pinCount={allPins.length}
             collapsed={searchCollapsed}
             onExpand={expandSearch}
           />
@@ -492,7 +539,7 @@ export default function LiveMapApp() {
               filter={filter}
               onChange={setFilter}
               visibleCount={visiblePins.length}
-              totalCount={pins.length}
+              totalCount={allPins.length}
               onClose={() => setFiltersOpen(false)}
             />
           ) : null}

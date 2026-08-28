@@ -32,9 +32,25 @@ type MapCanvasProps = {
   heatmapOn?: boolean;
 };
 
+/**
+ * Marker variant per pin. Artist pins (from the Artist Studio) get their own
+ * electric-blue accent; an artist pin marked ON_STAGE pulses in the dark-red
+ * stage color like the Go-Live live pins. `status` lives on ArtistShowPin
+ * (artistSdk.ts), so it is narrowed with an `in` check rather than widening
+ * the shared Pin type.
+ */
+function markerKind(pin: Pin): string {
+  if (pin.source === "artist") {
+    return "status" in pin && pin.status === "ON_STAGE"
+      ? "artist-live"
+      : "artist";
+  }
+  return pin.source === "live" ? "live" : "drop";
+}
+
 function glowIcon(pin: Pin, selected: boolean): L.DivIcon {
   const size = selected ? 36 : 28;
-  const kind = pin.source === "live" ? "live" : "drop";
+  const kind = markerKind(pin);
   return L.divIcon({
     className: "atx-marker",
     iconSize: [size, size],

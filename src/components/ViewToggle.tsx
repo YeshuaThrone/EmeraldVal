@@ -1,9 +1,14 @@
 import Link from "next/link";
-import { ADMIN_ROUTE, FAN_MAP_ROUTE, FESTIVAL_ROUTE } from "@/lib/routes";
+import {
+  ADMIN_ROUTE,
+  ARTIST_ROUTE,
+  FAN_MAP_ROUTE,
+  FESTIVAL_ROUTE,
+} from "@/lib/routes";
 
 interface ViewToggleProps {
   /** Which view is currently active — drives which link gets aria-current. */
-  variant: "fan" | "admin" | "festival";
+  variant: "fan" | "admin" | "festival" | "artist";
 }
 
 const linkClass = (active: boolean) =>
@@ -14,10 +19,10 @@ const linkClass = (active: boolean) =>
   }`;
 
 /**
- * Shared top-bar toggle between the fan map, the admin dashboard, and the
- * Festival Finder. Rendered in all three headers so any view is
- * always one click away from the other two; the active view is marked
- * with aria-current="page".
+ * Shared top-bar toggle between the fan map, the admin dashboard, the
+ * Festival Finder, and the Artist Studio. Rendered in every header so any
+ * view is always one click away from the other three; the active view is
+ * marked with aria-current="page".
  */
 export default function ViewToggle({ variant }: ViewToggleProps) {
   return (
@@ -45,6 +50,13 @@ export default function ViewToggle({ variant }: ViewToggleProps) {
         className={linkClass(variant === "festival")}
       >
         Festival Finder
+      </Link>
+      <Link
+        href={ARTIST_ROUTE}
+        aria-current={variant === "artist" ? "page" : undefined}
+        className={linkClass(variant === "artist")}
+      >
+        Artist Studio
       </Link>
     </nav>
   );
