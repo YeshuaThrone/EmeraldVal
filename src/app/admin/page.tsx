@@ -22,6 +22,7 @@ import {
   type ComplianceStatus,
 } from "@/lib/municipal";
 import { CITY_PINS } from "@/lib/seedData";
+import CivicComplianceSection from "@/components/CivicComplianceSection";
 import ViewToggle from "@/components/ViewToggle";
 import AnimatedBar from "./AnimatedBar";
 
@@ -480,6 +481,7 @@ export default function AdminDashboardPage() {
             {complianceSummary["Over Limit"]} over limit
           </p>
         </section>
+        <CivicComplianceSection />
       </main>
     </div>
   );
