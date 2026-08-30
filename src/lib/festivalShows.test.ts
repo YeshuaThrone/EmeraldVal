@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  FESTIVAL_FEED_KICKER,
+  FESTIVAL_SHOW_STATUS_LABEL,
   festivalTicketingFromRecord,
   fetchFestivalShows,
+  formatFestivalRowTitle,
   formatFestivalSetTime,
   showRecordToFestivalEntry,
   sortFestivalEntries,
@@ -11,6 +14,7 @@ import type { StoredShow } from "@/lib/shows";
 
 /** A fully-populated stored show — tests override the fields they exercise. */
 function storedShow(overrides: Partial<StoredShow> = {}): StoredShow {
+
   return {
     id: "show-1",
     artist_id: "artist-1",
@@ -30,6 +34,22 @@ function storedShow(overrides: Partial<StoredShow> = {}): StoredShow {
     ...overrides,
   };
 }
+
+describe("PR 29 badge and copy constants", () => {
+  it("labels the feed with the paste's Live Fan Map Feed kicker", () => {
+    expect(FESTIVAL_FEED_KICKER).toBe("Live Fan Map Feed");
+  });
+
+  it("derives a Confirmed status from publication (no store field)", () => {
+    expect(FESTIVAL_SHOW_STATUS_LABEL).toBe("Confirmed");
+  });
+
+  it("formats the row title as 'artist — venue'", () => {
+    expect(formatFestivalRowTitle("Glass Prairie", "Mohawk")).toBe(
+      "Glass Prairie — Mohawk",
+    );
+  });
+});
 
 describe("formatFestivalSetTime", () => {
   it("formats an ISO set time the way the fan map's drawer does", () => {

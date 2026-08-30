@@ -25,6 +25,30 @@ export type FestivalTicketing =
   | { kind: "native"; price: number; capacity: number }
   | { kind: "none" };
 
+/**
+ * Kicker copy under the section title (PR 29) — labels the feed as the
+ * same live source the fan map pins, per the Festival Finder paste's
+ * "ARTIST-SUBMITTED SHOWS (LIVE FAN MAP FEED)" labeling.
+ */
+export const FESTIVAL_FEED_KICKER = "Live Fan Map Feed";
+
+/**
+ * Status label shown on every row (PR 29). Derived, not stored: a show
+ * only appears in GET /api/shows after passing the studio's publish
+ * validation, so publication itself is the confirmation — no new store
+ * field, and no unconfirmed state can exist in this feed.
+ */
+export const FESTIVAL_SHOW_STATUS_LABEL = "Confirmed";
+
+/**
+ * Row title in the paste's "artist — venue" format (em dash, spaced).
+ * Pure so the copy decision is unit-testable alongside the other
+ * presentation converters in this module.
+ */
+export function formatFestivalRowTitle(artistName: string, venue: string): string {
+  return `${artistName} — ${venue}`;
+}
+
 /** One artist-submitted show, shaped for the festival section's rows. */
 export type FestivalShowEntry = {
   id: string;
