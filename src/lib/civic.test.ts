@@ -56,26 +56,47 @@ describe("VENUE_AUDIT_ROWS", () => {
   it("lists exactly the five contract venues with their districts and dB readings", () => {
     expect(VENUE_AUDIT_ROWS).toEqual([
       {
+        id: "v-1",
         name: "Empire Control Room",
         district: "D9",
         currentDb: 88,
         limitDb: 85,
       },
-      { name: "Far Out Lounge", district: "D2", currentDb: 79, limitDb: 80 },
-      { name: "Mohawk", district: "D9", currentDb: 91, limitDb: 85 },
       {
+        id: "v-2",
+        name: "Far Out Lounge",
+        district: "D2",
+        currentDb: 79,
+        limitDb: 80,
+      },
+      {
+        id: "v-3",
+        name: "Mohawk",
+        district: "D9",
+        currentDb: 91,
+        limitDb: 85,
+      },
+      {
+        id: "v-4",
         name: "The Continental Club",
         district: "D9",
         currentDb: 74,
         limitDb: 80,
       },
       {
+        id: "v-5",
         name: "C-Boy's Heart & Soul",
         district: "D9",
         currentDb: 72,
         limitDb: 75,
       },
     ]);
+  });
+
+  it("gives every venue a unique v-prefixed id for stable React keys", () => {
+    const ids = VENUE_AUDIT_ROWS.map((venue) => venue.id);
+    expect(ids).toEqual(["v-1", "v-2", "v-3", "v-4", "v-5"]);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it("matches the contract's two over-limit venues (Empire Control Room, Mohawk)", () => {
@@ -114,9 +135,9 @@ describe("deriveVenueStatus", () => {
 
 describe("filterVenuesByName", () => {
   const venues: VenueAuditRow[] = [
-    { name: "Empire Control Room", district: "D9", currentDb: 88, limitDb: 85 },
-    { name: "Far Out Lounge", district: "D2", currentDb: 79, limitDb: 80 },
-    { name: "Mohawk", district: "D9", currentDb: 91, limitDb: 85 },
+    { id: "v-1", name: "Empire Control Room", district: "D9", currentDb: 88, limitDb: 85 },
+    { id: "v-2", name: "Far Out Lounge", district: "D2", currentDb: 79, limitDb: 80 },
+    { id: "v-3", name: "Mohawk", district: "D9", currentDb: 91, limitDb: 85 },
   ];
 
   it("returns all venues for a null query", () => {

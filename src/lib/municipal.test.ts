@@ -22,8 +22,8 @@ describe("municipal contract figures", () => {
     expect(ACTIVE_VENUE_COUNT).toBe(36);
   });
 
-  it("holds the local artist economic share at 78.4%", () => {
-    expect(LOCAL_ARTIST_SHARE_PERCENT).toBe(78.4);
+  it("derives the local artist economic share from the unified telemetry model (69.4%)", () => {
+    expect(LOCAL_ARTIST_SHARE_PERCENT).toBe(69.4);
   });
 
   it("holds the estimated nighttime economy impact at $142,500", () => {

@@ -145,7 +145,7 @@ export default function CivicComplianceSection({
             const status = deriveVenueStatus(venue.currentDb, venue.limitDb);
             return (
               <div
-                key={venue.name}
+                key={venue.id}
                 className="flex items-center justify-between gap-3 rounded-xl border border-atx-line bg-atx-paper p-3"
               >
                 <div className="flex items-center gap-3">
@@ -167,7 +167,7 @@ export default function CivicComplianceSection({
           })}
           {visibleVenues.length === 0 ? (
             <p className="rounded-xl border border-atx-line bg-atx-paper p-3 text-sm text-stone-500">
-              No venues match that name.
+              No venues found matching filter criteria.
             </p>
           ) : null}
         </div>
