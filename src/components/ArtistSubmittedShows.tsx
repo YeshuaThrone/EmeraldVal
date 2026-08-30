@@ -5,12 +5,14 @@ import Link from "next/link";
 import {
   CalendarDays,
   ExternalLink,
-  MapPin,
   Music4,
   Ticket,
 } from "lucide-react";
 import {
+  FESTIVAL_FEED_KICKER,
+  FESTIVAL_SHOW_STATUS_LABEL,
   fetchFestivalShows,
+  formatFestivalRowTitle,
   formatFestivalSetTime,
   type FestivalShowEntry,
   type FestivalTicketing,
@@ -112,6 +114,13 @@ export default function ArtistSubmittedShows() {
           <p className="text-xs font-semibold tracking-[0.2em] text-atx-electric-deep uppercase">
             Artist-Submitted Shows
           </p>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.2em] text-atx-electric uppercase">
+            <span
+              aria-hidden="true"
+              className="h-1.5 w-1.5 rounded-full bg-atx-electric"
+            />
+            {FESTIVAL_FEED_KICKER}
+          </p>
           <p className="mt-1 text-sm text-stone-500">
             Published live from the Artist Studio — the same feed the fan map
             pins.
@@ -168,17 +177,19 @@ export default function ArtistSubmittedShows() {
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-semibold text-atx-ink">
-                      {entry.artistName}
+                      {formatFestivalRowTitle(entry.artistName, entry.venue)}
+                    </span>
+                    {/* Derived status: publication is the confirmation —
+                        styled with the audio widget's compliant chip
+                        treatment, not the paste's zinc/green palette. */}
+                    <span className="rounded-full bg-atx-blue/15 px-2 py-0.5 text-[11px] font-semibold tracking-wide text-atx-blue-deep uppercase">
+                      {FESTIVAL_SHOW_STATUS_LABEL}
                     </span>
                     <span className="rounded-full bg-atx-electric/10 px-2 py-0.5 text-[11px] font-semibold text-atx-electric-deep">
                       {entry.councilDistrict}
                     </span>
                   </div>
                   <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {entry.venue}
-                    </span>
                     {setTimeLabel !== null ? (
                       <span className="inline-flex items-center gap-1 tabular-nums">
                         <CalendarDays className="h-3 w-3" />
