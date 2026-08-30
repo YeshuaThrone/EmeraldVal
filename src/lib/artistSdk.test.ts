@@ -965,3 +965,85 @@ describe("ATXLiveArtistSDK transport (PR 22)", () => {
     expect(JSON.parse(init?.body as string)).toEqual(result.payload);
   });
 });
+
+
+describe("ATXLiveArtistSDK transport (PR 23 Bearer)", () => {
+  it("sends Authorization: Bearer on uploadShow after setApiKey", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    const sdk = initializedSdk("artist-42");
+    sdk.setApiKey("atxlive_testkey123");
+
+    await sdk.uploadShow(VALID_INPUT);
+
+    const [, init] = mockedFetch.mock.calls[0];
+    expect(init?.headers).toMatchObject({
+      Authorization: "Bearer atxlive_testkey123",
+    });
+  });
+
+  it("sends Authorization: Bearer on triggerLivePing after setApiKey", async () => {
+    mockedReverseGeocode.mockResolvedValue({
+      ok: true,
+      lat: 30.2674,
+      lng: -97.7398,
+      displayName: "Mohawk, 912 Red River Street, Austin",
+    });
+    const sdk = initializedSdk("artist-42");
+    sdk.setApiKey("atxlive_testkey123");
+
+    await sdk.triggerLivePing({ lat: 30.2674, lng: -97.7398 });
+
+    const [, init] = mockedFetch.mock.calls[0];
+    expect(init?.headers).toMatchObject({
+      Authorization: "Bearer atxlive_testkey123",
+    });
+  });
+
+  it("sends no Authorization header when no key is configured", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    await initializedSdk("artist-42").uploadShow(VALID_INPUT);
+
+    const [, init] = mockedFetch.mock.calls[0];
+    const headers = (init?.headers ?? {}) as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
+  });
+
+  it("clears the credential with an empty string", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    const sdk = initializedSdk("artist-42");
+    sdk.setApiKey("atxlive_testkey123");
+    expect(sdk.isAuthorized).toBe(true);
+
+    sdk.setApiKey("");
+    expect(sdk.isAuthorized).toBe(false);
+
+    await sdk.uploadShow(VALID_INPUT);
+    const [, init] = mockedFetch.mock.calls[0];
+    const headers = (init?.headers ?? {}) as Record<string, string>;
+    expect(headers.Authorization).toBeUndefined();
+  });
+
+  it("maps a 401 AUTH_INVALID envelope to auth_error with the server code", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    mockedFetch.mockImplementationOnce(async () =>
+      jsonResponse(401, {
+        error: "That artist key doesn't match any registered artist.",
+        code: "AUTH_INVALID",
+      }),
+    );
+    const sdk = initializedSdk("artist-42");
+    sdk.setApiKey("atxlive_stalekey");
+    const result = await sdk.uploadShow(VALID_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      return;
+    }
+    expect(result.code).toBe("auth_error");
+    expect(result.serverCode).toBe("AUTH_INVALID");
+    expect(result.httpStatus).toBe(401);
+    // No pin on failure — the map never shows an unstored show.
+    expect(sdk.artistPins).toHaveLength(0);
+  });
+});
+

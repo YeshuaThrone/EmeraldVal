@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
+  Check,
+  Copy,
   ExternalLink,
+  KeyRound,
   LoaderCircle,
+  LogOut,
   MicVocal,
   Radio,
   Ticket,
@@ -14,6 +18,14 @@ import {
   COUNCIL_DISTRICTS,
   councilDistrictBucket,
 } from "@/lib/artistSdk";
+import {
+  clearArtistCredentials,
+  loadArtistCredentials,
+  registerArtist,
+  saveArtistCredentials,
+  verifyArtistKey,
+  type ArtistCredentials,
+} from "@/lib/artistCredentials";
 import { setArtistPins } from "@/lib/artistPinStore";
 import type { Ticketing } from "@/lib/types";
 
@@ -21,7 +33,9 @@ import type { Ticketing } from "@/lib/types";
  * One SDK instance for the whole session. The pasted Artist Control Panel
  * constructed a fresh ATXLiveArtistSDK on every render and never called
  * init(artistId), so every uploadShow ran against an uninitialized artist;
- * a module-level singleton with an explicit init fixes both.
+ * a module-level singleton with an explicit init fixes both. PR 23 adds
+ * the Bearer credential: sign-in (register or paste) calls setApiKey so
+ * every write carries `Authorization: Bearer <key>`.
  */
 let sdkInstance: ATXLiveArtistSDK | null = null;
 
@@ -33,13 +47,17 @@ function getSdk(): ATXLiveArtistSDK {
 }
 
 /**
- * The artist name survives in-session navigation, like the pins it labels —
- * without this, leaving the studio and coming back would blank the field
- * and re-lock GO LIVE even though the SDK singleton is still initialized.
- * It is also the v2 prefill source: the Artist Name field starts from the
- * existing session identity and stays editable.
+ * The studio's auth state. `loading` covers the mount-time re-validation of
+ * a stored credential (localStorage read + GET /api/artists/verify) so a
+ * reload never flashes the sign-in card before restoring the session.
  */
-let sessionArtistId = "";
+type AuthState =
+  | { status: "loading" }
+  | { status: "signed_out" }
+  | { status: "signed_in"; credentials: ArtistCredentials };
+
+/** The two sides of the signed-out auth card: mint a key, or paste one. */
+type AuthMode = "register" | "signin";
 
 type Feedback = { type: "success" | "error"; message: string };
 
@@ -125,25 +143,32 @@ export function validateTicketingFields(
 }
 
 /**
- * The Artist Control Panel (v2). Publishes shows through sdk.uploadShow with
- * the full pasted-panel structure — artist name, venue, street address, the
- * ten-option City Council District select, set time, and the pill-style
- * External Link / Sell Native toggle — and goes live through
- * navigator.geolocation → sdk.triggerLivePing. Native ticketing is data, not
+ * The Artist Control Panel (v2 + PR 23 identity). Publishing and GO LIVE
+ * run through the signed-in artist's Bearer key: register (name → key,
+ * shown once with a copy affordance) or sign in (paste an existing key,
+ * validated against GET /api/artists/verify) — the key persists in
+ * localStorage and is re-validated on mount, so the session survives a
+ * reload. Publishing and GO LIVE are gated on being signed in with themed
+ * inline prompts, never silent failures. Native ticketing is data, not
  * checkout: the panel captures price/capacity and the pin displays them as
- * "Direct ATXLive Ticketing" data; there is deliberately no buy flow. Every
- * outcome lands as themed inline feedback (the pasted version used alert()).
+ * "Direct ATXLive Ticketing" data; there is deliberately no buy flow.
  */
 export default function ArtistUploadWidget() {
-  const [artistId, setArtistId] = useState(sessionArtistId);
+  const [auth, setAuth] = useState<AuthState>({ status: "loading" });
+  const [authMode, setAuthMode] = useState<AuthMode>("register");
+  const [registerName, setRegisterName] = useState("");
+  const [signinKey, setSigninKey] = useState("");
+  const [isAuthWorking, setIsAuthWorking] = useState(false);
+  const [authFeedback, setAuthFeedback] = useState<Feedback | null>(null);
+  /** The one-time key reveal after registering — never shown again. */
+  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [form, setForm] = useState<ArtistForm>(EMPTY_FORM);
   const [fieldErrors, setFieldErrors] = useState<TicketingFieldErrors>({});
   const [isPublishing, setIsPublishing] = useState(false);
   const [isGoingLive, setIsGoingLive] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
-
-  const isInitialized = artistId.trim() !== "";
 
   const updateField = useCallback(
     <K extends keyof ArtistForm>(key: K, value: ArtistForm[K]) => {
@@ -152,16 +177,127 @@ export default function ArtistUploadWidget() {
     [],
   );
 
-  // init() is idempotent, so re-initializing on every keystroke of the
-  // artist name is safe and keeps the SDK's artist in lockstep with the UI.
-  const handleArtistIdChange = useCallback((value: string) => {
-    setArtistId(value);
-    const trimmed = value.trim();
-    if (trimmed !== "") {
-      getSdk().init(trimmed);
-      sessionArtistId = trimmed;
-    }
+  /** Applies a credential to the SDK singleton and the session state. */
+  const signInWith = useCallback((credentials: ArtistCredentials) => {
+    const sdk = getSdk();
+    sdk.setApiKey(credentials.apiKey);
+    sdk.init(credentials.artistId);
+    saveArtistCredentials(credentials);
+    setAuth({ status: "signed_in", credentials });
+    setAuthFeedback(null);
   }, []);
+
+  // Mount: restore the session from localStorage and re-validate the key
+  // against the server — a stale or revoked key signs the artist out
+  // instead of failing silently on the next publish.
+  useEffect(() => {
+    let cancelled = false;
+    const stored = loadArtistCredentials();
+    if (stored === null) {
+      setAuth({ status: "signed_out" });
+      return;
+    }
+    void verifyArtistKey(stored.apiKey).then((profile) => {
+      if (cancelled) {
+        return;
+      }
+      if (profile === null) {
+        clearArtistCredentials();
+        setAuth({ status: "signed_out" });
+        return;
+      }
+      setAuth({ status: "signed_in", credentials: stored });
+      getSdk().setApiKey(stored.apiKey);
+      getSdk().init(stored.artistId);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleRegister = useCallback(async () => {
+    const name = registerName.trim();
+    if (name === "") {
+      setAuthFeedback({
+        type: "error",
+        message: "Enter your artist or band name to create a key.",
+      });
+      return;
+    }
+    setIsAuthWorking(true);
+    setAuthFeedback(null);
+    try {
+      const credentials = await registerArtist(name);
+      if (credentials === null) {
+        setAuthFeedback({
+          type: "error",
+          message: "Registration failed — please try again.",
+        });
+        return;
+      }
+      signInWith(credentials);
+      setRevealedKey(credentials.apiKey);
+      setCopied(false);
+    } finally {
+      setIsAuthWorking(false);
+    }
+  }, [registerName, signInWith]);
+
+  const handleSignIn = useCallback(async () => {
+    const key = signinKey.trim();
+    if (key === "") {
+      setAuthFeedback({
+        type: "error",
+        message: "Paste the artist key you stored when you registered.",
+      });
+      return;
+    }
+    setIsAuthWorking(true);
+    setAuthFeedback(null);
+    try {
+      const profile = await verifyArtistKey(key);
+      if (profile === null) {
+        setAuthFeedback({
+          type: "error",
+          message:
+            "That key doesn't match any registered artist — check for typos, or create a new key.",
+        });
+        return;
+      }
+      signInWith({
+        artistId: profile.id,
+        artistName: profile.artistName,
+        apiKey: key,
+        keyPrefix: profile.keyPrefix,
+      });
+      setSigninKey("");
+    } finally {
+      setIsAuthWorking(false);
+    }
+  }, [signinKey, signInWith]);
+
+  const handleSignOut = useCallback(() => {
+    clearArtistCredentials();
+    getSdk().setApiKey("");
+    setAuth({ status: "signed_out" });
+    setRevealedKey(null);
+    setAuthMode("register");
+    setAuthFeedback(null);
+  }, []);
+
+  const handleCopyKey = useCallback(async () => {
+    if (revealedKey === null) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(revealedKey);
+      setCopied(true);
+    } catch {
+      // Clipboard permission denied — the key stays selectable in the
+      // reveal box, so the artist can copy it manually.
+      setCopied(false);
+    }
+  }, [revealedKey]);
 
   const syncPinsToStore = useCallback(() => {
     // Fresh copies: the SDK mutates its pin objects in place (a live ping
@@ -170,16 +306,33 @@ export default function ArtistUploadWidget() {
     setArtistPins(getSdk().artistPins.map((pin) => ({ ...pin })));
   }, []);
 
+  const requireSignIn = useCallback(
+    (action: string): boolean => {
+      if (auth.status === "signed_in") {
+        return true;
+      }
+      setFeedback({
+        type: "error",
+        message:
+          auth.status === "loading"
+            ? "Checking your sign-in — try again in a moment."
+            : `Sign in with your artist key to ${action} — create a key or paste an existing one above.`,
+      });
+      return false;
+    },
+    [auth],
+  );
+
   const handlePublish = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!isInitialized) {
-        setFeedback({
-          type: "error",
-          message: "Enter your artist name first — it labels your pins.",
-        });
+      if (!requireSignIn("publish shows")) {
         return;
       }
+      if (auth.status !== "signed_in") {
+        return;
+      }
+      const credentials = auth.credentials;
 
       // Inline gate: bad ticketing input never reaches the SDK.
       const errors = validateTicketingFields(form);
@@ -202,7 +355,9 @@ export default function ArtistUploadWidget() {
       setFeedback(null);
       try {
         const result = await getSdk().uploadShow({
-          artistName: artistId,
+          // Informational on the wire — the server stamps the authenticated
+          // artist row onto the stored show.
+          artistName: credentials.artistName,
           venueName: form.venueName,
           address: form.address.trim() === "" ? undefined : form.address,
           // The geocoded point still drives filter classification; the
@@ -236,15 +391,11 @@ export default function ArtistUploadWidget() {
         setIsPublishing(false);
       }
     },
-    [artistId, form, isInitialized, syncPinsToStore],
+    [auth, form, requireSignIn, syncPinsToStore],
   );
 
   const handleGoLive = useCallback(() => {
-    if (!isInitialized) {
-      setFeedback({
-        type: "error",
-        message: "Enter your artist name first — it labels your pins.",
-      });
+    if (!requireSignIn("go live on stage")) {
       return;
     }
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -297,12 +448,19 @@ export default function ArtistUploadWidget() {
       },
       { timeout: GEOLOCATION_TIMEOUT_MS },
     );
-  }, [isInitialized, syncPinsToStore]);
+  }, [requireSignIn, syncPinsToStore]);
 
   const feedbackClass =
     feedback === null
       ? ""
       : feedback.type === "success"
+        ? "border-atx-electric/40 bg-atx-electric/10 text-atx-electric-deep"
+        : "border-atx-stage/40 bg-atx-stage/10 text-atx-stage-deep";
+
+  const authFeedbackClass =
+    authFeedback === null
+      ? ""
+      : authFeedback.type === "success"
         ? "border-atx-electric/40 bg-atx-electric/10 text-atx-electric-deep"
         : "border-atx-stage/40 bg-atx-stage/10 text-atx-stage-deep";
 
@@ -328,18 +486,173 @@ export default function ArtistUploadWidget() {
         </p>
       </div>
 
-      <div className="grid gap-3">
-        <label className="grid gap-1.5">
-          <span className="text-xs font-medium text-stone-500">Artist Name</span>
-          <input
-            required
-            value={artistId}
-            onChange={(event) => handleArtistIdChange(event.target.value)}
-            placeholder="Your artist or band name"
-            className={FIELD_CLASS}
-          />
-        </label>
+      {auth.status === "signed_in" ? (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-atx-electric/40 bg-atx-electric/10 px-3 py-2.5">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-atx-electric-deep">
+              Signed in as {auth.credentials.artistName}
+            </p>
+            <p className="truncate font-mono text-xs text-stone-500">
+              {auth.credentials.keyPrefix}…
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-atx-line bg-atx-paper px-3 py-1.5 text-xs font-semibold text-stone-500 transition hover:border-atx-stage/50 hover:text-atx-stage-deep"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            Sign out
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-3 rounded-xl border border-atx-line bg-stone-50 p-3">
+          <div className="grid grid-cols-2 gap-1 rounded-full border border-atx-line bg-stone-100 p-1">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={authMode === "register"}
+              onClick={() => {
+                setAuthFeedback(null);
+                setAuthMode("register");
+              }}
+              className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                authMode === "register"
+                  ? "bg-atx-paper text-atx-ink shadow-[0_2px_10px_rgba(28,25,23,0.18)]"
+                  : "text-stone-500 hover:text-atx-ink"
+              }`}
+            >
+              <KeyRound className="h-3.5 w-3.5" />
+              Create key
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={authMode === "signin"}
+              onClick={() => {
+                setAuthFeedback(null);
+                setAuthMode("signin");
+              }}
+              className={`inline-flex items-center justify-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition ${
+                authMode === "signin"
+                  ? "bg-atx-paper text-atx-ink shadow-[0_2px_10px_rgba(28,25,23,0.18)]"
+                  : "text-stone-500 hover:text-atx-ink"
+              }`}
+            >
+              <MicVocal className="h-3.5 w-3.5" />
+              Sign in
+            </button>
+          </div>
 
+          {authMode === "register" ? (
+            <div className="grid gap-2">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium text-stone-500">
+                  Artist Name
+                </span>
+                <input
+                  value={registerName}
+                  onChange={(event) => setRegisterName(event.target.value)}
+                  placeholder="Your artist or band name"
+                  className={FIELD_CLASS}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleRegister();
+                }}
+                disabled={isAuthWorking}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-atx-electric px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-atx-electric-deep disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isAuthWorking ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <KeyRound className="h-4 w-4" />
+                )}
+                {isAuthWorking ? "Creating…" : "Create artist key"}
+              </button>
+              <p className="text-xs text-stone-400">
+                New here? A key is your studio credential — create one per
+                artist or band name.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium text-stone-500">
+                  Artist Key
+                </span>
+                <input
+                  type="password"
+                  value={signinKey}
+                  onChange={(event) => setSigninKey(event.target.value)}
+                  placeholder="atxlive_…"
+                  className={`${FIELD_CLASS} font-mono`}
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleSignIn();
+                }}
+                disabled={isAuthWorking}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-atx-electric px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-atx-electric-deep disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isAuthWorking ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <KeyRound className="h-4 w-4" />
+                )}
+                {isAuthWorking ? "Checking…" : "Sign in"}
+              </button>
+              <p className="text-xs text-stone-400">
+                Paste the key you stored when you registered.
+              </p>
+            </div>
+          )}
+
+          {revealedKey !== null ? (
+            <div className="grid gap-2 rounded-xl border border-atx-stage/40 bg-atx-stage/10 p-3">
+              <p className="text-xs font-semibold text-atx-stage-deep">
+                Store it now — we show it once. This is the only time your
+                full key appears; copy it somewhere safe before leaving this
+                panel.
+              </p>
+              <code className="block break-all rounded-lg border border-atx-line bg-atx-paper px-3 py-2 font-mono text-xs text-atx-ink select-all">
+                {revealedKey}
+              </code>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleCopyKey();
+                }}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-atx-line bg-atx-paper px-3 py-2 text-xs font-semibold text-atx-ink transition hover:border-atx-electric/50 hover:text-atx-electric"
+              >
+                {copied ? (
+                  <Check className="h-3.5 w-3.5" />
+                ) : (
+                  <Copy className="h-3.5 w-3.5" />
+                )}
+                {copied ? "Copied!" : "Copy key"}
+              </button>
+            </div>
+          ) : null}
+
+          <div aria-live="polite" className="grid gap-2">
+            {authFeedback !== null ? (
+              <p
+                role={authFeedback.type === "error" ? "alert" : "status"}
+                className={`rounded-xl border px-3 py-2.5 text-sm ${authFeedbackClass}`}
+              >
+                {authFeedback.message}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      <div className="grid gap-3">
         <label className="grid gap-1.5">
           <span className="text-xs font-medium text-stone-500">Venue Name</span>
           <input
@@ -538,12 +851,7 @@ export default function ArtistUploadWidget() {
         <button
           type="button"
           onClick={handleGoLive}
-          disabled={isGoingLive || !isInitialized}
-          title={
-            isInitialized
-              ? undefined
-              : "Enter your artist name to enable going live"
-          }
+          disabled={isGoingLive}
           className={`inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-atx-stage px-4 py-3 text-sm font-bold tracking-wide text-white transition hover:bg-atx-stage-deep disabled:cursor-not-allowed disabled:opacity-70 ${
             isLive ? "animate-pulse shadow-[0_0_32px_rgba(139,0,0,0.65)]" : ""
           }`}

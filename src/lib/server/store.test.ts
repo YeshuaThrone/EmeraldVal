@@ -115,11 +115,18 @@ describe("live pings", () => {
   });
 });
 
-describe("artists (schema + CRUD stub for PR 23)", () => {
-  it("round-trips insert and get", () => {
-    const artist = store.insertArtist("The Night Owls", "2026-08-30T00:00:00.000Z");
+describe("artists (PR 23 credentials)", () => {
+  it("round-trips insert and get with the key hash and prefix", () => {
+    const artist = store.insertArtist(
+      "The Night Owls",
+      "hash-abc",
+      "atxlive_abc12345",
+      "2026-08-30T00:00:00.000Z",
+    );
     expect(artist.id).toBeTruthy();
     expect(artist.name).toBe("The Night Owls");
+    expect(artist.key_hash).toBe("hash-abc");
+    expect(artist.key_prefix).toBe("atxlive_abc12345");
 
     const read = store.getArtist(artist.id);
     expect(read).toEqual(artist);
@@ -127,5 +134,19 @@ describe("artists (schema + CRUD stub for PR 23)", () => {
 
   it("returns undefined for an unknown artist id", () => {
     expect(store.getArtist("no-such-id")).toBeUndefined();
+  });
+
+  it("resolves an artist by key hash and never by raw key", () => {
+    const artist = store.insertArtist("Glass House", "hash-xyz", "atxlive_xyz");
+    expect(store.getArtistByKeyHash("hash-xyz")).toEqual(artist);
+    expect(store.getArtistByKeyHash("no-such-hash")).toBeUndefined();
+  });
+
+  it("keeps duplicate names as distinct identities with distinct keys", () => {
+    const first = store.insertArtist("Duo", "hash-1", "atxlive_aaaa");
+    const second = store.insertArtist("Duo", "hash-2", "atxlive_bbbb");
+    expect(first.id).not.toBe(second.id);
+    expect(second.name).toBe("Duo");
+    expect(store.getArtistByKeyHash("hash-2")?.id).toBe(second.id);
   });
 });

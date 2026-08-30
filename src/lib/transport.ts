@@ -115,6 +115,11 @@ export type RequestOptions = {
   method?: "GET" | "POST";
   /** JSON-serializable request body (POST only). */
   body?: unknown;
+  /**
+   * Extra request headers (PR 23) — the SDK sends its Bearer artist key
+   * here. Values are merged after the JSON content-type default.
+   */
+  headers?: Record<string, string>;
 };
 
 /**
@@ -131,10 +136,17 @@ export async function requestJson(
   try {
     const response = await fetch(url, {
       method: options.method ?? "GET",
-      ...(options.body !== undefined
+      ...(options.body !== undefined || options.headers !== undefined
         ? {
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(options.body),
+            headers: {
+              ...(options.body !== undefined
+                ? { "Content-Type": "application/json" }
+                : {}),
+              ...options.headers,
+            },
+            ...(options.body !== undefined
+              ? { body: JSON.stringify(options.body) }
+              : {}),
           }
         : {}),
       signal: controller.signal,
