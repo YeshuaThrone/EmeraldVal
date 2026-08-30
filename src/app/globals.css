@@ -119,6 +119,17 @@ body {
   animation: atx-pulse-stage 1.8s ease-in-out infinite;
 }
 
+/* A sold-out native show (PR 24 capacity accounting) drops the glow and
+   pulses entirely — a muted gray marker that reads as "buying closed". */
+.atx-pin-artist-soldout {
+  background: #a8a29e;
+  box-shadow:
+    0 0 0 4px rgba(168, 162, 158, 0.25),
+    0 0 10px 2px rgba(168, 162, 158, 0.35);
+  animation: none;
+}
+
+
 .atx-pin.is-on {
   animation-duration: 1s;
 }

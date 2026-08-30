@@ -150,3 +150,49 @@ describe("artists (PR 23 credentials)", () => {
     expect(store.getArtistByKeyHash("hash-2")?.id).toBe(second.id);
   });
 });
+
+describe("checkout capacity accounting (PR 24)", () => {
+  const NATIVE_SHOW: ValidShowPayload = {
+    ...SHOW_A,
+    ticketing_type: "native",
+    ticket_url: "",
+    native_ticket_price: 25,
+    native_ticket_capacity: 4,
+  };
+
+  it("fetches a stored show by id", () => {
+    const stored = store.insertShow(NATIVE_SHOW);
+    expect(store.getShow(stored.id)).toEqual(stored);
+    expect(store.getShow("no-such-id")).toBeUndefined();
+  });
+
+  it("decrements remaining capacity on the first confirmation", () => {
+    const id = store.insertShow(NATIVE_SHOW).id;
+    const result = store.recordCheckoutPurchase("cs_1", id, 2);
+    expect(result).toEqual({ outcome: "recorded", remaining: 2 });
+    expect(store.getShow(id)?.native_ticket_capacity).toBe(2);
+  });
+
+  it("is idempotent — a repeated session never double-decrements", () => {
+    const id = store.insertShow(NATIVE_SHOW).id;
+    store.recordCheckoutPurchase("cs_1", id, 2);
+    const repeat = store.recordCheckoutPurchase("cs_1", id, 2);
+    expect(repeat).toEqual({ outcome: "already_recorded", remaining: 2 });
+    expect(store.getShow(id)?.native_ticket_capacity).toBe(2);
+  });
+
+  it("reports insufficient capacity when the show sold out before confirm", () => {
+    const id = store
+      .insertShow({ ...NATIVE_SHOW, native_ticket_capacity: 1 })
+      .id;
+    const result = store.recordCheckoutPurchase("cs_2", id, 2);
+    expect(result).toEqual({ outcome: "insufficient_capacity", remaining: 1 });
+    expect(store.getShow(id)?.native_ticket_capacity).toBe(1);
+  });
+
+  it("returns null for unknown or non-native shows", () => {
+    const externalId = store.insertShow(SHOW_A).id;
+    expect(store.recordCheckoutPurchase("cs_3", "no-such-id", 1)).toBeNull();
+    expect(store.recordCheckoutPurchase("cs_4", externalId, 1)).toBeNull();
+  });
+});

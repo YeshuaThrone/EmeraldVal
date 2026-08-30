@@ -41,6 +41,11 @@ type MapCanvasProps = {
  */
 function markerKind(pin: Pin): string {
   if (pin.source === "artist") {
+    // Sold-out native shows (PR 24 capacity accounting) get their own
+    // muted marker so fans can tell at a glance that buying is closed.
+    if (pin.ticketing?.type === "native" && pin.ticketing.capacity <= 0) {
+      return "artist-soldout";
+    }
     return "status" in pin && pin.status === "ON_STAGE"
       ? "artist-live"
       : "artist";
