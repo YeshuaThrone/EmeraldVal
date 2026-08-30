@@ -1,10 +1,36 @@
 /**
  * Deterministic civic compliance & economic telemetry for the /admin
- * dashboard. Every figure here is a fixed display contract (user-specified,
- * not recomputed from the seed) — labeled as deterministic telemetry like
- * the rest of the municipal suite, never as a real-time feed. See the
- * blueprint's locked decision: "Contract figures verbatim."
+ * dashboard. Labeled as deterministic telemetry like the rest of the
+ * municipal suite, never as a real-time feed. The MBGRT tax yield is a
+ * mathematical contract — gross beverage receipts (synced to the municipal
+ * suite's nighttime economic impact, never duplicated) times the official
+ * Texas MBGRT rate — computed through `calculateTaxYield` rather than
+ * stored as a literal.
  */
+
+import { NIGHTTIME_ECONOMY_IMPACT_USD } from "./municipal";
+
+/** Official Texas Mixed Beverage Gross Receipts Tax rate (6.7%). */
+export const MBGRT_RATE = 0.067;
+
+/**
+ * Gross beverage receipts backing the tax yield — matched directly to
+ * citywide nighttime economic impact. Imported from the municipal suite
+ * so the two dashboards can never drift (a test asserts the equality).
+ */
+export const GROSS_BEVERAGE_RECEIPTS_USD = NIGHTTIME_ECONOMY_IMPACT_USD;
+
+/**
+ * Pure MBGRT yield calculator: receipts × rate, formatted as en-US USD
+ * with no fraction digits (e.g. 142500 × 0.067 → "$9,548").
+ */
+export function calculateTaxYield(receipts: number, rate: number): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(receipts * rate);
+}
 
 /** Audit outcome for a venue's decibel reading against its ordinance limit. */
 export type VenueAuditStatus = "OVER_LIMIT" | "COMPLIANT";
@@ -25,10 +51,13 @@ export interface VenueAuditRow {
 export const ACTIVE_STAGE_UTILIZATION_PERCENT = "84.2%";
 
 /** Card 2 — Estimated MBGRT (Mixed Beverage Gross Receipts Tax) yield, USD. */
-export const EST_MBGRT_TAX_YIELD_USD = "$18,450";
+export const EST_MBGRT_TAX_YIELD_USD = calculateTaxYield(
+  GROSS_BEVERAGE_RECEIPTS_USD,
+  MBGRT_RATE,
+);
 
 /** Card 2 caption — the tax basis behind the yield figure. */
-export const MBGRT_TAX_RATE_LABEL = "8.25% daily beverage tax";
+export const MBGRT_TAX_RATE_LABEL = "Texas 6.7% MBGRT venue tax rate";
 
 /** Card 3 — Ordinance compliance rate across audited venues, percent. */
 export const ORDINANCE_COMPLIANCE_RATE = "92%";

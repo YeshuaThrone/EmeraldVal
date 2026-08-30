@@ -1,22 +1,49 @@
 import { describe, expect, it } from "vitest";
 import {
   CIVIC_COMPLIANCE_DATA,
+  GROSS_BEVERAGE_RECEIPTS_USD,
+  MBGRT_RATE,
   VENUE_AUDIT_ROWS,
+  calculateTaxYield,
   deriveVenueStatus,
   filterVenuesByName,
   type VenueAuditRow,
 } from "@/lib/civic";
+import { MUNICIPAL_DATA } from "@/lib/municipal";
 
 describe("civic contract figures", () => {
   it("holds active stage utilization at 84.2%", () => {
     expect(CIVIC_COMPLIANCE_DATA.activeStageUtilization).toBe("84.2%");
   });
 
-  it("holds the estimated MBGRT tax yield at $18,450 at the 8.25% daily beverage tax", () => {
-    expect(CIVIC_COMPLIANCE_DATA.estMbrtTaxYieldUsd).toBe("$18,450");
-    expect(CIVIC_COMPLIANCE_DATA.mbrtTaxRateLabel).toBe(
-      "8.25% daily beverage tax",
+  it("calculates $142,500 at the 6.7% MBGRT rate to $9,548", () => {
+    expect(calculateTaxYield(142500, 0.067)).toBe("$9,548");
+  });
+
+  it("formats the yield as en-US USD with no fraction digits", () => {
+    expect(calculateTaxYield(1000, 0.067)).toBe("$67");
+    expect(calculateTaxYield(0, 0.067)).toBe("$0");
+  });
+
+  it("derives the module tax yield through the helper, not a literal", () => {
+    expect(CIVIC_COMPLIANCE_DATA.estMbrtTaxYieldUsd).toBe(
+      calculateTaxYield(GROSS_BEVERAGE_RECEIPTS_USD, MBGRT_RATE),
     );
+    expect(CIVIC_COMPLIANCE_DATA.estMbrtTaxYieldUsd).toBe("$9,548");
+  });
+
+  it("pins the MBGRT rate at the official Texas 6.7%", () => {
+    expect(MBGRT_RATE).toBe(0.067);
+    expect(CIVIC_COMPLIANCE_DATA.mbrtTaxRateLabel).toBe(
+      "Texas 6.7% MBGRT venue tax rate",
+    );
+  });
+
+  it("syncs gross beverage receipts to the municipal nighttime economic impact", () => {
+    expect(GROSS_BEVERAGE_RECEIPTS_USD).toBe(
+      MUNICIPAL_DATA.nighttimeEconomyImpactUsd,
+    );
+    expect(GROSS_BEVERAGE_RECEIPTS_USD).toBe(142500);
   });
 
   it("holds ordinance compliance at 92% with 2 violations", () => {
