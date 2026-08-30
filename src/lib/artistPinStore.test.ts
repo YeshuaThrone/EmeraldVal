@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   getArtistPins,
+  getHydratedPins,
   patchArtistPin,
   setArtistPins,
+  setHydratedPins,
   subscribeArtistPins,
 } from "@/lib/artistPinStore";
 import type { ArtistShowPin } from "@/lib/artistSdk";
@@ -28,6 +30,7 @@ function makePin(id: string): ArtistShowPin {
 
 afterEach(() => {
   setArtistPins([]);
+  setHydratedPins([]);
 });
 
 describe("artistPinStore", () => {
@@ -95,5 +98,37 @@ describe("patchArtistPin", () => {
     patchArtistPin("missing", { performerName: "Nope" });
 
     expect(getArtistPins()[0].performerName).toBe("Test Artist");
+  });
+});
+
+describe("artistPinStore hydrated slice (PR 22)", () => {
+  it("keeps hydrated pins separate from the session slice", () => {
+    setArtistPins([makePin("session-1")]);
+    setHydratedPins([makePin("server-1")]);
+
+    expect(getArtistPins().map((pin) => pin.id)).toEqual(["session-1"]);
+    expect(getHydratedPins().map((pin) => pin.id)).toEqual(["server-1"]);
+  });
+
+  it("a wholesale session sync does not clobber hydrated pins", () => {
+    setHydratedPins([makePin("server-1")]);
+    setArtistPins([makePin("session-1")]);
+
+    expect(getHydratedPins()).toHaveLength(1);
+  });
+
+  it("patches a hydrated pin in place", () => {
+    setHydratedPins([makePin("server-1")]);
+    patchArtistPin("server-1", { performerName: "Renamed" });
+
+    expect(getHydratedPins()[0]?.performerName).toBe("Renamed");
+  });
+
+  it("notifies the shared listeners for either slice", () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeArtistPins(listener);
+    setHydratedPins([makePin("server-1")]);
+    expect(listener).toHaveBeenCalled();
+    unsubscribe();
   });
 });

@@ -16,6 +16,17 @@ import type { Pin } from "@/lib/types";
  */
 
 let pins: ArtistShowPin[] = [];
+
+/**
+ * Server-hydrated pins (PR 22 map persistence) — shows and pings restored
+ * from GET /api/shows + GET /api/telemetry/live-ping on map mount. A
+ * separate slice from the session `pins` above: the studio widget's
+ * `setArtistPins` wholesale-replaces the session slice from its SDK
+ * instance, which would clobber restored pins if they shared the array.
+ * Both slices share one listener set, so one subscription drives both.
+ */
+let hydratedPins: ArtistShowPin[] = [];
+
 const listeners = new Set<() => void>();
 
 export function getArtistPins(): ArtistShowPin[] {
@@ -24,6 +35,19 @@ export function getArtistPins(): ArtistShowPin[] {
 
 export function setArtistPins(next: ArtistShowPin[]): void {
   pins = next;
+  for (const listener of listeners) {
+    listener();
+  }
+}
+
+/** Read-only view of the server-restored pins, for the map host. */
+export function getHydratedPins(): ArtistShowPin[] {
+  return hydratedPins;
+}
+
+/** Replaces the hydrated slice wholesale (hydration is all-or-nothing). */
+export function setHydratedPins(next: ArtistShowPin[]): void {
+  hydratedPins = next;
   for (const listener of listeners) {
     listener();
   }
@@ -42,14 +66,25 @@ export function subscribeArtistPins(listener: () => void): () => void {
  * `source`; an artist pin's identity fields are studio-owned, so a patch
  * that tries to re-source it is refused rather than silently corrupting
  * the pin. Everything else (display fields) merges over the pin.
+ *
+ * Covers both slices — session pins and server-hydrated pins — so a drawer
+ * edit on a restored pin is applied rather than silently dropped.
  */
 export function patchArtistPin(id: string, patch: Partial<Pin>): void {
   if (patch.source !== undefined && patch.source !== "artist") {
     return;
   }
-  pins = pins.map((pin) =>
-    pin.id === id ? { ...pin, ...patch, source: "artist" as const } : pin,
-  );
+  if (pins.some((pin) => pin.id === id)) {
+    pins = pins.map((pin) =>
+      pin.id === id ? { ...pin, ...patch, source: "artist" as const } : pin,
+    );
+  } else if (hydratedPins.some((pin) => pin.id === id)) {
+    hydratedPins = hydratedPins.map((pin) =>
+      pin.id === id ? { ...pin, ...patch, source: "artist" as const } : pin,
+    );
+  } else {
+    return;
+  }
   for (const listener of listeners) {
     listener();
   }

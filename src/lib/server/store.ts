@@ -42,6 +42,8 @@ export interface Store {
   /** Newest first (created_at DESC, insertion order as tiebreak). */
   listShows(limit?: number): ShowRecord[];
   insertLivePing(ping: ValidLivePingPayload): LivePingRecord;
+  /** Newest first (timestamp DESC, insertion order as tiebreak). */
+  listLivePings(limit?: number): LivePingRecord[];
   insertArtist(name: string, createdAt?: string): ArtistRecord;
   getArtist(id: string): ArtistRecord | undefined;
 }
@@ -59,7 +61,10 @@ CREATE TABLE IF NOT EXISTS shows (
   created_at TEXT NOT NULL,
   ticketing_type TEXT NOT NULL DEFAULT '',
   native_ticket_price REAL,
-  native_ticket_capacity INTEGER
+  native_ticket_capacity INTEGER,
+  latitude REAL,
+  longitude REAL,
+  council_district TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS live_pings (
@@ -88,6 +93,34 @@ export class SqliteStore implements Store {
     this.db = new Database(dbPath);
     this.db.pragma("journal_mode = WAL");
     this.db.exec(SCHEMA);
+    this.migrate();
+  }
+
+  /**
+   * In-place column additions for databases created before PR 22 (the dev
+   * DB at data/atxlive.db predates the show coordinate columns). SQLite's
+   * CREATE TABLE IF NOT EXISTS never alters an existing table, so missing
+   * columns are added here; fresh databases already have them.
+   */
+  private migrate(): void {
+    const columns = new Set(
+      (
+        this.db.prepare(`PRAGMA table_info(shows)`).all() as Array<{
+          name: string;
+        }>
+      ).map((column) => column.name),
+    );
+    if (!columns.has("latitude")) {
+      this.db.exec(`ALTER TABLE shows ADD COLUMN latitude REAL`);
+    }
+    if (!columns.has("longitude")) {
+      this.db.exec(`ALTER TABLE shows ADD COLUMN longitude REAL`);
+    }
+    if (!columns.has("council_district")) {
+      this.db.exec(
+        `ALTER TABLE shows ADD COLUMN council_district TEXT NOT NULL DEFAULT ''`,
+      );
+    }
   }
 
   insertShow(show: ValidShowPayload): ShowRecord {
@@ -97,11 +130,13 @@ export class SqliteStore implements Store {
         `INSERT INTO shows (
            id, artist_id, artist_name, venue_name, address, district,
            set_time, ticket_url, created_at, ticketing_type,
-           native_ticket_price, native_ticket_capacity
+           native_ticket_price, native_ticket_capacity,
+           latitude, longitude, council_district
          ) VALUES (
            @id, @artist_id, @artist_name, @venue_name, @address, @district,
            @set_time, @ticket_url, @created_at, @ticketing_type,
-           @native_ticket_price, @native_ticket_capacity
+           @native_ticket_price, @native_ticket_capacity,
+           @latitude, @longitude, @council_district
          )`,
       )
       .run(record);
@@ -131,7 +166,22 @@ export class SqliteStore implements Store {
     return record;
   }
 
-  insertArtist(name: string, createdAt: string = new Date().toISOString()): ArtistRecord {
+  listLivePings(limit: number = DEFAULT_LIST_SHOWS_LIMIT): LivePingRecord[] {
+    // rowid DESC breaks timestamp ties so the most recently inserted ping
+    // still leads when two pings share a timestamp.
+    return this.db
+      .prepare(
+        `SELECT * FROM live_pings
+         ORDER BY timestamp DESC, rowid DESC
+         LIMIT ?`,
+      )
+      .all(limit) as LivePingRecord[];
+  }
+
+  insertArtist(
+    name: string,
+    createdAt: string = new Date().toISOString(),
+  ): ArtistRecord {
     const record: ArtistRecord = {
       id: randomUUID(),
       name: name.trim(),
@@ -154,7 +204,9 @@ export class SqliteStore implements Store {
 
 /** Default DB location: data/atxlive.db under the project root (gitignored). */
 export function defaultDbPath(): string {
-  return process.env.ATXLIVE_DB_PATH ?? path.join(process.cwd(), "data", "atxlive.db");
+  return (
+    process.env.ATXLIVE_DB_PATH ?? path.join(process.cwd(), "data", "atxlive.db")
+  );
 }
 
 let storeInstance: Store | null = null;

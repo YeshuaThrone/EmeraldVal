@@ -1,3 +1,4 @@
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getStore, SqliteStore } from "@/lib/server/store";
 import type { Store } from "@/lib/server/store";
@@ -25,7 +26,11 @@ const VALID_SHOW: ValidShowPayload = {
   ticketing_type: "external",
   native_ticket_price: null,
   native_ticket_capacity: null,
-};
+  // PR 22 additive fields — the client-geocoded point and council label.
+  latitude: 30.2674,
+  longitude: -97.7398,
+  council_district: "District 9",
+}
 
 function postRequest(body: string): Request {
   return new Request("http://localhost:3000/api/shows", {
@@ -63,6 +68,16 @@ describe("POST /api/shows", () => {
       error: "district must be one of the five Austin districts.",
       code: "invalid_district",
     });
+    expect(mockedGetStore().listShows()).toHaveLength(0);
+  });
+
+  it("returns the 422 envelope for out-of-range coordinates", async () => {
+    const response = await POST(
+      postRequest(JSON.stringify({ ...VALID_SHOW, latitude: 91 })) as never,
+    );
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.code).toBe("invalid_coords");
     expect(mockedGetStore().listShows()).toHaveLength(0);
   });
 

@@ -1,30 +1,41 @@
+
 import { geocodeQuery, reverseGeocode } from "@/lib/geocode";
 import { districtForPoint } from "@/lib/district";
 import type { District, Pin, Ticketing } from "@/lib/types";
+import { requestJson, type TransportFailure } from "@/lib/transport";
+
+/** Same-origin endpoints the SDK writes to (PR 22 transport swap). */
+const SHOWS_ENDPOINT = "/api/shows";
+const LIVE_PING_ENDPOINT = "/api/telemetry/live-ping";
 
 /**
- * ATXLiveArtistSDK — client-side backing for the pasted ATXLiveArtistSDK.
+ * ATXLiveArtistSDK — the pasted SDK's interface over the real same-origin
+ * API (PR 22 transport swap).
  *
- * Load-bearing assumption (see the Artist SDK & Upload Studio spec): the
- * pasted SDK POSTs to https://api.atxlive.app/v1, an API that does not
- * exist — this app is frontend-only with a client-side pin model. Shipped
- * as written, every call would throw at runtime. So the public interface
- * is kept byte-compatible (constructor(config), init, uploadShow,
- * triggerLivePing, and the exact payload field names) while the backing is
- * the same flow the Go-Live modal uses: Nominatim geocoding via
- * `geocodeQuery` and typed pins in the live pin store. A future real
- * backend is a drop-in swap of the transport only — the payload builders
- * below already produce the wire shapes (artist_id, venue_name, address,
- * district, set_time, ticket_url, created_at / artist_id, latitude,
- * longitude, timestamp, status: "ON_STAGE").
+ * The pasted SDK POSTed to https://api.atxlive.app/v1, an API that does
+ * not exist; PRs #17/#19 kept the public interface byte-compatible
+ * (constructor(config), init, uploadShow, triggerLivePing, and the exact
+ * payload field names) while backing it with client state. PR 21 shipped
+ * the real endpoints, and this module now POSTs to them: uploadShow →
+ * POST /api/shows, triggerLivePing → POST /api/telemetry/live-ping, with
+ * the exact PR #19 wire fields. Client-side geocoding stays — the SDK
+ * computes the venue point with `geocodeQuery` and sends it in the payload
+ * (additive latitude/longitude fields, same pattern as the v2 fields) so a
+ * reloaded map can restore the pin without re-geocoding.
  *
  * Error contract (deliberate, tested):
  * - `uploadShow` NEVER throws. Every failure — validation, uninitialized
- *   artist, geocoding — returns `{ success: false, error, code }` so the
- *   upload widget can render themed inline feedback instead of an alert().
+ *   artist, geocoding, transport (network, timeout, non-2xx) — returns
+ *   `{ success: false, error, code }` so the upload widget can render
+ *   themed inline feedback instead of an alert(). Transport failures carry
+ *   distinct codes: network_error, request_timeout, auth_error (401/403),
+ *   validation_error (other 4xx — the server's `{error, code}` envelope is
+ *   surfaced verbatim), and server_error (5xx).
  * - `triggerLivePing` THROWS when `init(artistId)` was never called
  *   (calling it uninitialized is a programmer error, not user input), and
- *   returns a typed failure for invalid coordinates.
+ *   returns a typed failure for invalid coordinates and transport errors.
+ * - Successes carry `serverId` — the id the server assigned the stored
+ *   record — alongside the local `pinId`.
  *
  * Framework-agnostic: no React imports. The widget (PR 18) mirrors the
  * returned pins into React state; a future transport can consume the same
@@ -73,9 +84,9 @@ export type LivePingInput = {
 export type ATXLiveArtistSDKConfig = {
   artistId?: string;
   /**
-   * Kept for the future HTTP transport swap only. The client-side backing
-   * never reads it — there is no backend to point at (see the spec's
-   * load-bearing assumption).
+   * Reserved for a future remote host (the pasted SDK pointed at
+   * https://api.atxlive.app/v1). The real transport writes to the
+   * same-origin /api endpoints and does not read this yet.
    */
   baseUrl?: string;
 };
@@ -101,6 +112,15 @@ export type UploadShowPayload = {
   native_ticket_price: number | null;
   /** v2: native-only; null for external or no ticketing. */
   native_ticket_capacity: number | null;
+  /**
+   * PR 22 additive fields — the client-geocoded venue point, so the server
+   * can hand the pin's coordinates back on reload. Null when geocoding
+   * produced no point (legacy clients); hydration skips such shows.
+   */
+  latitude: number | null;
+  longitude: number | null;
+  /** PR 22: verbatim council-district select label; "" when none chosen. */
+  council_district: string;
 };
 
 /** Wire shape for a future transport — field names match the pasted SDK. */
@@ -123,20 +143,32 @@ export type ArtistSdkErrorCode =
   | "invalid_ticket_price"
   | "invalid_ticket_capacity"
   | "invalid_coords"
-  | "geocode_failed";
+  | "geocode_failed"
+  // PR 22 transport codes — every way a real HTTP call can fail.
+  | "network_error"
+  | "request_timeout"
+  | "auth_error"
+  | "validation_error"
+  | "server_error";
 
 export type ArtistSdkSuccess<P> = {
   success: true;
   pinId: string;
   pin: ArtistShowPin;
-  /** The transport payload this call would have POSTed to the real API. */
+  /** The transport payload this call POSTed to the real API. */
   payload: P;
+  /** The id the server assigned the stored record. */
+  serverId: string;
 };
 
 export type ArtistSdkFailure = {
   success: false;
   error: string;
   code: ArtistSdkErrorCode;
+  /** HTTP status, when the failure came from a server response. */
+  httpStatus?: number;
+  /** The server envelope's machine code, when one was returned. */
+  serverCode?: string;
 };
 
 export type UploadShowResult =
@@ -204,10 +236,59 @@ const ERROR_MESSAGES: Record<ArtistSdkErrorCode, string> = {
     "Native ticket capacity must be a whole number of at least 1.",
   invalid_coords: "Live ping needs valid latitude and longitude.",
   geocode_failed: "Could not find that venue on the map.",
+  network_error:
+    "Couldn't reach the ATXLive server. Check your connection and try again.",
+  request_timeout: "The server took too long to respond. Please try again.",
+  auth_error: "You're not authorized to do that.",
+  validation_error: "The server rejected this show.",
+  server_error: "The ATXLive server hit an error. Please try again.",
 };
 
-function failure(code: ArtistSdkErrorCode, error?: string): ArtistSdkFailure {
-  return { success: false, error: error ?? ERROR_MESSAGES[code], code };
+function failure(
+  code: ArtistSdkErrorCode,
+  error?: string,
+  extra?: { httpStatus?: number; serverCode?: string },
+): ArtistSdkFailure {
+  return {
+    success: false,
+    error: error ?? ERROR_MESSAGES[code],
+    code,
+    ...(extra?.httpStatus !== undefined
+      ? { httpStatus: extra.httpStatus }
+      : {}),
+    ...(extra?.serverCode !== undefined
+      ? { serverCode: extra.serverCode }
+      : {}),
+  };
+}
+
+/**
+ * Maps a transport failure onto the SDK's result contract — the codes and
+ * envelope fields carry over one-to-one; only the discriminant renames
+ * (ok → success).
+ */
+function transportFailure(result: TransportFailure): ArtistSdkFailure {
+  return failure(result.code, result.error, {
+    httpStatus: result.httpStatus,
+    serverCode: result.serverCode,
+  });
+}
+
+/**
+ * Extracts the server-assigned id from a stored-record response body. A 2xx
+ * with an unexpected body is a server fault, not a success — the caller
+ * maps this to a typed server_error instead of trusting it.
+ */
+function serverIdFrom(body: unknown): string | null {
+  if (
+    typeof body === "object" &&
+    body !== null &&
+    !Array.isArray(body) &&
+    typeof (body as { id?: unknown }).id === "string"
+  ) {
+    return (body as { id: string }).id;
+  }
+  return null;
 }
 
 function isBlank(value: string | undefined): boolean {
@@ -310,11 +391,16 @@ export function validateUploadShowInput(
   return null;
 }
 
-/** Pure payload builder — the exact wire shape the pasted SDK POSTed. */
+/**
+ * Pure payload builder — the exact wire shape the pasted SDK POSTed, plus
+ * the PR 22 additive fields (geocoded point, council-district label). The
+ * original fields keep their names and value shapes byte-compatible.
+ */
 export function buildUploadShowPayload(
   input: UploadShowInput,
   artistId: string,
   createdAt: Date,
+  coords?: { latitude: number; longitude: number },
 ): UploadShowPayload {
   const ticketing = normalizeTicketing(input);
   return {
@@ -331,6 +417,9 @@ export function buildUploadShowPayload(
     native_ticket_price: ticketing?.type === "native" ? ticketing.price : null,
     native_ticket_capacity:
       ticketing?.type === "native" ? ticketing.capacity : null,
+    latitude: coords?.latitude ?? null,
+    longitude: coords?.longitude ?? null,
+    council_district: input.councilDistrict?.trim() ?? "",
   };
 }
 
@@ -447,7 +536,28 @@ export class ATXLiveArtistSDK {
       return failure("geocode_failed", geo.error);
     }
 
-    const payload = buildUploadShowPayload(input, this.artistId, new Date());
+    const payload = buildUploadShowPayload(input, this.artistId, new Date(), {
+      latitude: geo.lat,
+      longitude: geo.lng,
+    });
+
+    // The payload builders finally go on the wire: the server validates
+    // with the same shared validators, stores the show, and returns the
+    // stored record (with its generated id) as 201.
+    const transport = await requestJson(SHOWS_ENDPOINT, {
+      method: "POST",
+      body: payload,
+    });
+    if (!transport.ok) {
+      return transportFailure(transport);
+    }
+    const serverId = serverIdFrom(transport.body);
+    if (serverId === null) {
+      return failure("server_error", "Server returned an unexpected response.", {
+        httpStatus: transport.status,
+      });
+    }
+
     const ticketing = normalizeTicketing(input);
 
     // districtForPoint classifies the geocoded point the same way it does
@@ -472,7 +582,7 @@ export class ATXLiveArtistSDK {
     });
     this.pins.push(pin);
 
-    return { success: true, pinId: pin.id, pin, payload };
+    return { success: true, pinId: pin.id, pin, payload, serverId };
   }
 
   async triggerLivePing(coords: LivePingInput): Promise<LivePingResult> {
@@ -486,6 +596,22 @@ export class ATXLiveArtistSDK {
 
     const payload = buildLivePingPayload(coords, artistId, new Date());
 
+    // Persist the ping server-side first: only a stored ping flips the
+    // local pin, so a failed request never leaves phantom live state.
+    const transport = await requestJson(LIVE_PING_ENDPOINT, {
+      method: "POST",
+      body: payload,
+    });
+    if (!transport.ok) {
+      return transportFailure(transport);
+    }
+    const serverId = serverIdFrom(transport.body);
+    if (serverId === null) {
+      return failure("server_error", "Server returned an unexpected response.", {
+        httpStatus: transport.status,
+      });
+    }
+
     // Mark the artist's most recent show pin ON_STAGE; if the artist never
     // uploaded a show, create an ON_STAGE pin at the ping's coordinates.
     const existing = [...this.pins]
@@ -494,7 +620,13 @@ export class ATXLiveArtistSDK {
 
     if (existing) {
       existing.status = "ON_STAGE";
-      return { success: true, pinId: existing.id, pin: existing, payload };
+      return {
+        success: true,
+        pinId: existing.id,
+        pin: existing,
+        payload,
+        serverId,
+      };
     }
 
     // Name the live spot when the reverse geocoder can; fall back to the
@@ -515,6 +647,6 @@ export class ATXLiveArtistSDK {
     });
     this.pins.push(pin);
 
-    return { success: true, pinId: pin.id, pin, payload };
+    return { success: true, pinId: pin.id, pin, payload, serverId };
   }
 }

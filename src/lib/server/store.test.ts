@@ -19,6 +19,10 @@ const SHOW_A: ValidShowPayload = {
   ticketing_type: "external",
   native_ticket_price: null,
   native_ticket_capacity: null,
+  // PR 22 additive fields — the client-geocoded point and council label.
+  latitude: 30.2489,
+  longitude: -97.7501,
+  council_district: "District 9",
 };
 
 const SHOW_B: ValidShowPayload = {
