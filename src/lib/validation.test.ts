@@ -18,6 +18,10 @@ const VALID_SHOW = {
   ticketing_type: "external",
   native_ticket_price: null,
   native_ticket_capacity: null,
+  // PR 22 additive fields — the client-geocoded point and council label.
+  latitude: 30.2674,
+  longitude: -97.7398,
+  council_district: "District 9",
 };
 
 const VALID_PING = {
@@ -50,6 +54,38 @@ describe("validateShowPayload", () => {
       expect(result.value.native_ticket_price).toBe(15);
       expect(result.value.native_ticket_capacity).toBe(80);
     }
+  });
+
+  it("defaults omitted coordinates to null and trims the council label", () => {
+    const result = validateShowPayload({
+      artist_id: "artist-42",
+      artist_name: "The Night Owls",
+      venue_name: "Continental Club",
+      address: "",
+      district: "South",
+      set_time: "2026-09-05T21:00:00.000Z",
+      ticket_url: "",
+      created_at: "2026-08-30T12:00:00.000Z",
+      ticketing_type: "",
+      native_ticket_price: null,
+      native_ticket_capacity: null,
+      council_district: "  District 5  ",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.latitude).toBeNull();
+      expect(result.value.longitude).toBeNull();
+      expect(result.value.council_district).toBe("District 5");
+    }
+  });
+
+  it("rejects out-of-range additive coordinates", () => {
+    expect(
+      validateShowPayload({ ...VALID_SHOW, latitude: 91 }),
+    ).toMatchObject({ ok: false, code: "invalid_coords" });
+    expect(
+      validateShowPayload({ ...VALID_SHOW, longitude: -181 }),
+    ).toMatchObject({ ok: false, code: "invalid_coords" });
   });
 
   it("rejects a non-object body", () => {
@@ -223,6 +259,38 @@ describe("validateLivePingPayload", () => {
     expect(
       validateLivePingPayload({ ...VALID_PING, status: "OFF_STAGE" }),
     ).toMatchObject({ ok: false, code: "invalid_status" });
+  });
+
+  it("defaults omitted coordinates to null and trims the council label", () => {
+    const result = validateShowPayload({
+      artist_id: "artist-42",
+      artist_name: "The Night Owls",
+      venue_name: "Continental Club",
+      address: "",
+      district: "South",
+      set_time: "2026-09-05T21:00:00.000Z",
+      ticket_url: "",
+      created_at: "2026-08-30T12:00:00.000Z",
+      ticketing_type: "",
+      native_ticket_price: null,
+      native_ticket_capacity: null,
+      council_district: "  District 5  ",
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.latitude).toBeNull();
+      expect(result.value.longitude).toBeNull();
+      expect(result.value.council_district).toBe("District 5");
+    }
+  });
+
+  it("rejects out-of-range additive coordinates", () => {
+    expect(
+      validateShowPayload({ ...VALID_SHOW, latitude: 91 }),
+    ).toMatchObject({ ok: false, code: "invalid_coords" });
+    expect(
+      validateShowPayload({ ...VALID_SHOW, longitude: -181 }),
+    ).toMatchObject({ ok: false, code: "invalid_coords" });
   });
 
   it("rejects a non-object body", () => {

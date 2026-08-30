@@ -1,8 +1,18 @@
+
+
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
-import { AudioLines, Filter, Flame, LoaderCircle, Plus } from "lucide-react";
+import {
+  AudioLines,
+  Filter,
+  Flame,
+  LoaderCircle,
+  Plus,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { PIN_ZOOM } from "@/lib/constants";
 import { districtForPoint } from "@/lib/district";
 import {
@@ -21,9 +31,12 @@ import {
 } from "@/lib/filters";
 import {
   getArtistPins,
+  getHydratedPins,
   patchArtistPin,
+  setHydratedPins,
   subscribeArtistPins,
 } from "@/lib/artistPinStore";
+import { fetchServerPins, type FetchServerPinsResult } from "@/lib/shows";
 import { CITY_PINS } from "@/lib/seedData";
 import type { FlyToTarget, Pin, ToastMessage } from "@/lib/types";
 import SearchBar from "@/components/SearchBar";
@@ -90,7 +103,53 @@ export default function LiveMapApp() {
     getArtistPins,
     getArtistPins,
   );
-  const allPins = useMemo(() => [...pins, ...artistPins], [pins, artistPins]);
+  // Server-restored pins (published shows + GO LIVE pings) — a separate
+  // slice so the studio's wholesale session syncs never clobber them.
+  const hydratedPins = useSyncExternalStore(
+    subscribeArtistPins,
+    getHydratedPins,
+    getHydratedPins,
+  );
+  const allPins = useMemo(
+    () => [...pins, ...artistPins, ...hydratedPins],
+    [pins, artistPins, hydratedPins],
+  );
+
+  // Map persistence (PR 22): on mount, restore what artists published —
+  // shows from GET /api/shows and ON_STAGE pings from
+  // GET /api/telemetry/live-ping — so a hard reload brings the pins back.
+  // Failure is quiet by design: the seed map still renders, with a
+  // dismissible inline notice (and retry) instead of a crash or a toast.
+  const [hydrationError, setHydrationError] = useState<string | null>(null);
+  const [hydrationNoticeDismissed, setHydrationNoticeDismissed] =
+    useState(false);
+  const applyHydration = useCallback((result: FetchServerPinsResult) => {
+    if (result.ok) {
+      setHydratedPins(result.pins);
+      setHydrationError(null);
+    } else {
+      setHydrationError(result.error);
+    }
+  }, []);
+  // Retry path for the quiet notice — a user event, not an effect, so
+  // applying the result synchronously here is fine.
+  const runHydration = useCallback(
+    async () => applyHydration(await fetchServerPins()),
+    [applyHydration],
+  );
+  useEffect(() => {
+    // setState runs inside the promise callback (async data load), not in
+    // the effect body — the cancelled flag guards against unmount races.
+    let cancelled = false;
+    fetchServerPins().then((result) => {
+      if (!cancelled) {
+        applyHydration(result);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [applyHydration]);
 
   const visiblePins = useMemo(
     () => filterPins(allPins, filter),
@@ -360,9 +419,12 @@ export default function LiveMapApp() {
       }
       // Artist pins live in the studio store, not the fan-map pins state —
       // route their edits there so the drawer doesn't silently drop them.
-      // (A later studio action re-syncs from the SDK, which stays the
-      // source of truth for artist pins.)
-      if (getArtistPins().some((pin) => pin.id === selectedPinId)) {
+      // (A later studio action re-syncs session pins from the SDK; restored
+      // pins are patched in the hydrated slice.)
+      if (
+        getArtistPins().some((pin) => pin.id === selectedPinId) ||
+        getHydratedPins().some((pin) => pin.id === selectedPinId)
+      ) {
         patchArtistPin(selectedPinId, patch);
         return;
       }
@@ -398,6 +460,30 @@ export default function LiveMapApp() {
           <span className="font-medium">
             Low Density (Cool Blue) &rarr; Peak Foot Traffic (Hot Red)
           </span>
+        </div>
+      ) : null}
+
+      {hydrationError && !hydrationNoticeDismissed ? (
+        <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2 rounded-2xl border border-atx-line bg-atx-paper/90 px-3 py-2 text-xs text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md">
+          <span className="font-medium">{hydrationError}</span>
+          <button
+            type="button"
+            onClick={() => {
+              void runHydration();
+            }}
+            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold text-atx-blue transition hover:bg-atx-electric/10"
+          >
+            <RefreshCw className="h-3 w-3" />
+            Retry
+          </button>
+          <button
+            type="button"
+            aria-label="Dismiss restore notice"
+            onClick={() => setHydrationNoticeDismissed(true)}
+            className="text-stone-400 transition hover:text-atx-ink"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
         </div>
       ) : null}
 

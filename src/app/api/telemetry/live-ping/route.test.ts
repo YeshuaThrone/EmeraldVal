@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getStore, SqliteStore } from "@/lib/server/store";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 import type { ValidLivePingPayload } from "@/lib/validation";
 
 // No network: the handler is invoked directly with the store swapped for
@@ -72,6 +72,42 @@ describe("POST /api/telemetry/live-ping", () => {
     const body = await response.json();
     expect(body).toEqual({
       error: "Failed to store the live ping.",
+      code: "store_failure",
+    });
+  });
+});
+
+describe("GET /api/telemetry/live-ping", () => {
+  it("lists stored pings newest first", async () => {
+    const store = mockedGetStore();
+    store.insertLivePing(VALID_PING);
+    store.insertLivePing({
+      ...VALID_PING,
+      artist_id: "artist-7",
+      timestamp: "2026-08-30T21:00:00.000Z",
+    });
+
+    const response = await GET();
+    expect(response.status).toBe(200);
+    const pings = await response.json();
+    expect(pings.map((p: { artist_id: string }) => p.artist_id)).toEqual([
+      "artist-7",
+      "artist-42",
+    ]);
+  });
+
+  it("returns the 500 envelope when the store fails", async () => {
+    mockedGetStore.mockReturnValue({
+      listLivePings: () => {
+        throw new Error("db down");
+      },
+    } as never);
+
+    const response = await GET();
+    expect(response.status).toBe(500);
+    const body = await response.json();
+    expect(body).toEqual({
+      error: "Failed to list live pings.",
       code: "store_failure",
     });
   });

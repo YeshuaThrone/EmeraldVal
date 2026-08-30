@@ -66,6 +66,16 @@ export type ValidShowPayload = {
   ticketing_type: "external" | "native" | "";
   native_ticket_price: number | null;
   native_ticket_capacity: number | null;
+  /**
+   * PR 22 additive fields — the client geocodes the venue and sends the
+   * point along so a reloaded map can restore the pin without re-geocoding.
+   * Null when the client omitted them (legacy records); hydration skips
+   * shows it cannot place.
+   */
+  latitude: number | null;
+  longitude: number | null;
+  /** Verbatim council-district select label, e.g. "District 9"; "" if none. */
+  council_district: string;
 };
 
 /** The validated shape of a POST /api/telemetry/live-ping body. */
@@ -197,6 +207,37 @@ export function validateShowPayload(
     return fail("invalid_ticketing");
   }
 
+  // PR 22 additive fields: the geocoded point (optional — legacy clients
+  // may omit it) and the verbatim council-district label. Coordinates use
+  // the same bounds rule as live pings; absent stays null so hydration can
+  // tell "never geocoded" apart from a real point.
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+  if (input.latitude !== undefined && input.latitude !== null) {
+    if (
+      !isFiniteNumber(input.latitude) ||
+      input.latitude < -90 ||
+      input.latitude > 90
+    ) {
+      return fail("invalid_coords");
+    }
+    latitude = input.latitude;
+  }
+  if (input.longitude !== undefined && input.longitude !== null) {
+    if (
+      !isFiniteNumber(input.longitude) ||
+      input.longitude < -180 ||
+      input.longitude > 180
+    ) {
+      return fail("invalid_coords");
+    }
+    longitude = input.longitude;
+  }
+  const councilDistrict =
+    typeof input.council_district === "string"
+      ? input.council_district.trim()
+      : "";
+
   return {
     ok: true,
     value: {
@@ -215,6 +256,9 @@ export function validateShowPayload(
       ticketing_type: ticketingType,
       native_ticket_price: nativeTicketPrice,
       native_ticket_capacity: nativeTicketCapacity,
+      latitude,
+      longitude,
+      council_district: councilDistrict,
     },
   };
 }

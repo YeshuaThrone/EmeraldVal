@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { geocodeQuery, reverseGeocode } from "@/lib/geocode";
 import {
   ARTIST_SDK_DISTRICTS,
@@ -22,6 +22,28 @@ vi.mock("@/lib/geocode", () => ({
 
 const mockedGeocodeQuery = vi.mocked(geocodeQuery);
 const mockedReverseGeocode = vi.mocked(reverseGeocode);
+
+// Transport boundary (PR 22): the SDK POSTs to the same-origin /api
+// endpoints through global fetch. Stubbed here so tests observe the exact
+// wire bytes without network. Default: 201 with a server-assigned id.
+const mockedFetch = vi.fn<(url: string, init?: RequestInit) => Promise<Response>>();
+
+function jsonResponse(status: number, body: unknown): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "content-type": "application/json" },
+  });
+}
+
+function stubFetch(): void {
+  mockedFetch.mockReset();
+  mockedFetch.mockImplementation(async (url: string) =>
+    jsonResponse(201, {
+      id: url.includes("live-ping") ? "ping-server-1" : "show-server-1",
+    }),
+  );
+  vi.stubGlobal("fetch", mockedFetch);
+}
 
 // East 6th & San Jacinto — inside AUSTIN_BOUNDS, classifies to Downtown
 // (30.2674 >= 30.24, < 30.32; -97.7398 between -97.75 and -97.73).
@@ -49,6 +71,12 @@ function initializedSdk(artistId = "artist-42"): ATXLiveArtistSDK {
 beforeEach(() => {
   mockedGeocodeQuery.mockReset();
   mockedReverseGeocode.mockReset();
+  stubFetch();
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("validateUploadShowInput", () => {
@@ -120,6 +148,11 @@ describe("buildUploadShowPayload", () => {
         "ticket_url",
         "ticketing_type",
         "venue_name",
+        // PR 22 additive fields — the original eleven keep their names and
+        // value shapes byte-compatible.
+        "latitude",
+        "longitude",
+        "council_district",
       ].sort(),
     );
     expect(payload).toEqual({
@@ -134,7 +167,22 @@ describe("buildUploadShowPayload", () => {
       ticketing_type: "external",
       native_ticket_price: null,
       native_ticket_capacity: null,
+      latitude: null,
+      longitude: null,
+      council_district: "",
     });
+  });
+
+  it("carries the geocoded point and council label in the additive fields", () => {
+    const payload = buildUploadShowPayload(
+      { ...VALID_INPUT, councilDistrict: "  District 9  " },
+      "artist-42",
+      new Date("2026-08-28T18:00:00.000Z"),
+      { latitude: 30.2674, longitude: -97.7398 },
+    );
+    expect(payload.latitude).toBe(30.2674);
+    expect(payload.longitude).toBe(-97.7398);
+    expect(payload.council_district).toBe("District 9");
   });
 
   it("emits empty strings for omitted optional fields", () => {
@@ -154,6 +202,10 @@ describe("buildUploadShowPayload", () => {
     expect(payload.ticketing_type).toBe("");
     expect(payload.native_ticket_price).toBeNull();
     expect(payload.native_ticket_capacity).toBeNull();
+    // PR 22 additive fields default to "unplaced" when no coords are given.
+    expect(payload.latitude).toBeNull();
+    expect(payload.longitude).toBeNull();
+    expect(payload.council_district).toBe("");
   });
 });
 
@@ -754,5 +806,162 @@ describe("ATXLiveArtistSDK.uploadShow v2", () => {
     expect(result.pin.district).toBe("Downtown");
     expect(result.pin.councilDistrict).toBe("District 5");
     expect(result.pin.ticketing).toEqual({ type: "external", ticketUrl: "" });
+  });
+});
+
+describe("ATXLiveArtistSDK transport (PR 22)", () => {
+  it("POSTs the builder payload byte-exact to /api/shows and carries the server id", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    const sdk = initializedSdk("artist-42");
+    const result = await sdk.uploadShow(VALID_INPUT);
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+    expect(mockedFetch).toHaveBeenCalledTimes(1);
+    const [url, init] = mockedFetch.mock.calls[0];
+    expect(url).toBe("/api/shows");
+    expect(init?.method).toBe("POST");
+    // The wire body is exactly the payload builder's output — the builders
+    // finally go on the wire, byte for byte.
+    expect(JSON.parse(init?.body as string)).toEqual(result.payload);
+    expect(result.serverId).toBe("show-server-1");
+    expect(sdk.artistPins).toHaveLength(1);
+  });
+
+  it("maps a 422 envelope to validation_error with the server's message and code", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    mockedFetch.mockImplementationOnce(async () =>
+      jsonResponse(422, {
+        error: "district must be one of the five Austin districts.",
+        code: "invalid_district",
+      }),
+    );
+    const sdk = initializedSdk();
+    const result = await sdk.uploadShow(VALID_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      return;
+    }
+    expect(result.code).toBe("validation_error");
+    // The server's {error, code} envelope is surfaced verbatim.
+    expect(result.error).toBe(
+      "district must be one of the five Austin districts.",
+    );
+    expect(result.serverCode).toBe("invalid_district");
+    expect(result.httpStatus).toBe(422);
+    // No pin on failure — the map never shows an unstored show.
+    expect(sdk.artistPins).toHaveLength(0);
+  });
+
+  it("maps a 401 to auth_error", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    mockedFetch.mockImplementationOnce(async () =>
+      jsonResponse(401, { error: "Invalid artist key.", code: "unauthorized" }),
+    );
+    const result = await initializedSdk().uploadShow(VALID_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      return;
+    }
+    expect(result.code).toBe("auth_error");
+    expect(result.error).toBe("Invalid artist key.");
+    expect(result.serverCode).toBe("unauthorized");
+    expect(result.httpStatus).toBe(401);
+  });
+
+  it("maps a 500 to server_error", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    mockedFetch.mockImplementationOnce(async () =>
+      jsonResponse(500, { error: "Failed to store the show.", code: "store_failure" }),
+    );
+    const result = await initializedSdk().uploadShow(VALID_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      return;
+    }
+    expect(result.code).toBe("server_error");
+    expect(result.error).toBe("Failed to store the show.");
+    expect(result.serverCode).toBe("store_failure");
+    expect(result.httpStatus).toBe(500);
+  });
+
+  it("maps a network failure to network_error without throwing", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    mockedFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const result = await initializedSdk().uploadShow(VALID_INPUT);
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      return;
+    }
+    expect(result.code).toBe("network_error");
+    expect(result.error).toBeTruthy();
+  });
+
+  it("maps a hung server to request_timeout via the AbortController", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    vi.useFakeTimers();
+    mockedFetch.mockImplementationOnce(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () =>
+            reject(new DOMException("The operation was aborted.", "AbortError")),
+          );
+        }),
+    );
+    const pending = initializedSdk().uploadShow(VALID_INPUT);
+    await vi.advanceTimersByTimeAsync(10_000);
+    const result = await pending;
+
+    expect(result.success).toBe(false);
+    if (result.success) {
+      return;
+    }
+    expect(result.code).toBe("request_timeout");
+  });
+
+  it("does not flip a pin ON_STAGE when the ping request fails", async () => {
+    mockedGeocodeQuery.mockResolvedValue({ ok: true, ...SIXTH_STREET });
+    const sdk = initializedSdk("artist-42");
+    const upload = await sdk.uploadShow(VALID_INPUT);
+    expect(upload.success).toBe(true);
+
+    mockedFetch.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const ping = await sdk.triggerLivePing({ lat: 30.2674, lng: -97.7398 });
+
+    expect(ping.success).toBe(false);
+    if (!ping.success) {
+      expect(ping.code).toBe("network_error");
+    }
+    // Phantom-live-state guard: the stored pin stays SCHEDULED — only a
+    // stored ping flips it.
+    expect(sdk.artistPins[0]?.status).toBe("SCHEDULED");
+  });
+
+  it("carries the ping's server id on success", async () => {
+    mockedReverseGeocode.mockResolvedValue({
+      ok: true,
+      lat: 30.2674,
+      lng: -97.7398,
+      displayName: "Mohawk, 912 Red River Street, Austin",
+    });
+    const result = await initializedSdk("artist-42").triggerLivePing({
+      lat: 30.2674,
+      lng: -97.7398,
+    });
+
+    expect(result.success).toBe(true);
+    if (!result.success) {
+      return;
+    }
+    expect(result.serverId).toBe("ping-server-1");
+    const [url, init] = mockedFetch.mock.calls[0];
+    expect(url).toBe("/api/telemetry/live-ping");
+    expect(JSON.parse(init?.body as string)).toEqual(result.payload);
   });
 });
