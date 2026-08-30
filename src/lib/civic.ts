@@ -6,9 +6,14 @@
  * suite's nighttime economic impact, never duplicated) times the official
  * Texas MBGRT rate — computed through `calculateTaxYield` rather than
  * stored as a literal.
+ *
+ * This module is the dependency leaf of the admin data modules: the
+ * canonical nighttime economic impact literal lives here so municipal.ts
+ * and telemetry.ts can both import it without a circular import.
  */
 
-import { NIGHTTIME_ECONOMY_IMPACT_USD } from "./municipal";
+/** Card 2 (municipal) — Estimated Nighttime Economy Impact, USD. */
+export const NIGHTTIME_ECONOMY_IMPACT_USD = 142500;
 
 /** Official Texas Mixed Beverage Gross Receipts Tax rate (6.7%). */
 export const MBGRT_RATE = 0.067;
@@ -37,6 +42,8 @@ export type VenueAuditStatus = "OVER_LIMIT" | "COMPLIANT";
 
 /** One per-venue row of the Live Decibel (dB) & Ordinance Audit table. */
 export interface VenueAuditRow {
+  /** Stable row identifier (v-1…v-5) used as the React key in the audit table. */
+  id: string;
   /** Venue display name. */
   name: string;
   /** Council district label, e.g. "D9". */
@@ -71,11 +78,41 @@ export const ORDINANCE_VIOLATIONS_COUNT = 2;
  * in the default dataset.
  */
 export const VENUE_AUDIT_ROWS: VenueAuditRow[] = [
-  { name: "Empire Control Room", district: "D9", currentDb: 88, limitDb: 85 },
-  { name: "Far Out Lounge", district: "D2", currentDb: 79, limitDb: 80 },
-  { name: "Mohawk", district: "D9", currentDb: 91, limitDb: 85 },
-  { name: "The Continental Club", district: "D9", currentDb: 74, limitDb: 80 },
-  { name: "C-Boy's Heart & Soul", district: "D9", currentDb: 72, limitDb: 75 },
+  {
+    id: "v-1",
+    name: "Empire Control Room",
+    district: "D9",
+    currentDb: 88,
+    limitDb: 85,
+  },
+  {
+    id: "v-2",
+    name: "Far Out Lounge",
+    district: "D2",
+    currentDb: 79,
+    limitDb: 80,
+  },
+  {
+    id: "v-3",
+    name: "Mohawk",
+    district: "D9",
+    currentDb: 91,
+    limitDb: 85,
+  },
+  {
+    id: "v-4",
+    name: "The Continental Club",
+    district: "D9",
+    currentDb: 74,
+    limitDb: 80,
+  },
+  {
+    id: "v-5",
+    name: "C-Boy's Heart & Soul",
+    district: "D9",
+    currentDb: 72,
+    limitDb: 75,
+  },
 ];
 
 /** Single import surface for the /admin civic compliance section. */

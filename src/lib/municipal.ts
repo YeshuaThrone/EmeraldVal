@@ -1,12 +1,17 @@
 import { CITY_PINS } from "@/lib/seedData";
+import { NIGHTTIME_ECONOMY_IMPACT_USD } from "./civic";
+import { ADMIN_TELEMETRY_DATA } from "./telemetry";
 
 /**
  * Deterministic municipal analytics for the /admin civic dashboard. Every
  * figure here is a fixed display contract (user-specified, not recomputed
- * from the seed) with one exception: `activeVenueCount`, which is derived
- * from `CITY_PINS.length` so the "36 active live venues" figure can never
- * silently drift from the actual seed size. See the blueprint's locked
- * decision: "User figures are the display contract."
+ * from the seed) with three exceptions: `activeVenueCount`, derived from
+ * `CITY_PINS.length` so the "36 active live venues" figure can never
+ * silently drift from the actual seed size; `LOCAL_ARTIST_SHARE_PERCENT`,
+ * derived from the unified telemetry model (see src/lib/telemetry.ts); and
+ * `NIGHTTIME_ECONOMY_IMPACT_USD`, imported from civic.ts — the canonical
+ * literal's home — so the two dashboards share one figure. See the
+ * blueprint's locked decision: "User figures are the display contract."
  */
 
 export interface DistrictSoundIndexEntry {
@@ -43,11 +48,21 @@ export const ACTIVE_FANS = 14280;
  */
 export const ACTIVE_VENUE_COUNT = CITY_PINS.length;
 
-/** Card 2 — Local Artist Economic Share, percent. */
-export const LOCAL_ARTIST_SHARE_PERCENT = 78.4;
+/**
+ * Card 2 — Local Artist Economic Share, percent. Superseded by the unified
+ * telemetry model: derived from ADMIN_TELEMETRY_DATA's 25-of-36 local-act
+ * ratio (69.4%) instead of the retired 78.4% literal, so the municipal
+ * card always reads the master figure.
+ */
+export const LOCAL_ARTIST_SHARE_PERCENT = Number.parseFloat(
+  ADMIN_TELEMETRY_DATA.localSharePct,
+);
 
-/** Card 3 — Estimated Nighttime Economy Impact, USD. */
-export const NIGHTTIME_ECONOMY_IMPACT_USD = 142500;
+/**
+ * Card 3 — Estimated Nighttime Economy Impact, USD. Re-exported from
+ * civic.ts, where the canonical literal lives (see that module's header).
+ */
+export { NIGHTTIME_ECONOMY_IMPACT_USD };
 
 /** Card 4 — District Sound & Density Index, in fixed display order. */
 export const DISTRICT_SOUND_DENSITY_INDEX: DistrictSoundIndexEntry[] = [
