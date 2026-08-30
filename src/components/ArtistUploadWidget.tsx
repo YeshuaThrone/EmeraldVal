@@ -622,33 +622,6 @@ export default function ArtistUploadWidget() {
             </div>
           )}
 
-          {revealedKey !== null ? (
-            <div className="grid gap-2 rounded-xl border border-atx-stage/40 bg-atx-stage/10 p-3">
-              <p className="text-xs font-semibold text-atx-stage-deep">
-                Store it now — we show it once. This is the only time your
-                full key appears; copy it somewhere safe before leaving this
-                panel.
-              </p>
-              <code className="block break-all rounded-lg border border-atx-line bg-atx-paper px-3 py-2 font-mono text-xs text-atx-ink select-all">
-                {revealedKey}
-              </code>
-              <button
-                type="button"
-                onClick={() => {
-                  void handleCopyKey();
-                }}
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-atx-line bg-atx-paper px-3 py-2 text-xs font-semibold text-atx-ink transition hover:border-atx-electric/50 hover:text-atx-electric"
-              >
-                {copied ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  <Copy className="h-3.5 w-3.5" />
-                )}
-                {copied ? "Copied!" : "Copy key"}
-              </button>
-            </div>
-          ) : null}
-
           <div aria-live="polite" className="grid gap-2">
             {authFeedback !== null ? (
               <p
@@ -661,6 +634,32 @@ export default function ArtistUploadWidget() {
           </div>
         </div>
       )}
+
+      {revealedKey !== null ? (
+        <div className="grid gap-2 rounded-xl border border-atx-stage/40 bg-atx-stage/10 p-3">
+          <p className="text-xs font-semibold text-atx-stage-deep">
+            Store it now — we show it once. This is the only time your full
+            key appears; copy it somewhere safe before leaving this panel.
+          </p>
+          <code className="block break-all rounded-lg border border-atx-line bg-atx-paper px-3 py-2 font-mono text-xs text-atx-ink select-all">
+            {revealedKey}
+          </code>
+          <button
+            type="button"
+            onClick={() => {
+              void handleCopyKey();
+            }}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-atx-line bg-atx-paper px-3 py-2 text-xs font-semibold text-atx-ink transition hover:border-atx-electric/50 hover:text-atx-electric"
+          >
+            {copied ? (
+              <Check className="h-3.5 w-3.5" />
+            ) : (
+              <Copy className="h-3.5 w-3.5" />
+            )}
+            {copied ? "Copied!" : "Copy key"}
+          </button>
+        </div>
+      ) : null}
 
       <div className="grid gap-3">
         <label className="grid gap-1.5">
@@ -848,6 +847,15 @@ export default function ArtistUploadWidget() {
         <button
           type="submit"
           disabled={isPublishing}
+          onClick={(event) => {
+            // Auth gates before native form validation — a signed-out
+            // artist gets the themed sign-in prompt, not a browser
+            // tooltip on a required field they never got to submit.
+            if (auth.status !== "signed_in") {
+              event.preventDefault();
+              requireSignIn("publish shows");
+            }
+          }}
           className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-atx-electric px-4 py-3 text-sm font-semibold text-white shadow-[0_0_28px_rgba(0,85,255,0.35)] transition hover:bg-atx-electric-deep disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isPublishing ? (
