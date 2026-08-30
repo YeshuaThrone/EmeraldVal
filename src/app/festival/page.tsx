@@ -3,7 +3,7 @@ import { MapPin, X } from "lucide-react";
 import ViewToggle from "@/components/ViewToggle";
 import { FAN_MAP_ROUTE } from "@/lib/routes";
 import { FESTIVAL_EVENTS, formatLiveCountdown, isLive } from "@/lib/festivalEvents";
-
+import ArtistSubmittedShows from "@/components/ArtistSubmittedShows";
 export const metadata = {
   title: "ATXLive — Festival Finder",
   description:
@@ -101,6 +101,9 @@ export default function FestivalPage() {
               </article>
             ))}
           </div>
+
+          {/* PR 25 — additive artist-submitted feed below the curated lineup. */}
+          <ArtistSubmittedShows />
         </section>
       </div>
     </div>
