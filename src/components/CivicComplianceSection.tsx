@@ -112,7 +112,7 @@ export default function CivicComplianceSection({
           icon={BadgeDollarSign}
           label="Est. MBGRT Tax Yield"
           value={CIVIC_COMPLIANCE_DATA.estMbrtTaxYieldUsd}
-          caption={`Based on the ${CIVIC_COMPLIANCE_DATA.mbrtTaxRateLabel}`}
+          caption={`Based on ${CIVIC_COMPLIANCE_DATA.mbrtTaxRateLabel}`}
         />
         <MetricCard
           icon={Scale}
