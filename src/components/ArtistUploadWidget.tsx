@@ -186,30 +186,40 @@ export default function ArtistUploadWidget() {
     setAuth({ status: "signed_in", credentials });
     setAuthFeedback(null);
   }, []);
-
   // Mount: restore the session from localStorage and re-validate the key
   // against the server — a stale or revoked key signs the artist out
   // instead of failing silently on the next publish.
   useEffect(() => {
     let cancelled = false;
-    const stored = loadArtistCredentials();
-    if (stored === null) {
-      setAuth({ status: "signed_out" });
-      return;
-    }
-    void verifyArtistKey(stored.apiKey).then((profile) => {
-      if (cancelled) {
-        return;
-      }
-      if (profile === null) {
-        clearArtistCredentials();
-        setAuth({ status: "signed_out" });
-        return;
-      }
-      setAuth({ status: "signed_in", credentials: stored });
-      getSdk().setApiKey(stored.apiKey);
-      getSdk().init(stored.artistId);
-    });
+
+    // Everything resolves in the async chain — no synchronous setState in
+    // the effect body (react-hooks/set-state-in-effect).
+    void Promise.resolve(loadArtistCredentials())
+      .then((stored) => {
+        if (stored === null) {
+          setAuth({ status: "signed_out" });
+          return null;
+        }
+        return verifyArtistKey(stored.apiKey).then((profile) => ({
+          stored,
+          profile,
+        }));
+      })
+      .then((restored) => {
+        if (cancelled) {
+          return;
+        }
+        if (restored === null || restored.profile === null) {
+          if (restored !== null) {
+            clearArtistCredentials();
+          }
+          setAuth({ status: "signed_out" });
+          return;
+        }
+        setAuth({ status: "signed_in", credentials: restored.stored });
+        getSdk().setApiKey(restored.stored.apiKey);
+        getSdk().init(restored.stored.artistId);
+      });
     return () => {
       cancelled = true;
     };
