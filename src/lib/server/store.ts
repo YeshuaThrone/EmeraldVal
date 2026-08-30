@@ -42,10 +42,36 @@ export type ArtistRecord = {
 /** Cap for GET /api/shows — sane default, overridable per call. */
 export const DEFAULT_LIST_SHOWS_LIMIT = 200;
 
+/**
+ * Outcome of recording one completed checkout session (PR 24 capacity
+ * accounting). `recorded` is the first confirmation — capacity was
+ * decremented; `already_recorded` is a repeat confirm of the same session
+ * (poll-safe: the redirect may hit the endpoint more than once) — capacity
+ * is left alone; `insufficient_capacity` means payment succeeded but the
+ * show sold out before confirmation.
+ */
+export type CheckoutPurchaseResult =
+  | { outcome: "recorded"; remaining: number }
+  | { outcome: "already_recorded"; remaining: number }
+  | { outcome: "insufficient_capacity"; remaining: number };
+
 export interface Store {
   insertShow(show: ValidShowPayload): ShowRecord;
   /** Newest first (created_at DESC, insertion order as tiebreak). */
   listShows(limit?: number): ShowRecord[];
+  getShow(id: string): ShowRecord | undefined;
+  /**
+   * Idempotently records a completed checkout session and decrements the
+   * show's remaining capacity by the purchased quantity. The
+   * checkout_sessions table's primary key makes a repeated confirm a no-op
+   * (poll-safe success-redirect handling — see src/lib/server/checkout.ts).
+   * Returns null when the show doesn't exist or isn't native ticketing.
+   */
+  recordCheckoutPurchase(
+    sessionId: string,
+    showId: string,
+    quantity: number,
+  ): CheckoutPurchaseResult | null;
   insertLivePing(ping: ValidLivePingPayload): LivePingRecord;
   /** Newest first (timestamp DESC, insertion order as tiebreak). */
   listLivePings(limit?: number): LivePingRecord[];
@@ -94,6 +120,17 @@ CREATE TABLE IF NOT EXISTS artists (
   created_at TEXT NOT NULL,
   key_hash TEXT NOT NULL,
   key_prefix TEXT NOT NULL DEFAULT ''
+);
+
+-- PR 24 capacity accounting: one row per completed checkout session. The
+-- primary key is the idempotency guard — a repeated success-redirect
+-- confirm (or a future webhook + redirect race) inserts nothing and
+-- therefore never double-decrements capacity.
+CREATE TABLE IF NOT EXISTS checkout_sessions (
+  id TEXT PRIMARY KEY,
+  show_id TEXT NOT NULL,
+  quantity INTEGER NOT NULL,
+  created_at TEXT NOT NULL
 );
 `;
 
@@ -185,6 +222,57 @@ export class SqliteStore implements Store {
          LIMIT ?`,
       )
       .all(limit) as ShowRecord[];
+  }
+
+  getShow(id: string): ShowRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM shows WHERE id = ?`)
+      .get(id) as ShowRecord | undefined;
+  }
+
+  recordCheckoutPurchase(
+    sessionId: string,
+    showId: string,
+    quantity: number,
+  ): CheckoutPurchaseResult | null {
+    const show = this.getShow(showId);
+    if (
+      show === undefined ||
+      show.ticketing_type !== "native" ||
+      show.native_ticket_capacity === null
+    ) {
+      return null;
+    }
+    const remainingAfter = (): number =>
+      this.getShow(showId)?.native_ticket_capacity ?? 0;
+
+    // Single synchronous transaction: the INSERT OR IGNORE is the
+    // idempotency gate, the guarded UPDATE the capacity decrement.
+    const txn = this.db.transaction((): CheckoutPurchaseResult => {
+      const inserted = this.db
+        .prepare(
+          `INSERT OR IGNORE INTO checkout_sessions (id, show_id, quantity, created_at)
+           VALUES (?, ?, ?, ?)`,
+        )
+        .run(sessionId, showId, quantity, new Date().toISOString());
+      if (inserted.changes === 0) {
+        return { outcome: "already_recorded", remaining: remainingAfter() };
+      }
+      const updated = this.db
+        .prepare(
+          `UPDATE shows
+           SET native_ticket_capacity = native_ticket_capacity - ?
+           WHERE id = ? AND native_ticket_capacity >= ?`,
+        )
+        .run(quantity, showId, quantity);
+      if (updated.changes === 0) {
+        // Sold out between session creation and confirmation — the row is
+        // recorded so retries stay no-ops; the caller surfaces the conflict.
+        return { outcome: "insufficient_capacity", remaining: remainingAfter() };
+      }
+      return { outcome: "recorded", remaining: remainingAfter() };
+    });
+    return txn();
   }
 
   insertLivePing(ping: ValidLivePingPayload): LivePingRecord {

@@ -37,6 +37,7 @@ import {
   subscribeArtistPins,
 } from "@/lib/artistPinStore";
 import { fetchServerPins, type FetchServerPinsResult } from "@/lib/shows";
+import { confirmCheckout, fetchCheckoutStatus } from "@/lib/checkoutClient";
 import { CITY_PINS } from "@/lib/seedData";
 import type { FlyToTarget, Pin, ToastMessage } from "@/lib/types";
 import SearchBar from "@/components/SearchBar";
@@ -150,6 +151,78 @@ export default function LiveMapApp() {
       cancelled = true;
     };
   }, [applyHydration]);
+
+  // Checkout gate (PR 24): the Buy button renders only when the server
+  // reports STRIPE_SECRET_KEY configured. Default false — without the key
+  // native pins keep the exact PR #20 data-only treatment (no crash, no
+  // dead button).
+  const [checkoutEnabled, setCheckoutEnabled] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    fetchCheckoutStatus().then((enabled) => {
+      if (!cancelled) {
+        setCheckoutEnabled(enabled);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Checkout success redirect (PR 24): Stripe lands back on the map with
+  // ?checkout=success&show=<id>&session_id=<sid>. The purchase is
+  // confirmed server-side here (poll-safe capacity accounting — the
+  // sandbox has no public webhook URL), hydration re-runs so the pin's
+  // remaining count updates, and the URL is cleaned so a reload can't
+  // re-confirm. Cancelled checkouts just clean the URL quietly.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const checkout = params.get("checkout");
+    if (checkout === null) {
+      return;
+    }
+    const showId = params.get("show");
+    const sessionId = params.get("session_id");
+    const cleanUrl = () => {
+      params.delete("checkout");
+      params.delete("show");
+      params.delete("session_id");
+      const query = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        query === ""
+          ? window.location.pathname
+          : `${window.location.pathname}?${query}`,
+      );
+    };
+    if (checkout !== "success" || showId === null || sessionId === null) {
+      cleanUrl();
+      return;
+    }
+    let cancelled = false;
+    confirmCheckout(showId, sessionId).then((result) => {
+      cleanUrl();
+      if (cancelled) {
+        return;
+      }
+      if (result.ok && result.confirmed) {
+        setToast({
+          type: "success",
+          message:
+            result.remaining !== undefined
+              ? `Purchase confirmed — ${result.remaining} tickets left.`
+              : "Purchase confirmed.",
+        });
+        void runHydration();
+      } else if (!result.ok) {
+        setToast({ type: "error", message: result.error });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [runHydration]);
 
   const visiblePins = useMemo(
     () => filterPins(allPins, filter),
@@ -648,6 +721,7 @@ export default function LiveMapApp() {
         onChange={handlePinChange}
         onClose={() => setSelectedPinId(null)}
         onSendTip={handleSendTip}
+        checkoutEnabled={checkoutEnabled}
       />
 
       {goLiveOpen ? (

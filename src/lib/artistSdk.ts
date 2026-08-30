@@ -52,6 +52,13 @@ export type ArtistShowPin = Pin & {
   /** ISO 8601 set time. */
   setTime: string;
   ticketUrl?: string;
+  /**
+   * The server-assigned show id (PR 24) — the checkout endpoint addresses
+   * shows by their stored id, which differs from the local pin id for
+   * pins created this session. Undefined for pins without a stored show
+   * (e.g. GO LIVE pins created without a published show).
+   */
+  serverId?: string;
 };
 
 export type UploadShowInput = {
@@ -457,6 +464,7 @@ function createArtistPin(partial: {
   artistName?: string;
   councilDistrict?: string;
   ticketing?: Ticketing;
+  serverId?: string;
 }): ArtistShowPin {
   return {
     id: crypto.randomUUID(),
@@ -485,6 +493,7 @@ function createArtistPin(partial: {
     ...(partial.ticketing !== undefined
       ? { ticketing: partial.ticketing }
       : {}),
+    ...(partial.serverId !== undefined ? { serverId: partial.serverId } : {}),
   };
 }
 
@@ -605,6 +614,7 @@ export class ATXLiveArtistSDK {
       artistName: input.artistName.trim(),
       councilDistrict: input.councilDistrict?.trim() || undefined,
       ticketing,
+      serverId,
     });
     this.pins.push(pin);
 
