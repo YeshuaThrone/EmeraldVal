@@ -84,6 +84,13 @@ export type LivePingInput = {
 export type ATXLiveArtistSDKConfig = {
   artistId?: string;
   /**
+   * The artist's API key (PR 23) — sent as `Authorization: Bearer <key>`
+   * on every write. Minted once by POST /api/artists/register; without it
+   * the server rejects writes with a 401 AUTH_REQUIRED/AUTH_INVALID
+   * envelope, which surfaces as the SDK's typed auth_error result.
+   */
+  apiKey?: string;
+  /**
    * Reserved for a future remote host (the pasted SDK pointed at
    * https://api.atxlive.app/v1). The real transport writes to the
    * same-origin /api endpoints and does not read this yet.
@@ -483,6 +490,7 @@ function createArtistPin(partial: {
 
 export class ATXLiveArtistSDK {
   private artistId: string | null;
+  private apiKey: string | null;
   private readonly baseUrl: string | null;
   private readonly pins: ArtistShowPin[] = [];
 
@@ -490,6 +498,7 @@ export class ATXLiveArtistSDK {
     // A constructor-provided artistId counts as initialized; init() can
     // still override it later.
     this.artistId = config.artistId?.trim() || null;
+    this.apiKey = config.apiKey?.trim() || null;
     this.baseUrl = config.baseUrl ?? null;
   }
 
@@ -502,6 +511,20 @@ export class ATXLiveArtistSDK {
       );
     }
     this.artistId = trimmed;
+  }
+
+  /**
+   * Sets (or clears, with an empty string) the Bearer credential used on
+   * writes (PR 23). The studio calls this when the artist signs in, signs
+   * out, or the localStorage credential is re-validated on mount.
+   */
+  setApiKey(apiKey: string): void {
+    this.apiKey = apiKey.trim() === "" ? null : apiKey.trim();
+  }
+
+  /** Whether a Bearer credential is configured (studio sign-in state). */
+  get isAuthorized(): boolean {
+    return this.apiKey !== null;
   }
 
   /** Read-only view of the pins this instance created, for the map host. */
@@ -547,6 +570,9 @@ export class ATXLiveArtistSDK {
     const transport = await requestJson(SHOWS_ENDPOINT, {
       method: "POST",
       body: payload,
+      ...(this.apiKey !== null
+        ? { headers: { Authorization: `Bearer ${this.apiKey}` } }
+        : {}),
     });
     if (!transport.ok) {
       return transportFailure(transport);
@@ -601,6 +627,9 @@ export class ATXLiveArtistSDK {
     const transport = await requestJson(LIVE_PING_ENDPOINT, {
       method: "POST",
       body: payload,
+      ...(this.apiKey !== null
+        ? { headers: { Authorization: `Bearer ${this.apiKey}` } }
+        : {}),
     });
     if (!transport.ok) {
       return transportFailure(transport);

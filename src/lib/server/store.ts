@@ -17,8 +17,9 @@ import type {
  * better-sqlite3 is synchronous, which is fine for these low-volume write
  * endpoints and keeps the store methods trivially testable.
  *
- * The `artists` table exists now so PR 23 (API-key auth) has a home for
- * credentials; only schema + create/read stubs ship this PR.
+ * The `artists` table carries the PR 23 API-key credentials: the raw key
+ * is shown to the artist once at registration and only its SHA-256 hash
+ * (key_hash) plus a display prefix (key_prefix) are ever stored.
  */
 
 /** A stored show — the validated wire payload plus its generated id. */
@@ -27,11 +28,15 @@ export type ShowRecord = ValidShowPayload & { id: string };
 /** A stored live ping — the validated wire payload plus its generated id. */
 export type LivePingRecord = ValidLivePingPayload & { id: string };
 
-/** A registered artist — schema + CRUD stub only this PR (PR 23 extends). */
+/** A registered artist — the identity a Bearer API key resolves to. */
 export type ArtistRecord = {
   id: string;
   name: string;
   created_at: string;
+  /** SHA-256 hex digest of the artist's API key — never the raw key. */
+  key_hash: string;
+  /** Display prefix, e.g. `atxlive_abc12345` — safe to show in the UI. */
+  key_prefix: string;
 };
 
 /** Cap for GET /api/shows — sane default, overridable per call. */
@@ -44,8 +49,15 @@ export interface Store {
   insertLivePing(ping: ValidLivePingPayload): LivePingRecord;
   /** Newest first (timestamp DESC, insertion order as tiebreak). */
   listLivePings(limit?: number): LivePingRecord[];
-  insertArtist(name: string, createdAt?: string): ArtistRecord;
+  insertArtist(
+    name: string,
+    keyHash: string,
+    keyPrefix: string,
+    createdAt?: string,
+  ): ArtistRecord;
   getArtist(id: string): ArtistRecord | undefined;
+  /** Resolves a presented API key's stored hash to its artist row. */
+  getArtistByKeyHash(keyHash: string): ArtistRecord | undefined;
 }
 
 const SCHEMA = `
@@ -79,7 +91,9 @@ CREATE TABLE IF NOT EXISTS live_pings (
 CREATE TABLE IF NOT EXISTS artists (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  key_hash TEXT NOT NULL,
+  key_prefix TEXT NOT NULL DEFAULT ''
 );
 `;
 
@@ -98,27 +112,45 @@ export class SqliteStore implements Store {
 
   /**
    * In-place column additions for databases created before PR 22 (the dev
-   * DB at data/atxlive.db predates the show coordinate columns). SQLite's
-   * CREATE TABLE IF NOT EXISTS never alters an existing table, so missing
-   * columns are added here; fresh databases already have them.
+   * DB at data/atxlive.db predates the show coordinate columns) and before
+   * PR 23 (the artists table predates the key columns). SQLite's CREATE
+   * TABLE IF NOT EXISTS never alters an existing table, so missing columns
+   * are added here; fresh databases already have them.
    */
   private migrate(): void {
-    const columns = new Set(
-      (
-        this.db.prepare(`PRAGMA table_info(shows)`).all() as Array<{
-          name: string;
-        }>
-      ).map((column) => column.name),
-    );
-    if (!columns.has("latitude")) {
+    const columnsOf = (table: string) =>
+      new Set(
+        (
+          this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+            name: string;
+          }>
+        ).map((column) => column.name),
+      );
+
+    const showColumns = columnsOf("shows");
+    if (!showColumns.has("latitude")) {
       this.db.exec(`ALTER TABLE shows ADD COLUMN latitude REAL`);
     }
-    if (!columns.has("longitude")) {
+    if (!showColumns.has("longitude")) {
       this.db.exec(`ALTER TABLE shows ADD COLUMN longitude REAL`);
     }
-    if (!columns.has("council_district")) {
+    if (!showColumns.has("council_district")) {
       this.db.exec(
         `ALTER TABLE shows ADD COLUMN council_district TEXT NOT NULL DEFAULT ''`,
+      );
+    }
+
+    // PR 23: pre-23 databases have an artists table without key columns.
+    // Existing rows (PR 21/22 stubs) had no credentials; a NOT NULL backfill
+    // is impossible for them, so the migration adds nullable columns and
+    // fresh registrations always populate them.
+    const artistColumns = columnsOf("artists");
+    if (!artistColumns.has("key_hash")) {
+      this.db.exec(`ALTER TABLE artists ADD COLUMN key_hash TEXT`);
+    }
+    if (!artistColumns.has("key_prefix")) {
+      this.db.exec(
+        `ALTER TABLE artists ADD COLUMN key_prefix TEXT NOT NULL DEFAULT ''`,
       );
     }
   }
@@ -180,16 +212,21 @@ export class SqliteStore implements Store {
 
   insertArtist(
     name: string,
+    keyHash: string,
+    keyPrefix: string,
     createdAt: string = new Date().toISOString(),
   ): ArtistRecord {
     const record: ArtistRecord = {
       id: randomUUID(),
       name: name.trim(),
       created_at: createdAt,
+      key_hash: keyHash,
+      key_prefix: keyPrefix,
     };
     this.db
       .prepare(
-        `INSERT INTO artists (id, name, created_at) VALUES (@id, @name, @created_at)`,
+        `INSERT INTO artists (id, name, created_at, key_hash, key_prefix)
+         VALUES (@id, @name, @created_at, @key_hash, @key_prefix)`,
       )
       .run(record);
     return record;
@@ -199,6 +236,12 @@ export class SqliteStore implements Store {
     return this.db
       .prepare(`SELECT * FROM artists WHERE id = ?`)
       .get(id) as ArtistRecord | undefined;
+  }
+
+  getArtistByKeyHash(keyHash: string): ArtistRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM artists WHERE key_hash = ?`)
+      .get(keyHash) as ArtistRecord | undefined;
   }
 }
 
