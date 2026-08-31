@@ -87,7 +87,7 @@ function StatCard({
       : { chip: "bg-[#B22222]/15 text-[#B22222]", value: "text-[#B22222]" };
 
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-atx-line bg-white p-5 shadow-[0_0_0_1px_rgba(28,25,23,0.05)]">
+    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-atx-line bg-white p-3 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:p-5">
       <div className="flex items-center gap-2">
         <span
           className={`flex h-10 w-10 items-center justify-center rounded-full ${toneClasses.chip}`}
@@ -99,7 +99,7 @@ function StatCard({
         </span>
       </div>
       <span
-        className={`font-display text-4xl font-bold md:text-5xl ${toneClasses.value}`}
+        className={`min-w-0 break-words font-display text-4xl font-bold md:text-5xl ${toneClasses.value}`}
       >
         {value}
       </span>
@@ -127,7 +127,7 @@ function CivicStatCard({
   caption: string;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-atx-line bg-white p-5 shadow-[0_0_0_1px_rgba(28,25,23,0.05)]">
+    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-atx-line bg-white p-3 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:p-5">
       <div className="flex items-center gap-2">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8B0000]/15 text-[#8B0000]">
           <Icon className="h-5 w-5" />
@@ -136,7 +136,7 @@ function CivicStatCard({
           {label}
         </span>
       </div>
-      <span className="font-display text-3xl font-bold text-atx-blue-deep md:text-4xl">
+      <span className="min-w-0 break-words font-display text-3xl font-bold text-atx-blue-deep md:text-4xl">
         {value}
       </span>
       <span className="text-xs text-stone-500">{caption}</span>
@@ -151,7 +151,7 @@ function CivicStatCard({
  */
 function SoundDensityIndexCard() {
   return (
-    <div className="flex flex-col gap-4 rounded-2xl border border-atx-line bg-white p-5 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:col-span-2 lg:col-span-1">
+    <div className="flex min-w-0 flex-col gap-4 overflow-hidden rounded-2xl border border-atx-line bg-white p-3 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:col-span-2 sm:p-5 lg:col-span-1">
       <div className="flex items-center gap-2">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0055FF]/15 text-[#0055FF]">
           <Volume2 className="h-5 w-5" />
@@ -163,7 +163,7 @@ function SoundDensityIndexCard() {
       <div className="flex flex-col gap-3">
         {DISTRICT_SOUND_DENSITY_INDEX.map((entry) => (
           <div key={entry.district} className="flex items-center gap-3">
-            <span className="w-28 shrink-0 text-sm text-stone-600">
+            <span className="w-28 shrink-0 break-words text-sm text-stone-600">
               {entry.district}
             </span>
             <AnimatedBar
@@ -193,7 +193,7 @@ function CouncilDistrictRow({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="w-40 shrink-0 text-sm text-stone-600">
+      <span className="w-40 shrink-0 break-words text-sm text-stone-600">
         District {number} &middot; {name}
       </span>
       <AnimatedBar
@@ -462,8 +462,8 @@ export default function AdminDashboardPage() {
                 key={stage.name}
                 className="flex items-center justify-between gap-3 rounded-xl border border-atx-line bg-white p-3"
               >
-                <div>
-                  <p className="text-sm font-semibold text-atx-ink">
+                <div className="min-w-0">
+                  <p className="min-w-0 break-words text-sm font-semibold text-atx-ink">
                     {stage.name}
                   </p>
                   <p className="text-xs text-stone-500">
