@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
+import { useRouter } from "next/navigation";
 import { Radio, Volume1 } from "lucide-react";
 import {
   ATXLiveArtistSDK,
@@ -27,10 +28,18 @@ import {
 import type { StoredShow } from "@/lib/shows";
 import VenueBlueprintForm from "@/components/VenueBlueprintForm";
 import {
+  buildBlueprintProfile,
   defaultBlueprintForm,
   type VenueBlueprintFormState,
 } from "@/lib/venueStudioForm";
 import type { VenueStudioBlueprintProfile } from "@/lib/venueStudioBlueprint";
+import VenueStudioHeader from "@/components/VenueStudioHeader";
+import {
+  ATXLiveEngine,
+  DEFAULT_CURFEW_RULES,
+  blueprintFromProfile,
+  districtDensityIndexText,
+} from "@/lib/masterSdk";
 import type { District } from "@/lib/types";
 
 /**
@@ -76,23 +85,14 @@ const TABS: { id: TabId; label: string }[] = [
 const inputClass =
   "w-full rounded-xl border border-atx-line bg-atx-paper px-3 py-2 text-sm text-atx-ink placeholder:text-stone-400 focus:border-atx-blue focus:outline-none";
 
-/** Live-feed indicator pill — the paste's live-feed dot, themed. */
-function LiveFeedPill() {
-  return (
-    <span
-      aria-label="Live feed active"
-      className="inline-flex items-center gap-1.5 rounded-full border border-atx-red/30 bg-atx-red/10 px-2.5 py-1 text-[11px] font-semibold tracking-[0.15em] text-atx-red uppercase"
-    >
-      <span aria-hidden="true" className="relative flex h-1.5 w-1.5">
-        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-atx-red opacity-60" />
-        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-atx-red" />
-      </span>
-      Live Feed
-    </span>
-  );
+/** Minute tick for the client-only clock read (curfew window). */
+function subscribeToMinuteClock(onStoreChange: () => void): () => void {
+  const timer = setInterval(onStoreChange, 60_000);
+  return () => clearInterval(timer);
 }
 
 export default function VenueStudioView() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("blueprint");
 
   // ── Venue Blueprint state (v3.5.0 schema rebuild) ──────────────────────
@@ -128,6 +128,29 @@ export default function VenueStudioView() {
     setCurrentDb(VENUE_BASELINE_DB);
     setReadings((history) => appendReading(history, VENUE_BASELINE_DB));
   };
+
+  // ── ATXLiveMasterSDK state ──────────────────────────────────────
+  // The master engine consumes the compiled draft blueprint, so slider and
+  // toggle edits reprice the live ping instantly; the district curfew rule
+  // seed and the client clock drive the curfew window (computed after
+  // mount so SSR and hydration agree).
+  const masterProfile = buildBlueprintProfile(blueprintForm);
+  const masterBlueprint = blueprintFromProfile(masterProfile);
+  const masterEngine = new ATXLiveEngine(masterBlueprint);
+  const masterPing = masterEngine.processTelemetryPing(currentDb);
+  const curfewRule = DEFAULT_CURFEW_RULES[masterProfile.district];
+  // Client clock via useSyncExternalStore: the server snapshot is null, so
+  // SSR and hydration render the standard-hours line, then the curfew window
+  // activates on the client and refreshes every minute.
+  const masterNowMs = useSyncExternalStore(
+    subscribeToMinuteClock,
+    () => Date.now(),
+    () => null,
+  );
+  const curfewStatus =
+    masterNowMs === null
+      ? null
+      : masterEngine.evaluateCurfewStatus(new Date(masterNowMs), curfewRule);
 
   // ── Stage & Show Management state ─────────────────────────────────────
   const [auth, setAuth] = useState<AuthState>({ status: "restoring" });
@@ -253,18 +276,14 @@ export default function VenueStudioView() {
   return (
     <div className="flex flex-col gap-5">
       {/* ── Header ─────────────────────────────────────────────────────── */}
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-atx-ink md:text-2xl">
-            {savedProfile?.venueName ?? "Empire Control Room"} — Venue Studio
-          </h1>
-
-          <p className="mt-1 text-xs font-semibold tracking-[0.2em] text-stone-400 uppercase">
-            Municipal Sound Telemetry &amp; Operations Dashboard
-          </p>
-        </div>
-        <LiveFeedPill />
-      </header>
+      <VenueStudioHeader
+        venueName={savedProfile?.venueName ?? VENUE_VENUE_NAME}
+        densityIndexText={districtDensityIndexText(masterProfile.district)}
+        onClose={() => router.push("/")}
+      />
+      <p className="text-xs font-semibold tracking-[0.2em] text-stone-400 uppercase">
+        Municipal Sound Telemetry &amp; Operations Dashboard
+      </p>
 
       {/* ── Tab navigation ─────────────────────────────────────────────── */}
       <div
@@ -397,6 +416,33 @@ export default function VenueStudioView() {
                   </dd>
                 </div>
               </dl>
+            </div>
+
+            {/* ATXLiveMasterSDK — district curfew rule and instantaneous
+                blueprint compliance; complements the predictive guard above. */}
+            <div
+              role="status"
+              className={`mt-4 rounded-2xl border p-4 ${
+                masterPing.compliant
+                  ? "border-atx-blue/30 bg-atx-blue/5"
+                  : "border-atx-red/40 bg-atx-red/10"
+              }`}
+            >
+              <p
+                className={`text-xs font-bold tracking-[0.15em] uppercase ${
+                  masterPing.compliant ? "text-atx-blue-deep" : "text-atx-red"
+                }`}
+              >
+                Master SDK ·{" "}
+                {curfewStatus?.isCurfewActive
+                  ? "Curfew active"
+                  : "Standard hours"}{" "}
+                — district cap{" "}
+                {curfewStatus?.effectiveCapDb ?? curfewRule.standardCapDb} dB
+              </p>
+              <p className="mt-1.5 text-sm font-medium text-atx-ink">
+                {masterPing.statusMessage}
+              </p>
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
