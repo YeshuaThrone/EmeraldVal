@@ -42,3 +42,4 @@ next-env.d.ts
 
 # atxlive sqlite database
 data/
+bun.lock
