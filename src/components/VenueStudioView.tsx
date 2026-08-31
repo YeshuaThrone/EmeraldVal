@@ -25,6 +25,12 @@ import {
   lowerMasterVolume,
 } from "@/lib/venueStudio";
 import type { StoredShow } from "@/lib/shows";
+import VenueBlueprintForm from "@/components/VenueBlueprintForm";
+import {
+  defaultBlueprintForm,
+  type VenueBlueprintFormState,
+} from "@/lib/venueStudioForm";
+import type { VenueStudioBlueprintProfile } from "@/lib/venueStudioBlueprint";
 import type { District } from "@/lib/types";
 
 /**
@@ -47,7 +53,7 @@ import type { District } from "@/lib/types";
  * zinc/green/orange palette is not used.
  */
 
-type TabId = "telemetry" | "shows";
+type TabId = "blueprint" | "telemetry" | "shows";
 
 type AuthState =
   | { status: "restoring" }
@@ -62,6 +68,7 @@ type PublishState =
 
 /** One tab of the studio — id drives the themed active state. */
 const TABS: { id: TabId; label: string }[] = [
+  { id: "blueprint", label: "Venue Blueprint" },
   { id: "telemetry", label: "Sound Telemetry Guard" },
   { id: "shows", label: "Stage & Show Management" },
 ];
@@ -86,7 +93,17 @@ function LiveFeedPill() {
 }
 
 export default function VenueStudioView() {
-  const [activeTab, setActiveTab] = useState<TabId>("telemetry");
+  const [activeTab, setActiveTab] = useState<TabId>("blueprint");
+
+  // ── Venue Blueprint state (v3.5.0 schema rebuild) ──────────────────────
+  // Seeded from the paste's Default Austin Blueprint Seed Instance; the
+  // saved profile feeds the telemetry guard's dB cap and the header name.
+  const [blueprintForm, setBlueprintForm] = useState<VenueBlueprintFormState>(defaultBlueprintForm);
+  const [savedProfile, setSavedProfile] = useState<VenueStudioBlueprintProfile | null>(null);
+  const patchBlueprintForm = (patch: Partial<VenueBlueprintFormState>) =>
+    setBlueprintForm((prev) => ({ ...prev, ...patch }));
+  const handleSavedProfile = (profile: VenueStudioBlueprintProfile) =>
+    setSavedProfile(profile);
 
   // ── Sound Telemetry Guard state ────────────────────────────────────────
   // currentDb is the fader's live level; readings is the history the engine
@@ -239,8 +256,9 @@ export default function VenueStudioView() {
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-atx-ink md:text-2xl">
-            Empire Control Room — Venue Studio
+            {savedProfile?.venueName ?? "Empire Control Room"} — Venue Studio
           </h1>
+
           <p className="mt-1 text-xs font-semibold tracking-[0.2em] text-stone-400 uppercase">
             Municipal Sound Telemetry &amp; Operations Dashboard
           </p>
@@ -276,7 +294,25 @@ export default function VenueStudioView() {
       </div>
 
       {/* ── Tab 1: Sound Telemetry Guard ──────────────────────────────── */}
-      {activeTab === "telemetry" ? (
+      {activeTab === "blueprint" ? (
+        <section
+          role="tabpanel"
+          aria-label="Venue Blueprint"
+          className="flex flex-col gap-4"
+        >
+          <p className="text-xs leading-relaxed text-stone-500">
+            The v3.5.0 Venue Studio Blueprint — Core Identity, the full Amenities
+            &amp; Vibe Matrix, and the Telemetry &amp; Compliance Opt-In, seeded from
+            the Default Austin Blueprint Seed Instance. Saving the blueprint
+            syncs the venue name and dB cap into the Sound Telemetry Guard.
+          </p>
+          <VenueBlueprintForm
+            form={blueprintForm}
+            onFormChange={patchBlueprintForm}
+            onSavedProfile={handleSavedProfile}
+          />
+        </section>
+      ) : activeTab === "telemetry" ? (
         <section
           role="tabpanel"
           aria-label="Sound Telemetry Guard"
