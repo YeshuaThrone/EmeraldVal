@@ -28,14 +28,15 @@ import { ARTIST_ROUTE } from "@/lib/routes";
  * from GET /api/shows — the same source of truth the map hydrates from —
  * so one published show appears on both surfaces.
  *
- * Off-happy-path states: loading (quiet placeholder), empty (publish
- * pointer), and fetch failure (retry affordance — never a crash; the
- * deterministic lineup above is unaffected either way).
+ * Off-happy-path states: loading (quiet placeholder) and empty (publish
+ * pointer). Fetch failure degrades silently (user decision, PR 30): the
+ * typed failure is console.warn'ed and the section falls through to the
+ * neutral empty state — never a crash; the deterministic lineup above is
+ * unaffected either way.
  */
 
 type SectionState =
   | { phase: "loading" }
-  | { phase: "error"; message: string }
   | { phase: "loaded"; entries: FestivalShowEntry[] };
 
 /** Ticket affordance per row — mirrors the fan map's PerformerDrawer. */
@@ -76,19 +77,18 @@ export default function ArtistSubmittedShows() {
   const [state, setState] = useState<SectionState>({ phase: "loading" });
 
   const applyResult = useCallback((result: FetchFestivalShowsResult) => {
-    setState(
-      result.ok
-        ? { phase: "loaded", entries: result.entries }
-        : { phase: "error", message: result.error },
-    );
+    if (result.ok) {
+      setState({ phase: "loaded", entries: result.entries });
+    } else {
+      // Silent failure (user decision, PR 30): no Retry box — warn and
+      // fall through to the neutral empty state, publish cross-link intact.
+      console.warn(
+        "[ArtistSubmittedShows] festival feed fetch failed:",
+        result.error,
+      );
+      setState({ phase: "loaded", entries: [] });
+    }
   }, []);
-
-  // Retry path — a user event, not an effect, so applying the result
-  // synchronously here is fine.
-  const runLoad = useCallback(
-    async () => applyResult(await fetchFestivalShows()),
-    [applyResult],
-  );
 
   useEffect(() => {
     // setState runs inside the promise callback (async data load), not in
@@ -136,24 +136,8 @@ export default function ArtistSubmittedShows() {
 
       {state.phase === "loading" ? (
         <p className="mt-5 text-sm text-stone-400" role="status">
-          Loading artist-submitted shows…
+          Loading live fan map feed...
         </p>
-      ) : state.phase === "error" ? (
-        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-atx-line bg-stone-50 p-4">
-          <p className="text-sm text-stone-500">
-            Couldn&apos;t load artist-submitted shows — {state.message}
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              setState({ phase: "loading" });
-              void runLoad();
-            }}
-            className="rounded-full border border-atx-line px-3 py-1.5 text-xs font-semibold text-atx-ink transition hover:border-atx-electric/50 hover:text-atx-electric-deep"
-          >
-            Retry
-          </button>
-        </div>
       ) : state.entries.length === 0 ? (
         <p className="mt-5 rounded-2xl border border-dashed border-atx-line p-4 text-sm text-stone-500">
           No artist-submitted shows yet — publish from the{" "}

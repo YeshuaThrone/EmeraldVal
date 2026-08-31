@@ -10,8 +10,6 @@ import {
   Flame,
   LoaderCircle,
   Plus,
-  RefreshCw,
-  X,
 } from "lucide-react";
 import { PIN_ZOOM } from "@/lib/constants";
 import { districtForPoint } from "@/lib/district";
@@ -82,9 +80,9 @@ export default function LiveMapApp() {
   const [isSearching, setIsSearching] = useState(false);
   const [isClicking, setIsClicking] = useState(false);
   const [goLiveOpen, setGoLiveOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(true);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [heatmapOn, setHeatmapOn] = useState(false);
-  // Starts collapsed to match filtersOpen's initial true so the two never
+  // Starts collapsed to match filtersOpen's initial false so the two never
   // overlap on first paint.
   const [searchCollapsed, setSearchCollapsed] = useState(filtersOpen);
   const [isGoingLive, setIsGoingLive] = useState(false);
@@ -119,21 +117,19 @@ export default function LiveMapApp() {
   // Map persistence (PR 22): on mount, restore what artists published —
   // shows from GET /api/shows and ON_STAGE pings from
   // GET /api/telemetry/live-ping — so a hard reload brings the pins back.
-  // Failure is quiet by design: the seed map still renders, with a
-  // dismissible inline notice (and retry) instead of a crash or a toast.
-  const [hydrationError, setHydrationError] = useState<string | null>(null);
-  const [hydrationNoticeDismissed, setHydrationNoticeDismissed] =
-    useState(false);
+  // Failure is silent by design (user decision, PR 30): console.warn the
+  // typed failure and render the seed map without the live pins — no
+  // inline notice, no retry, no crash, no toast.
   const applyHydration = useCallback((result: FetchServerPinsResult) => {
     if (result.ok) {
       setHydratedPins(result.pins);
-      setHydrationError(null);
     } else {
-      setHydrationError(result.error);
+      console.warn("[LiveMapApp] map hydration failed:", result.error);
     }
   }, []);
-  // Retry path for the quiet notice — a user event, not an effect, so
-  // applying the result synchronously here is fine.
+  // Re-hydration path for the checkout-success refresh — a user-event
+  // callback, not an effect, so applying the result synchronously here is
+  // fine.
   const runHydration = useCallback(
     async () => applyHydration(await fetchServerPins()),
     [applyHydration],
@@ -529,34 +525,13 @@ export default function LiveMapApp() {
           aria-hidden="true"
           className="pointer-events-none absolute bottom-24 left-4 z-20 flex items-center gap-2 rounded-2xl border border-atx-line bg-atx-paper/90 px-3 py-2 text-xs text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md md:bottom-28"
         >
-          <span className="h-2 w-16 rounded-full bg-gradient-to-r from-atx-blue via-yellow-400 to-atx-red" />
+          <span
+            aria-hidden="true"
+            className="h-2 w-16 rounded-full bg-[linear-gradient(to_right,rgba(0,0,0,0),rgba(255,140,0,0.4),rgba(255,165,0,0.75),rgba(255,215,0,0.95),#ffffff)]"
+          />
           <span className="font-medium">
-            Low Density (Cool Blue) &rarr; Peak Foot Traffic (Hot Red)
+            Low Density (Amber) &rarr; Peak Foot Traffic (White)
           </span>
-        </div>
-      ) : null}
-
-      {hydrationError && !hydrationNoticeDismissed ? (
-        <div className="absolute bottom-4 left-4 z-20 flex items-center gap-2 rounded-2xl border border-atx-line bg-atx-paper/90 px-3 py-2 text-xs text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md">
-          <span className="font-medium">{hydrationError}</span>
-          <button
-            type="button"
-            onClick={() => {
-              void runHydration();
-            }}
-            className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-semibold text-atx-blue transition hover:bg-atx-electric/10"
-          >
-            <RefreshCw className="h-3 w-3" />
-            Retry
-          </button>
-          <button
-            type="button"
-            aria-label="Dismiss restore notice"
-            onClick={() => setHydrationNoticeDismissed(true)}
-            className="text-stone-400 transition hover:text-atx-ink"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
         </div>
       ) : null}
 
