@@ -5,13 +5,18 @@ import L from "leaflet";
 import { useMap } from "react-leaflet";
 import type { HeatPoint } from "@/lib/heat";
 
-/** Cool-blue (low density) → hot-red (peak foot traffic), matching the legend swatch. */
+/**
+ * High-contrast heat ramp (low → high): transparent → amber → orange →
+ * gold → white peak. The corridor cultural-density legend swatch in
+ * LiveMapApp mirrors this exact ramp so the legend never disagrees with
+ * the layer.
+ */
 const HEAT_GRADIENT: Record<number, string> = {
-  0.2: "#00a8e8",
-  0.4: "#00c2d1",
-  0.6: "#ffd23f",
-  0.8: "#ff7a3d",
-  1.0: "#9b1b30",
+  0.0: "rgba(0,0,0,0)",
+  0.3: "rgba(255,140,0,0.4)",
+  0.6: "rgba(255,165,0,0.75)",
+  0.85: "rgba(255,215,0,0.95)",
+  1.0: "#ffffff",
 };
 
 /**
