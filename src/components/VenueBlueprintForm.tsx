@@ -13,8 +13,8 @@
  * VenueBlueprintFormState with pure helpers from lib/venueStudioForm. The
  * schema's Default Austin Blueprint Seed Instance pre-fills every field, so
  * the studio opens on a live, valid blueprint ("Austin Live Control Room").
- * The live JSON preview shows the compiled VenueStudioBlueprintProfile as
- * the operator edits — the exact payload the blueprint engine consumes.
+ * The dB cap is a 60–110 range slider with a live numeric badge; the live
+ * telemetry toggle stays bound to the guard's sensor stream state.
  */
 import { useState } from "react";
 import { Radio, Save } from "lucide-react";
@@ -46,13 +46,8 @@ const labelClass =
 const sectionClass =
   "rounded-2xl border border-atx-line bg-white p-4 shadow-[0_2px_12px_rgba(28,25,23,0.06)]";
 
-function SectionHeader({ title, note }: { title: string; note: string }) {
-  return (
-    <div className="flex flex-wrap items-baseline gap-2">
-      <h3 className="text-sm font-bold text-atx-ink">{title}</h3>
-      <span className="text-[11px] text-stone-500">{note}</span>
-    </div>
-  );
+function SectionHeader({ title }: { title: string }) {
+  return <h3 className="text-sm font-bold text-atx-ink">{title}</h3>;
 }
 
 /**
@@ -73,6 +68,7 @@ export default function VenueBlueprintForm({
 
   const draftProfile = buildBlueprintProfile(form);
   const validation = validateBlueprintProfile(draftProfile);
+  const decibelCapDb = Number(form.decibelThresholdCapDb) || 60;
 
   const handleSave = () => {
     if (!validation.isValid) return;
@@ -83,9 +79,9 @@ export default function VenueBlueprintForm({
 
   return (
     <div className="space-y-4">
-      {/* 1. Core Identity (Mirrors Artist Studio Setup) */}
+      {/* 1. Core Identity */}
       <section className={sectionClass} aria-label="Core Identity">
-        <SectionHeader note="Mirrors Artist Studio Setup" title="Core Identity" />
+        <SectionHeader title="Core Identity" />
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="bp-venue-name" className={labelClass}>
@@ -180,9 +176,9 @@ export default function VenueBlueprintForm({
         </div>
       </section>
 
-      {/* 2. Amenities & Vibe Matrix (Tourist & Fan Matching) */}
+      {/* 2. Amenities & Vibe Matrix */}
       <section className={sectionClass}>
-        <SectionHeader note="Tourist & fan matching" title="Amenities & Vibe Matrix" />
+        <SectionHeader title="Amenities & Vibe Matrix" />
         <label className="mt-3 flex items-center gap-2 text-sm font-medium text-atx-ink">
           <input
             type="checkbox"
@@ -190,7 +186,7 @@ export default function VenueBlueprintForm({
             onChange={(e) => onFormChange({ patioAndOutdoorAccess: e.target.checked })}
             className="h-4 w-4 accent-[#9b1b30]"
           />
-          Patio &amp; outdoor access — crucial for weather surge directives
+          Patio &amp; outdoor access
         </label>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           <div>
@@ -277,19 +273,35 @@ export default function VenueBlueprintForm({
 
       {/* 3. Sound Telemetry & Compliance Opt-In */}
       <section className={sectionClass}>
-        <SectionHeader note="Connect sound meters to the guard" title="Telemetry & Compliance Opt-In" />
+        <SectionHeader title="Telemetry & Compliance Opt-In" />
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div>
-            <label htmlFor="bp-db-cap" className={labelClass}>
-              Decibel threshold cap (dB)
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label htmlFor="bp-db-cap" className={labelClass}>
+                Decibel threshold cap (dB)
+              </label>
+              <span
+                aria-live="polite"
+                className="rounded-full border border-atx-electric/30 bg-atx-electric/10 px-2.5 py-0.5 text-xs font-bold tabular-nums text-atx-ink"
+              >
+                {decibelCapDb} dB
+              </span>
+            </div>
             <input
               id="bp-db-cap"
-              type="number"
-              value={form.decibelThresholdCapDb}
+              type="range"
+              min={60}
+              max={110}
+              step={1}
+              value={decibelCapDb}
+              aria-valuetext={`${decibelCapDb} decibels`}
               onChange={(e) => onFormChange({ decibelThresholdCapDb: e.target.value })}
-              className={inputClass}
+              className="mt-2.5 w-full cursor-pointer accent-[#9b1b30] focus:outline-none"
             />
+            <div className="mt-1 flex justify-between text-[10px] font-semibold text-stone-400">
+              <span>60 dB</span>
+              <span>110 dB</span>
+            </div>
           </div>
           <div>
             <label htmlFor="bp-sensor-id" className={labelClass}>
@@ -311,13 +323,13 @@ export default function VenueBlueprintForm({
             onChange={(e) => onFormChange({ liveTelemetryStreamOptIn: e.target.checked })}
             className="h-4 w-4 accent-[#9b1b30]"
           />
-          Connect live telemetry stream to the automated alert engine
+          Live telemetry stream
         </label>
       </section>
 
-      {/* Live validation + compiled payload preview */}
+      {/* Live validation */}
       <section
-        aria-label="Blueprint validation and payload"
+        aria-label="Blueprint validation"
         className={
           validation.isValid
             ? "rounded-2xl border border-atx-electric/40 bg-atx-electric/5 p-4"
@@ -334,9 +346,6 @@ export default function VenueBlueprintForm({
             Missing: {validation.missingFields.join(", ")}
           </p>
         )}
-        <pre className="mt-2 max-h-44 overflow-auto rounded-xl bg-atx-ink p-3 text-[10px] leading-relaxed text-stone-200">
-          {JSON.stringify(draftProfile, null, 2)}
-        </pre>
       </section>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -349,12 +358,6 @@ export default function VenueBlueprintForm({
           <Save className="h-4 w-4" />
           Save Venue Blueprint
         </button>
-        {validation.isValid ? (
-          <span className="text-xs font-semibold text-atx-electric">
-            {draftProfile.venueName || "Untitled"} · {draftProfile.district} · {draftProfile.capacity} cap ·{" "}
-            {draftProfile.telemetryConfig.decibelThresholdCapDb} dB cap
-          </span>
-        ) : null}
       </div>
 
       {savedProfile && (
