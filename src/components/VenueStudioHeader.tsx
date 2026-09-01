@@ -31,10 +31,12 @@ export default function VenueStudioHeader({
       </div>
 
       {/* District Sound & Density Index Display — mr-10 keeps the index
-          away from the close (X) button container. */}
-      <div className="mr-10 hidden items-center space-x-2 whitespace-nowrap text-sm text-stone-400 md:flex">
+          away from the close (X) button container on every breakpoint;
+          text/padding scale down on mobile and the row wraps cleanly
+          under the title row instead of overlapping the close button. */}
+      <div className="mr-10 flex items-center space-x-2 whitespace-nowrap text-xs text-stone-400 sm:text-sm">
         <span className="font-medium">District Sound &amp; Density:</span>
-        <span className="rounded-md border border-atx-line bg-atx-paper px-2.5 py-1 font-bold text-atx-ink">
+        <span className="rounded-md border border-atx-line bg-atx-paper px-2 py-0.5 font-bold text-atx-ink sm:px-2.5 sm:py-1">
           {densityIndexText}
         </span>
       </div>
