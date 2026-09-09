@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRateLimits } from "@/lib/server/rateLimit";
 import { POST } from "./route";
 
-vi.mock("@/lib/server/covenantSignup", () => ({
-  registerCovenantCreator: vi.fn(),
+vi.mock("@/lib/server/covnantSignup", () => ({
+  registerCovnantCreator: vi.fn(),
 }));
 
 vi.mock("@/lib/server/supabase", () => ({
@@ -12,10 +12,10 @@ vi.mock("@/lib/server/supabase", () => ({
   createAdminClient: vi.fn(() => ({ name: "admin" })),
 }));
 
-import { registerCovenantCreator } from "@/lib/server/covenantSignup";
+import { registerCovnantCreator } from "@/lib/server/covnantSignup";
 import { readSupabaseEnv } from "@/lib/server/supabase";
 
-const mockedRegister = vi.mocked(registerCovenantCreator);
+const mockedRegister = vi.mocked(registerCovnantCreator);
 const mockedEnv = vi.mocked(readSupabaseEnv);
 
 const VALID_BODY = {
@@ -30,7 +30,7 @@ const VALID_BODY = {
 };
 
 function postRequest(body: string): Request {
-  return new Request("http://localhost:3000/api/covenant/auth/signup", {
+  return new Request("http://localhost:3000/api/covnant/auth/signup", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body,
@@ -48,7 +48,7 @@ beforeEach(() => {
   resetRateLimits();
 });
 
-describe("POST /api/covenant/auth/signup", () => {
+describe("POST /api/covnant/auth/signup", () => {
   it("returns 201 with success, session, and profile on a clean signup", async () => {
     mockedRegister.mockResolvedValue({
       ok: true,
@@ -136,7 +136,7 @@ describe("POST /api/covenant/auth/signup", () => {
       "@/lib/server/rateLimit"
     );
     for (let i = 0; i < REGISTER_RATE_LIMIT.limit; i += 1) {
-      checkRateLimit("covenant-signup:unknown", REGISTER_RATE_LIMIT);
+      checkRateLimit("covnant-signup:unknown", REGISTER_RATE_LIMIT);
     }
 
     const response = await POST(

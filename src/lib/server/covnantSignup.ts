@@ -1,5 +1,5 @@
 import type { SupabaseClient, Session, User } from "@supabase/supabase-js";
-import type { CovenantSignupInput, CovenantSignupSuccess, CreatorProfile } from "@/lib/covenant/types";
+import type { CovnantSignupInput, CovnantSignupSuccess, CreatorProfile } from "@/lib/covnant/types";
 
 /**
  * Orchestrates Covnant signup: Supabase Auth signUp (password hashing +
@@ -9,18 +9,18 @@ import type { CovenantSignupInput, CovenantSignupSuccess, CreatorProfile } from 
  * compensating action.
  */
 
-export type CovenantSignupFailure = {
+export type CovnantSignupFailure = {
   ok: false;
   status: number;
   code: string;
   message: string;
 };
 
-export type CovenantSignupResult =
-  | { ok: true; value: CovenantSignupSuccess }
-  | CovenantSignupFailure;
+export type CovnantSignupResult =
+  | { ok: true; value: CovnantSignupSuccess }
+  | CovnantSignupFailure;
 
-export type CovenantAuthClients = {
+export type CovnantAuthClients = {
   auth: SupabaseClient;
   admin: SupabaseClient;
 };
@@ -59,7 +59,7 @@ function toSessionState(session: Session | null) {
   };
 }
 
-function profileRow(userId: string, payload: CovenantSignupInput, acceptedAt: string) {
+function profileRow(userId: string, payload: CovnantSignupInput, acceptedAt: string) {
   return {
     id: userId,
     stage_name: payload.stage_name,
@@ -73,11 +73,11 @@ function profileRow(userId: string, payload: CovenantSignupInput, acceptedAt: st
   };
 }
 
-export async function registerCovenantCreator(
-  payload: CovenantSignupInput,
-  clients: CovenantAuthClients,
+export async function registerCovnantCreator(
+  payload: CovnantSignupInput,
+  clients: CovnantAuthClients,
   now: () => Date = () => new Date(),
-): Promise<CovenantSignupResult> {
+): Promise<CovnantSignupResult> {
   const { data, error } = await clients.auth.auth.signUp({
     email: payload.email,
     password: payload.password,

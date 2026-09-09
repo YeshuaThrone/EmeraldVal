@@ -3,7 +3,7 @@
  * `creator_profiles` row persisted after Supabase Auth signUp.
  */
 
-export type CovenantSignupInput = {
+export type CovnantSignupInput = {
   stage_name: string;
   legal_name: string;
   email: string;
@@ -26,24 +26,24 @@ export type CreatorProfile = {
   udr_terms_accepted_at: string;
 };
 
-export type CovenantAuthUser = {
+export type CovnantAuthUser = {
   id: string;
   email: string | null;
   email_confirmed_at: string | null;
 };
 
-export type CovenantSessionState = {
+export type CovnantSessionState = {
   access_token: string;
   refresh_token: string;
   expires_in: number;
   expires_at: number | null;
   token_type: string;
-  user: CovenantAuthUser;
+  user: CovnantAuthUser;
 };
 
-export type CovenantSignupSuccess = {
+export type CovnantSignupSuccess = {
   success: true;
-  session: CovenantSessionState | null;
-  user: CovenantAuthUser;
+  session: CovnantSessionState | null;
+  user: CovnantAuthUser;
   profile: CreatorProfile;
 };

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { User } from "@supabase/supabase-js";
-import { registerCovenantCreator } from "@/lib/server/covenantSignup";
-import type { CovenantAuthClients } from "@/lib/server/covenantSignup";
-import type { CovenantSignupInput } from "@/lib/covenant/types";
+import { registerCovnantCreator } from "@/lib/server/covnantSignup";
+import type { CovnantAuthClients } from "@/lib/server/covnantSignup";
+import type { CovnantSignupInput } from "@/lib/covnant/types";
 
-const PAYLOAD: CovenantSignupInput = {
+const PAYLOAD: CovnantSignupInput = {
   stage_name: "Night Owl",
   legal_name: "Ada Lovelace",
   email: "ada@example.com",
@@ -59,12 +59,12 @@ function makeClients(options: {
   const clients = {
     auth: { auth: { signUp } },
     admin: { auth: { admin: { deleteUser } }, from },
-  } as unknown as CovenantAuthClients;
+  } as unknown as CovnantAuthClients;
 
   return { clients, signUp, deleteUser, insert, from };
 }
 
-describe("registerCovenantCreator", () => {
+describe("registerCovnantCreator", () => {
   const frozenNow = () => new Date("2026-09-09T16:00:00.000Z");
 
   it("signs up, inserts creator_profiles with phone_verified_at null, and returns session state", async () => {
@@ -85,7 +85,7 @@ describe("registerCovenantCreator", () => {
       },
     });
 
-    const result = await registerCovenantCreator(PAYLOAD, clients, frozenNow);
+    const result = await registerCovnantCreator(PAYLOAD, clients, frozenNow);
     expect(result.ok).toBe(true);
     if (!result.ok) {
       return;
@@ -159,7 +159,7 @@ describe("registerCovenantCreator", () => {
       },
     });
 
-    const result = await registerCovenantCreator(PAYLOAD, clients, frozenNow);
+    const result = await registerCovnantCreator(PAYLOAD, clients, frozenNow);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.session).toBeNull();
@@ -175,7 +175,7 @@ describe("registerCovenantCreator", () => {
       },
     });
 
-    const result = await registerCovenantCreator(PAYLOAD, clients, frozenNow);
+    const result = await registerCovnantCreator(PAYLOAD, clients, frozenNow);
     expect(result).toEqual({
       ok: false,
       status: 409,
@@ -193,7 +193,7 @@ describe("registerCovenantCreator", () => {
       },
     });
 
-    const result = await registerCovenantCreator(PAYLOAD, clients, frozenNow);
+    const result = await registerCovnantCreator(PAYLOAD, clients, frozenNow);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("duplicate_email");
@@ -208,7 +208,7 @@ describe("registerCovenantCreator", () => {
       },
     });
 
-    const result = await registerCovenantCreator(PAYLOAD, clients, frozenNow);
+    const result = await registerCovnantCreator(PAYLOAD, clients, frozenNow);
     expect(result).toEqual({
       ok: false,
       status: 400,
@@ -226,7 +226,7 @@ describe("registerCovenantCreator", () => {
       insert: { data: null, error: { message: "insert failed" } },
     });
 
-    const result = await registerCovenantCreator(PAYLOAD, clients, frozenNow);
+    const result = await registerCovnantCreator(PAYLOAD, clients, frozenNow);
     expect(deleteUser).toHaveBeenCalledWith(USER_ID);
     expect(result).toEqual({
       ok: false,

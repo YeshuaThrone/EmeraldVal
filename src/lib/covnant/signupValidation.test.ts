@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateCovenantSignupPayload } from "@/lib/covenant/signupValidation";
+import { validateCovnantSignupPayload } from "@/lib/covnant/signupValidation";
 
 const VALID = {
   stage_name: "Night Owl",
@@ -12,9 +12,9 @@ const VALID = {
   udr_terms_accepted: true,
 };
 
-describe("validateCovenantSignupPayload", () => {
+describe("validateCovnantSignupPayload", () => {
   it("accepts a complete payload and trims/lowercases identity fields", () => {
-    const result = validateCovenantSignupPayload({
+    const result = validateCovnantSignupPayload({
       ...VALID,
       stage_name: "  Night Owl  ",
       legal_name: "  Ada Lovelace  ",
@@ -33,7 +33,7 @@ describe("validateCovenantSignupPayload", () => {
 
   it("treats omitted, null, and blank phone as null", () => {
     for (const phone of [undefined, null, "", "   "]) {
-      const result = validateCovenantSignupPayload({ ...VALID, phone });
+      const result = validateCovnantSignupPayload({ ...VALID, phone });
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.value.phone).toBeNull();
@@ -42,7 +42,7 @@ describe("validateCovenantSignupPayload", () => {
   });
 
   it("rejects a non-object body", () => {
-    const result = validateCovenantSignupPayload(["not", "an", "object"]);
+    const result = validateCovnantSignupPayload(["not", "an", "object"]);
     expect(result).toEqual({
       ok: false,
       code: "malformed_body",
@@ -58,7 +58,7 @@ describe("validateCovenantSignupPayload", () => {
       [{ ...VALID, title: null }, "missing_title"],
     ];
     for (const [input, code] of cases) {
-      const result = validateCovenantSignupPayload(input);
+      const result = validateCovnantSignupPayload(input);
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.code).toBe(code);
@@ -67,7 +67,7 @@ describe("validateCovenantSignupPayload", () => {
   });
 
   it("rejects an invalid email", () => {
-    const result = validateCovenantSignupPayload({ ...VALID, email: "not-an-email" });
+    const result = validateCovnantSignupPayload({ ...VALID, email: "not-an-email" });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("invalid_email");
@@ -76,7 +76,7 @@ describe("validateCovenantSignupPayload", () => {
 
   it("rejects a phone that is not E.164", () => {
     for (const phone of ["512-555-0123", "15125550123"]) {
-      const result = validateCovenantSignupPayload({ ...VALID, phone });
+      const result = validateCovnantSignupPayload({ ...VALID, phone });
       expect(result.ok).toBe(false);
       if (!result.ok) {
         expect(result.code).toBe("invalid_phone");
@@ -85,7 +85,7 @@ describe("validateCovenantSignupPayload", () => {
   });
 
   it("rejects a password shorter than 8 characters without trimming it", () => {
-    const result = validateCovenantSignupPayload({ ...VALID, password: "short" });
+    const result = validateCovnantSignupPayload({ ...VALID, password: "short" });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.code).toBe("invalid_password");
@@ -94,7 +94,7 @@ describe("validateCovenantSignupPayload", () => {
 
   it("requires udr_terms_accepted to be boolean true", () => {
     for (const udr_terms_accepted of [false, "true", 1, null, undefined]) {
-      const result = validateCovenantSignupPayload({
+      const result = validateCovnantSignupPayload({
         ...VALID,
         udr_terms_accepted,
       });

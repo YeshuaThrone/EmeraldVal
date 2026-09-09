@@ -1,12 +1,12 @@
-import type { CovenantSignupInput } from "@/lib/covenant/types";
+import type { CovnantSignupInput } from "@/lib/covnant/types";
 
 /**
- * Payload rules for POST /api/covenant/auth/signup. Pure: accepts `unknown`
- * JSON and returns either a normalized CovenantSignupInput or a typed
+ * Payload rules for POST /api/covnant/auth/signup. Pure: accepts `unknown`
+ * JSON and returns either a normalized CovnantSignupInput or a typed
  * {error, code} envelope field.
  */
 
-export type CovenantSignupErrorCode =
+export type CovnantSignupErrorCode =
   | "malformed_body"
   | "missing_stage_name"
   | "missing_legal_name"
@@ -17,11 +17,11 @@ export type CovenantSignupErrorCode =
   | "invalid_password"
   | "udr_terms_required";
 
-export type CovenantSignupValidationResult =
-  | { ok: true; value: CovenantSignupInput }
-  | { ok: false; code: CovenantSignupErrorCode; message: string };
+export type CovnantSignupValidationResult =
+  | { ok: true; value: CovnantSignupInput }
+  | { ok: false; code: CovnantSignupErrorCode; message: string };
 
-const ERROR_MESSAGES: Record<CovenantSignupErrorCode, string> = {
+const ERROR_MESSAGES: Record<CovnantSignupErrorCode, string> = {
   malformed_body: "Request body must be a JSON object.",
   missing_stage_name: "stage_name is required.",
   missing_legal_name: "legal_name is required.",
@@ -39,7 +39,7 @@ const E164_RE = /^\+[1-9]\d{1,14}$/;
 /** Practical email check — Auth still enforces deliverability. */
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function fail(code: CovenantSignupErrorCode): CovenantSignupValidationResult {
+function fail(code: CovnantSignupErrorCode): CovnantSignupValidationResult {
   return { ok: false, code, message: ERROR_MESSAGES[code] };
 }
 
@@ -74,9 +74,9 @@ export function normalizeOptionalE164(
   return { ok: true, phone: trimmed };
 }
 
-export function validateCovenantSignupPayload(
+export function validateCovnantSignupPayload(
   input: unknown,
-): CovenantSignupValidationResult {
+): CovnantSignupValidationResult {
   if (!isRecord(input)) {
     return fail("malformed_body");
   }

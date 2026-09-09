@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateCovenantSignupPayload } from "@/lib/covenant/signupValidation";
-import { registerCovenantCreator } from "@/lib/server/covenantSignup";
+import { validateCovnantSignupPayload } from "@/lib/covnant/signupValidation";
+import { registerCovnantCreator } from "@/lib/server/covnantSignup";
 import { jsonError } from "@/lib/server/http";
 import { checkRateLimit, REGISTER_RATE_LIMIT } from "@/lib/server/rateLimit";
 import {
@@ -10,7 +10,7 @@ import {
 } from "@/lib/server/supabase";
 
 /**
- * POST /api/covenant/auth/signup — Covnant creator registration.
+ * POST /api/covnant/auth/signup — Covnant creator registration.
  *
  * 1. Validate the JSON body (stage/legal name, email, optional E.164 phone,
  *    industry, title, password ≥ 8, udr_terms_accepted === true).
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     return jsonError(400, "malformed_body", "Request body must be valid JSON.");
   }
 
-  const parsed = validateCovenantSignupPayload(body);
+  const parsed = validateCovnantSignupPayload(body);
   if (!parsed.ok) {
     const status = parsed.code === "malformed_body" ? 400 : 422;
     return jsonError(status, parsed.code, parsed.message);
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     request.headers.get("x-real-ip") ??
     "unknown";
   const verdict = checkRateLimit(
-    `covenant-signup:${identity}`,
+    `covnant-signup:${identity}`,
     REGISTER_RATE_LIMIT,
   );
   if (!verdict.ok) {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const result = await registerCovenantCreator(parsed.value, {
+  const result = await registerCovnantCreator(parsed.value, {
     auth: createAuthClient(env),
     admin: createAdminClient(env),
   });
