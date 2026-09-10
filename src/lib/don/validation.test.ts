@@ -54,15 +54,24 @@ describe("parseIdentity", () => {
   });
 
   it("rejects a missing legal name", () => {
-    expect(parseIdentity({ ...VALID_IDENTITY, legal_name: "  " }, NOW).code).toBe(
-      "invalid_identity",
-    );
+    const result = parseIdentity({ ...VALID_IDENTITY, legal_name: "  " }, NOW);
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.code).toBe("invalid_identity");
   });
 
   it("rejects a non-E.164 phone", () => {
-    expect(
-      parseIdentity({ ...VALID_IDENTITY, phone: "512-555-1234" }, NOW).code,
-    ).toBe("invalid_phone");
+    const result = parseIdentity(
+      { ...VALID_IDENTITY, phone: "512-555-1234" },
+      NOW,
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.code).toBe("invalid_phone");
   });
 });
 
