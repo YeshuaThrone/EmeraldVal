@@ -1,5 +1,6 @@
 /**
- * Store-backed unearned-advance recoupment.
+ * Store-backed unearned-advance recoupment. Incoming earnings hit the
+ * recoupment_ledger before excess is released to the creator vault.
  */
 
 import type { Store } from "@/lib/server/store";
@@ -9,6 +10,7 @@ import {
   DEFAULT_RECOUPMENT_BPS,
 } from "@/modules/don/constants";
 import type { RecoupmentAdvanceRecord } from "@/modules/don/records";
+import type { VaultCreditTarget } from "@/modules/vaults/balances";
 import { creditVault } from "@/modules/vaults/engine";
 import { sweepRecoupment } from "./sweep";
 
@@ -45,13 +47,20 @@ export type RecoupmentApplyResult = {
   completed: boolean;
 };
 
+export type RecoupmentSweepOptions = {
+  split_run_id?: string;
+  excess_target?: VaultCreditTarget;
+};
+
 export function applyRecoupmentSweep(
   store: Store,
   payeeId: string,
   payeeName: string,
   incomingCents: number,
   now: Date = new Date(),
+  options: RecoupmentSweepOptions = {},
 ): RecoupmentApplyResult {
+  const excessTarget = options.excess_target ?? "available";
   const advance = store.getRecoupmentAdvance(payeeId);
   if (advance === undefined) {
     return {
@@ -86,7 +95,18 @@ export function applyRecoupmentSweep(
     );
   }
   if (swept.excess_cents > 0) {
-    creditVault(store, payeeId, payeeName, swept.excess_cents, "available", now);
+    creditVault(store, payeeId, payeeName, swept.excess_cents, excessTarget, now);
+  }
+  if (options.split_run_id !== undefined && incomingCents > 0) {
+    store.insertRecoupmentLedger({
+      creator_id: payeeId,
+      split_run_id: options.split_run_id,
+      incoming_cents: incomingCents,
+      recouped_cents: swept.recouped_cents,
+      excess_cents: swept.excess_cents,
+      recoupment_current_cents: swept.recoupment_current_cents,
+      created_at: now.toISOString(),
+    });
   }
   return {
     applied: true,

@@ -3,6 +3,7 @@ import {
   creditBalances,
   debitAvailable,
   debitPending,
+  debitTarget,
   emptyVaultBalances,
   freezeIntoReserve,
   holdPayout,
@@ -81,6 +82,43 @@ describe("debitAvailable", () => {
         0,
       ).ok,
     ).toBe(false);
+  });
+});
+
+describe("debitTarget", () => {
+  const base = {
+    available_balance: 10,
+    pending_balance: 8,
+    reserve_balance: 6,
+  };
+
+  it("debits each bucket and no-ops a zero amount", () => {
+    expect(debitTarget(base, 0, "available").ok).toBe(true);
+    const available = debitTarget(base, 4, "available");
+    expect(available.ok).toBe(true);
+    if (available.ok) {
+      expect(available.balances.available_balance).toBe(6);
+    }
+    const pending = debitTarget(base, 8, "pending");
+    expect(pending.ok).toBe(true);
+    if (pending.ok) {
+      expect(pending.balances.pending_balance).toBe(0);
+    }
+    const reserve = debitTarget(base, 6, "reserve");
+    expect(reserve.ok).toBe(true);
+    if (reserve.ok) {
+      expect(reserve.balances.reserve_balance).toBe(0);
+    }
+  });
+
+  it("rejects an overdraft of reserve", () => {
+    expect(debitTarget(base, 7, "reserve")).toEqual({
+      ok: false,
+      code: "insufficient_reserve",
+    });
+    expect(debitTarget(base, -1, "reserve").ok).toBe(false);
+    expect(debitTarget(base, 99, "available").ok).toBe(false);
+    expect(debitTarget(base, 99, "pending").ok).toBe(false);
   });
 });
 

@@ -1,10 +1,12 @@
 /**
- * Persist a balanced journal. Rejects empty or unbalanced drafts so the
- * double-entry invariant cannot be written incorrectly.
+ * Persist a balanced, hash-chained journal. Append-only: once posted a
+ * journal is never updated.
  */
 
 import type { Store } from "@/lib/server/store";
+import { GL_GENESIS_HASH } from "@/modules/don/constants";
 import type { GlJournalRecord } from "@/modules/don/records";
+import { hashJournal } from "./chain";
 import {
   validateJournal,
   type GlLeg,
@@ -40,11 +42,30 @@ export function postJournal(
     };
   }
   const createdAt = now.toISOString();
+  const previous = store.getLatestGlJournal();
+  const sequence = (previous?.sequence ?? 0) + 1;
+  const prevHash =
+    previous !== undefined && previous.entry_hash !== ""
+      ? previous.entry_hash
+      : GL_GENESIS_HASH;
+  const entryHash = hashJournal({
+    sequence,
+    kind: draft.kind,
+    ref_type: draft.ref_type,
+    ref_id: draft.ref_id,
+    created_at: createdAt,
+    prev_hash: prevHash,
+    legs: validated.legs,
+  });
   const journal = store.insertGlJournal({
     kind: draft.kind,
     ref_type: draft.ref_type,
     ref_id: draft.ref_id,
     created_at: createdAt,
+    sequence,
+    prev_hash: prevHash,
+    entry_hash: entryHash,
+    state: "posted",
   });
   for (const leg of validated.legs) {
     store.insertGlEntry({

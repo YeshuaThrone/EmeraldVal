@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SqliteStore } from "@/lib/server/store";
 import { calculateUdrSplits } from "@/lib/server/udrSplits";
-import { auditLedger, glVaultLiabilityCents } from "./audit";
+import { auditLedger, glVaultLiabilityCents, immutableLedgerLog } from "./audit";
 import { fboDebit, vaultCredit } from "./journal";
 import { creditVault } from "@/modules/vaults/engine";
 
@@ -12,6 +12,9 @@ describe("auditLedger", () => {
     expect(report.double_entry.balanced).toBe(true);
     expect(report.books_reconcile).toBe(true);
     expect(report.fbo_cash_cents).toBe(0);
+    expect(report.immutable.valid).toBe(true);
+    expect(report.immutable.journal_count).toBe(0);
+    expect(immutableLedgerLog(store).journals).toEqual([]);
   });
 
   it("reconciles FBO cash to creator vaults plus company dust after a split", async () => {
@@ -50,6 +53,12 @@ describe("auditLedger", () => {
     expect(report.books_reconcile).toBe(true);
     expect(report.fbo_cash_cents).toBe(10_000);
     expect(report.vault_liability_cents).toBe(10_000);
+    expect(report.immutable.valid).toBe(true);
+    expect(report.double_entry.pair_count).toBeGreaterThan(0);
+    const log = immutableLedgerLog(store);
+    expect(log.journals).toHaveLength(1);
+    expect(log.journals[0]?.debit_account_pairs[0]?.debit_account).toBe("fbo_cash");
+    expect(log.immutable.valid).toBe(true);
   });
 
   it("flags a vault/FBO mismatch and splits company dust", () => {
@@ -81,6 +90,7 @@ describe("auditLedger", () => {
     const report = auditLedger(store);
     expect(report.double_entry.balanced).toBe(false);
     expect(report.fbo_cash_cents).toBe(9);
+    expect(report.immutable.valid).toBe(false);
   });
 
   it("nets vault liability from GL legs", () => {

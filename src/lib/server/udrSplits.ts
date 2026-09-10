@@ -37,7 +37,9 @@ import {
   type RecoupmentApplyResult,
 } from "@/modules/recoupment/engine";
 import { creditVault } from "@/modules/vaults/engine";
+import { isIncomingFrozen } from "@/modules/vaults/dispute";
 import type { CompanyDustRecord, TaxEscrowRecord } from "@/modules/don/records";
+import type { VaultCreditTarget } from "@/modules/vaults/balances";
 
 export type SplitCalculateSuccess = {
   ok: true;
@@ -166,12 +168,24 @@ export async function calculateUdrSplits(
           );
         }
       }
+      const incomingFrozen = isIncomingFrozen(
+        store,
+        party.payee_id,
+        item.work_id,
+      );
+      const excessBucket: VaultCreditTarget = incomingFrozen
+        ? "reserve"
+        : "available";
       const recouped = applyRecoupmentSweep(
         store,
         party.payee_id,
         party.payee_name,
         creditAmount,
         now,
+        {
+          split_run_id: splitRun.id,
+          excess_target: excessBucket,
+        },
       );
       if (recouped.applied) {
         recoupment.push({ ...recouped, payee_id: party.payee_id });
@@ -187,9 +201,20 @@ export async function calculateUdrSplits(
         }
         if (recouped.excess_cents > 0) {
           glLegs.push(
-            vaultCredit(party.payee_id, "available", recouped.excess_cents),
+            vaultCredit(party.payee_id, excessBucket, recouped.excess_cents),
           );
         }
+      } else if (incomingFrozen && creditAmount > 0) {
+        skipBaas.add(ledger[ledger.length - 1]!.id);
+        creditVault(
+          store,
+          party.payee_id,
+          party.payee_name,
+          creditAmount,
+          "reserve",
+          now,
+        );
+        glLegs.push(vaultCredit(party.payee_id, "reserve", creditAmount));
       } else if (!input.settle && creditAmount > 0) {
         creditVault(
           store,

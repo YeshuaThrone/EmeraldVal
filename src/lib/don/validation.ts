@@ -9,7 +9,9 @@
 import {
   BAAS_WEBHOOK_EVENTS,
   DEFAULT_RECOUPMENT_BPS,
+  DSP_WEBHOOK_EVENTS,
   type BaasWebhookEvent,
+  type DspWebhookEvent,
 } from "@/modules/don/constants";
 import {
   BAAS_PROVIDERS,
@@ -62,7 +64,9 @@ export type DonValidationErrorCode =
   | "invalid_webhook_event"
   | "missing_transfer_id"
   | "invalid_recoupment"
-  | "invalid_locked";
+  | "invalid_locked"
+  | "missing_dispute_target"
+  | "missing_split_run_id";
 
 export type DonValidationSuccess<T> = { ok: true; value: T };
 export type DonValidationFailure = {
@@ -105,10 +109,12 @@ const ERROR_MESSAGES: Record<DonValidationErrorCode, string> = {
   missing_payee_id: "payee_id is required.",
   invalid_vault_action: "action must be 'release'.",
   invalid_webhook_event:
-    "event must be 'payout.settled', 'payout.returned', or 'payout.failed'.",
+    "event must be a payout.* BaaS callback or a royalty.* DSP callback.",
   missing_transfer_id: "transfer_id is required.",
   invalid_recoupment: "recoupment_target_cents must be a whole number of at least 1.",
   invalid_locked: "locked must be a boolean.",
+  missing_dispute_target: "payee_id or work_id is required.",
+  missing_split_run_id: "split_run_id is required.",
 };
 
 function fail<T>(code: DonValidationErrorCode): DonValidationResult<T> {
@@ -765,7 +771,8 @@ export function validateRecoupmentPayload(
 }
 
 export type DisputeLockPayload = {
-  payee_id: string;
+  payee_id: string | undefined;
+  work_id: string | undefined;
   locked: boolean;
   line_item_id: string | undefined;
   amount_cents: number | undefined;
@@ -777,8 +784,14 @@ export function validateDisputeLockPayload(
   if (!isRecord(input)) {
     return fail("malformed_body");
   }
-  if (!isNonEmptyString(input.payee_id)) {
-    return fail("missing_payee_id");
+  const payeeId = isNonEmptyString(input.payee_id)
+    ? input.payee_id.trim()
+    : undefined;
+  const workId = isNonEmptyString(input.work_id)
+    ? input.work_id.trim()
+    : undefined;
+  if (payeeId === undefined && workId === undefined) {
+    return fail("missing_dispute_target");
   }
   if (typeof input.locked !== "boolean") {
     return fail("invalid_locked");
@@ -804,10 +817,145 @@ export function validateDisputeLockPayload(
   return {
     ok: true,
     value: {
-      payee_id: input.payee_id.trim(),
+      payee_id: payeeId,
+      work_id: workId,
       locked: input.locked,
       line_item_id: lineItemId,
       amount_cents: amountCents,
     },
   };
+}
+
+export type DspWebhookPayload = {
+  event: DspWebhookEvent;
+  event_id: string | undefined;
+  source: string;
+  period: string | null;
+  currency: string;
+  rail: SettlementRail;
+  split_run_id: string | undefined;
+  line_items: RoyaltyLineItemInput[];
+};
+
+function parseOptionalEventId(
+  value: unknown,
+): DonValidationResult<string | undefined> {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true, value: undefined };
+  }
+  if (!isNonEmptyString(value)) {
+    return fail("malformed_body");
+  }
+  return { ok: true, value: value.trim() };
+}
+
+export function validateDspWebhookPayload(
+  input: unknown,
+): DonValidationResult<DspWebhookPayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (
+    typeof input.event !== "string" ||
+    !(DSP_WEBHOOK_EVENTS as readonly string[]).includes(input.event)
+  ) {
+    return fail("invalid_webhook_event");
+  }
+  const event = input.event as DspWebhookEvent;
+  const eventId = parseOptionalEventId(input.event_id);
+  if (!eventId.ok) {
+    return eventId;
+  }
+
+  if (event === "royalty.reversed") {
+    if (!isNonEmptyString(input.split_run_id)) {
+      return fail("missing_split_run_id");
+    }
+    const source = isNonEmptyString(input.source)
+      ? input.source.trim()
+      : "dsp";
+    return {
+      ok: true,
+      value: {
+        event,
+        event_id: eventId.value,
+        source,
+        period: null,
+        currency: "USD",
+        rail: "rtp",
+        split_run_id: input.split_run_id.trim(),
+        line_items: [],
+      },
+    };
+  }
+
+  const split = validateSplitCalculatePayload({
+    ...input,
+    settle: false,
+  });
+  if (!split.ok) {
+    return split;
+  }
+  return {
+    ok: true,
+    value: {
+      event,
+      event_id: eventId.value,
+      source: split.value.source,
+      period: split.value.period,
+      currency: split.value.currency,
+      rail: split.value.rail,
+      split_run_id: undefined,
+      line_items: split.value.line_items,
+    },
+  };
+}
+
+export type SplitReversePayload = {
+  split_run_id: string;
+};
+
+export function validateSplitReversePayload(
+  input: unknown,
+): DonValidationResult<SplitReversePayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (!isNonEmptyString(input.split_run_id)) {
+    return fail("missing_split_run_id");
+  }
+  return {
+    ok: true,
+    value: { split_run_id: input.split_run_id.trim() },
+  };
+}
+
+export type UnifiedWebhookPayload =
+  | { kind: "baas"; value: BaasWebhookPayload }
+  | { kind: "dsp"; value: DspWebhookPayload };
+
+export function validateUnifiedWebhookPayload(
+  input: unknown,
+): DonValidationResult<UnifiedWebhookPayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (typeof input.event !== "string") {
+    return fail("invalid_webhook_event");
+  }
+  if ((BAAS_WEBHOOK_EVENTS as readonly string[]).includes(input.event)) {
+    const parsed = validateBaasWebhookPayload(input);
+    if (!parsed.ok) {
+      return parsed;
+    }
+    return { ok: true, value: { kind: "baas", value: parsed.value } };
+  }
+  if ((DSP_WEBHOOK_EVENTS as readonly string[]).includes(input.event)) {
+    const parsed = validateDspWebhookPayload(input);
+    if (!parsed.ok) {
+      return parsed;
+    }
+    return { ok: true, value: { kind: "dsp", value: parsed.value } };
+  }
+  return fail("invalid_webhook_event");
 }

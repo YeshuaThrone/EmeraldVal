@@ -91,6 +91,37 @@ export function debitPending(
   };
 }
 
+export function debitTarget(
+  current: VaultBalances,
+  amountCents: number,
+  target: VaultCreditTarget,
+):
+  | { ok: true; balances: VaultBalances }
+  | {
+      ok: false;
+      code: "insufficient_available" | "insufficient_pending" | "insufficient_reserve";
+    } {
+  if (amountCents === 0) {
+    return { ok: true, balances: { ...current } };
+  }
+  if (target === "available") {
+    return debitAvailable(current, amountCents);
+  }
+  if (target === "pending") {
+    return debitPending(current, amountCents);
+  }
+  if (amountCents < 1 || amountCents > current.reserve_balance) {
+    return { ok: false, code: "insufficient_reserve" };
+  }
+  return {
+    ok: true,
+    balances: {
+      ...current,
+      reserve_balance: current.reserve_balance - amountCents,
+    },
+  };
+}
+
 /** available → pending while a BaaS payout is in flight. */
 export function holdPayout(
   current: VaultBalances,

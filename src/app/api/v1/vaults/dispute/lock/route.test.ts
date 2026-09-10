@@ -35,6 +35,20 @@ describe("POST /api/v1/vaults/dispute/lock", () => {
     expect(body.dispute.locked).toBe(1);
   });
 
+  it("locks a catalog work without a vault", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost:3000/api/v1/vaults/dispute/lock", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ work_id: "trk_01", locked: true }),
+      }),
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.catalog_dispute.locked).toBe(1);
+    expect(body.dispute).toBeNull();
+  });
+
   it("returns 404 for a missing vault", async () => {
     const response = await POST(
       new NextRequest("http://localhost:3000/api/v1/vaults/dispute/lock", {

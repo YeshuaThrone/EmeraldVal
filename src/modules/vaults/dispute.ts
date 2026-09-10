@@ -1,10 +1,14 @@
 /**
- * Split-dispute lock — freeze vault payouts and move line-item funds into
- * reserve_balance until the dispute is released.
+ * Split-dispute lock — freeze vault payouts, lock a catalog work so
+ * incoming auto-splits credit reserve_balance, and move line-item funds
+ * into reserve until the dispute is released.
  */
 
 import type { Store } from "@/lib/server/store";
-import type { VaultDisputeRecord } from "@/modules/don/records";
+import type {
+  CatalogDisputeRecord,
+  VaultDisputeRecord,
+} from "@/modules/don/records";
 import { postJournal } from "@/modules/ledger/engine";
 import { vaultCredit, vaultDebit } from "@/modules/ledger/journal";
 import {
@@ -13,7 +17,8 @@ import {
 } from "./balances";
 
 export type DisputeLockInput = {
-  payee_id: string;
+  payee_id?: string;
+  work_id?: string;
   locked: boolean;
   line_item_id?: string;
   amount_cents?: number;
@@ -21,7 +26,8 @@ export type DisputeLockInput = {
 
 export type DisputeLockSuccess = {
   ok: true;
-  dispute: VaultDisputeRecord;
+  dispute: VaultDisputeRecord | null;
+  catalog_dispute: CatalogDisputeRecord | null;
   frozen_cents: number;
 };
 
@@ -58,11 +64,38 @@ function lineItemAmount(store: Store, payeeId: string, lineItemId: string): numb
     .reduce((total, row) => total + row.amount_cents, 0);
 }
 
+function persistCatalog(
+  store: Store,
+  workId: string,
+  locked: boolean,
+  now: Date,
+): CatalogDisputeRecord {
+  return store.upsertCatalogDispute({
+    work_id: workId,
+    locked: locked ? 1 : 0,
+    updated_at: now.toISOString(),
+  });
+}
+
 export function applyDisputeLock(
   store: Store,
   input: DisputeLockInput,
   now: Date = new Date(),
 ): DisputeLockSuccess | DisputeLockFailure {
+  const catalogDispute =
+    input.work_id !== undefined
+      ? persistCatalog(store, input.work_id, input.locked, now)
+      : null;
+
+  if (input.payee_id === undefined) {
+    return {
+      ok: true,
+      dispute: null,
+      catalog_dispute: catalogDispute,
+      frozen_cents: 0,
+    };
+  }
+
   const vault = store.getVault(input.payee_id);
   if (vault === undefined) {
     return {
@@ -108,11 +141,16 @@ export function applyDisputeLock(
       frozen_from_pending: 0,
       updated_at: now.toISOString(),
     });
-    return { ok: true, dispute, frozen_cents: 0 };
+    return { ok: true, dispute, catalog_dispute: catalogDispute, frozen_cents: 0 };
   }
 
   if ((existing?.locked ?? 0) === 1) {
-    return { ok: true, dispute: existing!, frozen_cents: existing!.frozen_from_available + existing!.frozen_from_pending };
+    return {
+      ok: true,
+      dispute: existing!,
+      catalog_dispute: catalogDispute,
+      frozen_cents: existing!.frozen_from_available + existing!.frozen_from_pending,
+    };
   }
 
   let amount = input.amount_cents;
@@ -140,7 +178,7 @@ export function applyDisputeLock(
       frozen_from_pending: 0,
       updated_at: now.toISOString(),
     });
-    return { ok: true, dispute, frozen_cents: 0 };
+    return { ok: true, dispute, catalog_dispute: catalogDispute, frozen_cents: 0 };
   }
 
   const frozen = freezeIntoReserve(vault, amount);
@@ -176,10 +214,23 @@ export function applyDisputeLock(
   return {
     ok: true,
     dispute,
+    catalog_dispute: catalogDispute,
     frozen_cents: frozen.frozen_from_available + frozen.frozen_from_pending,
   };
 }
 
 export function isPayoutFrozen(store: Store, payeeId: string): boolean {
   return (store.getVaultDispute(payeeId)?.locked ?? 0) === 1;
+}
+
+export function isWorkFrozen(store: Store, workId: string): boolean {
+  return (store.getCatalogDispute(workId)?.locked ?? 0) === 1;
+}
+
+export function isIncomingFrozen(
+  store: Store,
+  payeeId: string,
+  workId: string,
+): boolean {
+  return isPayoutFrozen(store, payeeId) || isWorkFrozen(store, workId);
 }

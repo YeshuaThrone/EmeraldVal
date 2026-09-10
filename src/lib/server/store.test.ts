@@ -295,6 +295,8 @@ describe("Don Engine ledger", () => {
     expect(patched?.baas_transfer_id).toBe("xfer_1");
     expect(store.listLedgerTransactionsByRun(run.id)[0]?.id).toBe(ledger.id);
     expect(store.listLedgerTransactionsByLineItem(item.id)[0]?.kind).toBe("royalty");
+    expect(store.getSplitRun(run.id)?.status).toBe("posted");
+    expect(store.updateSplitRunStatus(run.id, "reversed")?.status).toBe("reversed");
   });
 
   it("round-trips dust, tax escrow, vaults, and processor tokens", () => {
@@ -456,5 +458,43 @@ describe("Don Engine ledger", () => {
       created_at: "2026-09-10T15:00:00.000Z",
     });
     expect(store.getPayoutReversalByTransfer(transfer.id)?.id).toBe(reversal.id);
+
+    const recouped = store.insertRecoupmentLedger({
+      creator_id: "c1",
+      split_run_id: "run-1",
+      incoming_cents: 10,
+      recouped_cents: 4,
+      excess_cents: 6,
+      recoupment_current_cents: 4,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listRecoupmentLedgerByRun("run-1")[0]?.id).toBe(recouped.id);
+
+    const catalog = store.upsertCatalogDispute({
+      work_id: "trk_01",
+      locked: 1,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getCatalogDispute("trk_01")?.locked).toBe(catalog.locked);
+
+    const dsp = store.insertDspWebhookEvent({
+      event_id: "evt_1",
+      event: "royalty.report",
+      source: "spotify",
+      split_run_id: "run-1",
+      payload_json: "{}",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getDspWebhookEvent("evt_1")?.id).toBe(dsp.id);
+
+    const splitReversal = store.insertSplitReversal({
+      split_run_id: "run-1",
+      journal_id: journal.id,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getSplitReversalByRun("run-1")?.id).toBe(splitReversal.id);
+    expect(store.getLatestGlJournal()?.id).toBe(journal.id);
+    expect(store.listGlJournalsByRef("split_run", "run-1")).toHaveLength(1);
+    expect(store.getSplitRun("missing")).toBeUndefined();
   });
 });

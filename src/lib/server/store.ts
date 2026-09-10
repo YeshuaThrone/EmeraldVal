@@ -28,6 +28,10 @@ import type {
   PayoutReversalRecord,
   GlJournalRecord,
   GlEntryRecord,
+  RecoupmentLedgerRecord,
+  CatalogDisputeRecord,
+  DspWebhookEventRecord,
+  SplitReversalRecord,
 } from "@/modules/don/records";
 
 /**
@@ -121,7 +125,14 @@ export interface Store {
     row: Omit<KycVerificationRecord, "id">,
   ): KycVerificationRecord;
   listKycVerificationsByCreator(creatorId: string): KycVerificationRecord[];
-  insertSplitRun(row: Omit<SplitRunRecord, "id">): SplitRunRecord;
+  insertSplitRun(
+    row: Omit<SplitRunRecord, "id" | "status"> & { status?: SplitRunRecord["status"] },
+  ): SplitRunRecord;
+  getSplitRun(id: string): SplitRunRecord | undefined;
+  updateSplitRunStatus(
+    id: string,
+    status: SplitRunRecord["status"],
+  ): SplitRunRecord | undefined;
   insertRoyaltyLineItem(
     row: Omit<RoyaltyLineItemRecord, "id">,
   ): RoyaltyLineItemRecord;
@@ -199,11 +210,35 @@ export interface Store {
   getPayoutReversalByTransfer(
     transferId: string,
   ): PayoutReversalRecord | undefined;
-  insertGlJournal(row: Omit<GlJournalRecord, "id">): GlJournalRecord;
+  insertGlJournal(
+    row: Omit<
+      GlJournalRecord,
+      "id" | "sequence" | "prev_hash" | "entry_hash" | "state"
+    > & {
+      sequence?: number;
+      prev_hash?: string;
+      entry_hash?: string;
+      state?: GlJournalRecord["state"];
+    },
+  ): GlJournalRecord;
   insertGlEntry(row: Omit<GlEntryRecord, "id">): GlEntryRecord;
   listGlJournals(): GlJournalRecord[];
+  getLatestGlJournal(): GlJournalRecord | undefined;
+  listGlJournalsByRef(refType: string, refId: string): GlJournalRecord[];
   listGlEntries(): GlEntryRecord[];
   listGlEntriesByJournal(journalId: string): GlEntryRecord[];
+  insertRecoupmentLedger(
+    row: Omit<RecoupmentLedgerRecord, "id">,
+  ): RecoupmentLedgerRecord;
+  listRecoupmentLedgerByRun(splitRunId: string): RecoupmentLedgerRecord[];
+  getCatalogDispute(workId: string): CatalogDisputeRecord | undefined;
+  upsertCatalogDispute(row: CatalogDisputeRecord): CatalogDisputeRecord;
+  getDspWebhookEvent(eventId: string): DspWebhookEventRecord | undefined;
+  insertDspWebhookEvent(
+    row: Omit<DspWebhookEventRecord, "id">,
+  ): DspWebhookEventRecord;
+  insertSplitReversal(row: Omit<SplitReversalRecord, "id">): SplitReversalRecord;
+  getSplitReversalByRun(splitRunId: string): SplitReversalRecord | undefined;
 }
 
 const SCHEMA = `
@@ -285,7 +320,8 @@ CREATE TABLE IF NOT EXISTS split_runs (
   gross_cents INTEGER NOT NULL,
   line_item_count INTEGER NOT NULL,
   variance_account_cents INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'posted'
 );
 
 CREATE TABLE IF NOT EXISTS royalty_line_items (
@@ -442,7 +478,11 @@ CREATE TABLE IF NOT EXISTS gl_journals (
   kind TEXT NOT NULL,
   ref_type TEXT NOT NULL,
   ref_id TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  sequence INTEGER NOT NULL DEFAULT 0,
+  prev_hash TEXT NOT NULL DEFAULT '',
+  entry_hash TEXT NOT NULL DEFAULT '',
+  state TEXT NOT NULL DEFAULT 'posted'
 );
 
 CREATE TABLE IF NOT EXISTS gl_entries (
@@ -451,6 +491,40 @@ CREATE TABLE IF NOT EXISTS gl_entries (
   account TEXT NOT NULL,
   debit_cents INTEGER NOT NULL DEFAULT 0,
   credit_cents INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS recoupment_ledger (
+  id TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  split_run_id TEXT NOT NULL,
+  incoming_cents INTEGER NOT NULL,
+  recouped_cents INTEGER NOT NULL,
+  excess_cents INTEGER NOT NULL,
+  recoupment_current_cents INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS catalog_disputes (
+  work_id TEXT PRIMARY KEY,
+  locked INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dsp_webhook_events (
+  id TEXT PRIMARY KEY,
+  event_id TEXT NOT NULL UNIQUE,
+  event TEXT NOT NULL,
+  source TEXT NOT NULL,
+  split_run_id TEXT,
+  payload_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS split_reversals (
+  id TEXT PRIMARY KEY,
+  split_run_id TEXT NOT NULL UNIQUE,
+  journal_id TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
 `;
@@ -518,11 +592,38 @@ export class SqliteStore implements Store {
         `ALTER TABLE split_runs ADD COLUMN variance_account_cents INTEGER NOT NULL DEFAULT 0`,
       );
     }
+    if (!splitRunColumns.has("status")) {
+      this.db.exec(
+        `ALTER TABLE split_runs ADD COLUMN status TEXT NOT NULL DEFAULT 'posted'`,
+      );
+    }
 
     const ledgerColumns = columnsOf("ledger_transactions");
     if (!ledgerColumns.has("kind")) {
       this.db.exec(
         `ALTER TABLE ledger_transactions ADD COLUMN kind TEXT NOT NULL DEFAULT 'royalty'`,
+      );
+    }
+
+    const journalColumns = columnsOf("gl_journals");
+    if (!journalColumns.has("sequence")) {
+      this.db.exec(
+        `ALTER TABLE gl_journals ADD COLUMN sequence INTEGER NOT NULL DEFAULT 0`,
+      );
+    }
+    if (!journalColumns.has("prev_hash")) {
+      this.db.exec(
+        `ALTER TABLE gl_journals ADD COLUMN prev_hash TEXT NOT NULL DEFAULT ''`,
+      );
+    }
+    if (!journalColumns.has("entry_hash")) {
+      this.db.exec(
+        `ALTER TABLE gl_journals ADD COLUMN entry_hash TEXT NOT NULL DEFAULT ''`,
+      );
+    }
+    if (!journalColumns.has("state")) {
+      this.db.exec(
+        `ALTER TABLE gl_journals ADD COLUMN state TEXT NOT NULL DEFAULT 'posted'`,
       );
     }
   }
@@ -733,20 +834,42 @@ export class SqliteStore implements Store {
       .all(creatorId) as KycVerificationRecord[];
   }
 
-  insertSplitRun(row: Omit<SplitRunRecord, "id">): SplitRunRecord {
-    const record: SplitRunRecord = { ...row, id: randomUUID() };
+  insertSplitRun(
+    row: Omit<SplitRunRecord, "id" | "status"> & { status?: SplitRunRecord["status"] },
+  ): SplitRunRecord {
+    const record: SplitRunRecord = {
+      ...row,
+      status: row.status ?? "posted",
+      id: randomUUID(),
+    };
     this.db
       .prepare(
         `INSERT INTO split_runs (
            id, source, period, currency, gross_cents, line_item_count,
-           variance_account_cents, created_at
+           variance_account_cents, created_at, status
          ) VALUES (
            @id, @source, @period, @currency, @gross_cents, @line_item_count,
-           @variance_account_cents, @created_at
+           @variance_account_cents, @created_at, @status
          )`,
       )
       .run(record);
     return record;
+  }
+
+  getSplitRun(id: string): SplitRunRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM split_runs WHERE id = ?`)
+      .get(id) as SplitRunRecord | undefined;
+  }
+
+  updateSplitRunStatus(
+    id: string,
+    status: SplitRunRecord["status"],
+  ): SplitRunRecord | undefined {
+    this.db
+      .prepare(`UPDATE split_runs SET status = ? WHERE id = ?`)
+      .run(status, id);
+    return this.getSplitRun(id);
   }
 
   insertRoyaltyLineItem(
@@ -1215,12 +1338,32 @@ export class SqliteStore implements Store {
       .get(transferId) as PayoutReversalRecord | undefined;
   }
 
-  insertGlJournal(row: Omit<GlJournalRecord, "id">): GlJournalRecord {
-    const record: GlJournalRecord = { ...row, id: randomUUID() };
+  insertGlJournal(
+    row: Omit<
+      GlJournalRecord,
+      "id" | "sequence" | "prev_hash" | "entry_hash" | "state"
+    > & {
+      sequence?: number;
+      prev_hash?: string;
+      entry_hash?: string;
+      state?: GlJournalRecord["state"];
+    },
+  ): GlJournalRecord {
+    const record: GlJournalRecord = {
+      ...row,
+      sequence: row.sequence ?? 0,
+      prev_hash: row.prev_hash ?? "",
+      entry_hash: row.entry_hash ?? "",
+      state: row.state ?? "posted",
+      id: randomUUID(),
+    };
     this.db
       .prepare(
-        `INSERT INTO gl_journals (id, kind, ref_type, ref_id, created_at)
-         VALUES (@id, @kind, @ref_type, @ref_id, @created_at)`,
+        `INSERT INTO gl_journals (
+           id, kind, ref_type, ref_id, created_at, sequence, prev_hash, entry_hash, state
+         ) VALUES (
+           @id, @kind, @ref_type, @ref_id, @created_at, @sequence, @prev_hash, @entry_hash, @state
+         )`,
       )
       .run(record);
     return record;
@@ -1243,9 +1386,27 @@ export class SqliteStore implements Store {
   listGlJournals(): GlJournalRecord[] {
     return this.db
       .prepare(
-        `SELECT * FROM gl_journals ORDER BY created_at ASC, rowid ASC`,
+        `SELECT * FROM gl_journals ORDER BY sequence ASC, rowid ASC`,
       )
       .all() as GlJournalRecord[];
+  }
+
+  getLatestGlJournal(): GlJournalRecord | undefined {
+    return this.db
+      .prepare(
+        `SELECT * FROM gl_journals ORDER BY sequence DESC, rowid DESC LIMIT 1`,
+      )
+      .get() as GlJournalRecord | undefined;
+  }
+
+  listGlJournalsByRef(refType: string, refId: string): GlJournalRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM gl_journals
+         WHERE ref_type = ? AND ref_id = ?
+         ORDER BY sequence ASC, rowid ASC`,
+      )
+      .all(refType, refId) as GlJournalRecord[];
   }
 
   listGlEntries(): GlEntryRecord[] {
@@ -1264,6 +1425,95 @@ export class SqliteStore implements Store {
          ORDER BY rowid ASC`,
       )
       .all(journalId) as GlEntryRecord[];
+  }
+
+  insertRecoupmentLedger(
+    row: Omit<RecoupmentLedgerRecord, "id">,
+  ): RecoupmentLedgerRecord {
+    const record: RecoupmentLedgerRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO recoupment_ledger (
+           id, creator_id, split_run_id, incoming_cents, recouped_cents,
+           excess_cents, recoupment_current_cents, created_at
+         ) VALUES (
+           @id, @creator_id, @split_run_id, @incoming_cents, @recouped_cents,
+           @excess_cents, @recoupment_current_cents, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  listRecoupmentLedgerByRun(splitRunId: string): RecoupmentLedgerRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM recoupment_ledger
+         WHERE split_run_id = ?
+         ORDER BY created_at ASC, rowid ASC`,
+      )
+      .all(splitRunId) as RecoupmentLedgerRecord[];
+  }
+
+  getCatalogDispute(workId: string): CatalogDisputeRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM catalog_disputes WHERE work_id = ?`)
+      .get(workId) as CatalogDisputeRecord | undefined;
+  }
+
+  upsertCatalogDispute(row: CatalogDisputeRecord): CatalogDisputeRecord {
+    this.db
+      .prepare(
+        `INSERT INTO catalog_disputes (work_id, locked, updated_at)
+         VALUES (@work_id, @locked, @updated_at)
+         ON CONFLICT(work_id) DO UPDATE SET
+           locked = excluded.locked,
+           updated_at = excluded.updated_at`,
+      )
+      .run(row);
+    return row;
+  }
+
+  getDspWebhookEvent(eventId: string): DspWebhookEventRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM dsp_webhook_events WHERE event_id = ?`)
+      .get(eventId) as DspWebhookEventRecord | undefined;
+  }
+
+  insertDspWebhookEvent(
+    row: Omit<DspWebhookEventRecord, "id">,
+  ): DspWebhookEventRecord {
+    const record: DspWebhookEventRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO dsp_webhook_events (
+           id, event_id, event, source, split_run_id, payload_json, created_at
+         ) VALUES (
+           @id, @event_id, @event, @source, @split_run_id, @payload_json, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  insertSplitReversal(row: Omit<SplitReversalRecord, "id">): SplitReversalRecord {
+    const record: SplitReversalRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO split_reversals (
+           id, split_run_id, journal_id, created_at
+         ) VALUES (
+           @id, @split_run_id, @journal_id, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  getSplitReversalByRun(splitRunId: string): SplitReversalRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM split_reversals WHERE split_run_id = ?`)
+      .get(splitRunId) as SplitReversalRecord | undefined;
   }
 }
 

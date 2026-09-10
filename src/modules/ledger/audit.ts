@@ -1,6 +1,6 @@
 /**
- * System-wide GL audit: double-entry invariant plus FBO vs vault
- * balance-sheet reconciliation.
+ * System-wide GL audit: double-entry invariant, FBO vs vault
+ * reconciliation, and the immutable hash chain.
  */
 
 import type { Store } from "@/lib/server/store";
@@ -8,12 +8,15 @@ import {
   COMPANY_VARIANCE_PAYEE_ID,
   GL_ACCOUNT_FBO_CASH,
 } from "@/modules/don/constants";
+import { verifyHashChain, type ChainVerification } from "./chain";
 import {
+  expandDebitCreditPairs,
   isVaultAccount,
   journalIsBalanced,
   netDebit,
   sumCredits,
   sumDebits,
+  type DebitCreditPair,
   type GlLeg,
 } from "./journal";
 
@@ -32,7 +35,10 @@ export type LedgerAuditReport = {
     debit_cents: number;
     credit_cents: number;
     balanced: boolean;
+    pair_count: number;
+    pairs: DebitCreditPair[];
   };
+  immutable: ChainVerification;
   fbo_cash_cents: number;
   vaults: VaultSheetRow[];
   creator_vault_cents: number;
@@ -61,7 +67,17 @@ export function auditLedger(store: Store): LedgerAuditReport {
   const legs = toLegs(entries);
   const debitCents = sumDebits(legs);
   const creditCents = sumCredits(legs);
+  const pairs = expandDebitCreditPairs(legs);
   const fboCashCents = netDebit(legs, GL_ACCOUNT_FBO_CASH);
+
+  const journals = store.listGlJournals();
+  const legsByJournal = new Map<string, GlLeg[]>();
+  for (const journal of journals) {
+    legsByJournal.set(
+      journal.id,
+      toLegs(store.listGlEntriesByJournal(journal.id)),
+    );
+  }
 
   const vaults: VaultSheetRow[] = store.listVaults().map((vault) => {
     const total =
@@ -94,7 +110,10 @@ export function auditLedger(store: Store): LedgerAuditReport {
       debit_cents: debitCents,
       credit_cents: creditCents,
       balanced: journalIsBalanced(legs),
+      pair_count: pairs.length,
+      pairs,
     },
+    immutable: verifyHashChain(journals, legsByJournal),
     fbo_cash_cents: fboCashCents,
     vaults,
     creator_vault_cents: creatorVaultCents,
@@ -114,4 +133,51 @@ export function glVaultLiabilityCents(
     }
     return total + leg.credit_cents - leg.debit_cents;
   }, 0);
+}
+
+export type ImmutableJournalLogEntry = {
+  id: string;
+  sequence: number;
+  kind: string;
+  ref_type: string;
+  ref_id: string;
+  created_at: string;
+  prev_hash: string;
+  entry_hash: string;
+  state: "posted";
+  debit_account_pairs: DebitCreditPair[];
+  legs: GlLeg[];
+};
+
+export type ImmutableLedgerLog = {
+  journals: ImmutableJournalLogEntry[];
+  immutable: ChainVerification;
+  double_entry: LedgerAuditReport["double_entry"];
+  books_reconcile: boolean;
+};
+
+export function immutableLedgerLog(store: Store): ImmutableLedgerLog {
+  const report = auditLedger(store);
+  const journals: ImmutableJournalLogEntry[] = store.listGlJournals().map((journal) => {
+    const legs = toLegs(store.listGlEntriesByJournal(journal.id));
+    return {
+      id: journal.id,
+      sequence: journal.sequence,
+      kind: journal.kind,
+      ref_type: journal.ref_type,
+      ref_id: journal.ref_id,
+      created_at: journal.created_at,
+      prev_hash: journal.prev_hash,
+      entry_hash: journal.entry_hash,
+      state: journal.state,
+      debit_account_pairs: expandDebitCreditPairs(legs),
+      legs,
+    };
+  });
+  return {
+    journals,
+    immutable: report.immutable,
+    double_entry: report.double_entry,
+    books_reconcile: report.books_reconcile,
+  };
 }

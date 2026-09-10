@@ -5,10 +5,13 @@ import {
   validateBaasPayoutPayload,
   validateBaasWebhookPayload,
   validateDisputeLockPayload,
+  validateDspWebhookPayload,
   validatePlaidExchangePayload,
   validatePlaidKycPayload,
   validateRecoupmentPayload,
   validateSplitCalculatePayload,
+  validateSplitReversePayload,
+  validateUnifiedWebhookPayload,
   validateVaultPayoutPayload,
   validateVaultReleasePayload,
   validateWithholdingPayload,
@@ -422,5 +425,130 @@ describe("validateDisputeLockPayload", () => {
       validateDisputeLockPayload({ payee_id: "c1", locked: true, amount_cents: 0 }).ok,
     ).toBe(false);
     expect(validateDisputeLockPayload("nope").ok).toBe(false);
+  });
+
+  it("accepts a catalog work lock without a payee", () => {
+    const result = validateDisputeLockPayload({
+      work_id: "trk_01",
+      locked: true,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.work_id).toBe("trk_01");
+    expect(result.value.payee_id).toBeUndefined();
+  });
+});
+
+const DSP_LINE = {
+  work_id: "trk_01",
+  work_title: "Midnight On 6th",
+  amount_cents: 10_000,
+  splits: [
+    {
+      payee_id: "c1",
+      payee_name: "Yeshua Throne",
+      role: "creator",
+      share_percent: 70,
+    },
+    {
+      payee_id: "l1",
+      payee_name: "Throne Records",
+      role: "label",
+      share_percent: 30,
+    },
+  ],
+};
+
+describe("validateDspWebhookPayload", () => {
+  it("parses a royalty.report ingest", () => {
+    const result = validateDspWebhookPayload({
+      event: "royalty.report",
+      source: "spotify",
+      line_items: [DSP_LINE],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.line_items).toHaveLength(1);
+    expect(result.value.source).toBe("spotify");
+  });
+
+  it("parses royalty.reversed with a split_run_id", () => {
+    const result = validateDspWebhookPayload({
+      event: "royalty.reversed",
+      source: "spotify",
+      split_run_id: "run-1",
+      event_id: "",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.source).toBe("spotify");
+    expect(result.value.split_run_id).toBe("run-1");
+  });
+
+  it("rejects bad DSP events and missing reverse target", () => {
+    expect(validateDspWebhookPayload("nope").ok).toBe(false);
+    expect(validateDspWebhookPayload({ event: "payout.settled" }).ok).toBe(false);
+    expect(
+      validateDspWebhookPayload({ event: "royalty.reversed", source: "spotify" }).ok,
+    ).toBe(false);
+    expect(
+      validateDspWebhookPayload({
+        event: "royalty.report",
+        event_id: 1,
+        source: "spotify",
+        line_items: [DSP_LINE],
+      }).ok,
+    ).toBe(false);
+    expect(
+      validateDspWebhookPayload({ event: "royalty.adjusted", line_items: [DSP_LINE] }).ok,
+    ).toBe(false);
+  });
+});
+
+describe("validateSplitReversePayload", () => {
+  it("requires split_run_id", () => {
+    expect(validateSplitReversePayload({ split_run_id: "run-1" }).ok).toBe(true);
+    expect(validateSplitReversePayload({}).ok).toBe(false);
+    expect(validateSplitReversePayload("nope").ok).toBe(false);
+  });
+});
+
+describe("validateUnifiedWebhookPayload", () => {
+  it("dispatches payout and royalty events", () => {
+    const baas = validateUnifiedWebhookPayload({
+      event: "payout.settled",
+      transfer_id: "xfer_1",
+    });
+    expect(baas.ok).toBe(true);
+    if (baas.ok) {
+      expect(baas.value.kind).toBe("baas");
+    }
+    const dsp = validateUnifiedWebhookPayload({
+      event: "royalty.report",
+      source: "spotify",
+      line_items: [DSP_LINE],
+    });
+    expect(dsp.ok).toBe(true);
+    if (dsp.ok) {
+      expect(dsp.value.kind).toBe("dsp");
+    }
+  });
+
+  it("rejects unknown events and incomplete payloads", () => {
+    expect(validateUnifiedWebhookPayload("nope").ok).toBe(false);
+    expect(validateUnifiedWebhookPayload({ event: 1 }).ok).toBe(false);
+    expect(validateUnifiedWebhookPayload({ event: "unknown.event" }).ok).toBe(false);
+    expect(
+      validateUnifiedWebhookPayload({ event: "payout.settled" }).ok,
+    ).toBe(false);
+    expect(
+      validateUnifiedWebhookPayload({ event: "royalty.reversed" }).ok,
+    ).toBe(false);
   });
 });

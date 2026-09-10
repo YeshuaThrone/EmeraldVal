@@ -106,3 +106,67 @@ export function netDebit(legs: readonly GlLeg[], account: string): number {
 export function isVaultAccount(account: string): boolean {
   return account.startsWith("vault:");
 }
+
+export function parseVaultAccount(
+  account: string,
+): { payeeId: string; bucket: VaultBucket } | null {
+  const match = /^vault:([^:]+):(available|pending|reserve)$/.exec(account);
+  if (match === null) {
+    return null;
+  }
+  return {
+    payeeId: match[1]!,
+    bucket: match[2] as VaultBucket,
+  };
+}
+
+export function invertLegs(legs: readonly GlLeg[]): GlLeg[] {
+  return legs.map((leg) => ({
+    account: leg.account,
+    debit_cents: leg.credit_cents,
+    credit_cents: leg.debit_cents,
+  }));
+}
+
+export type DebitCreditPair = {
+  debit_account: string;
+  credit_account: string;
+  amount_cents: number;
+};
+
+/**
+ * Expand a balanced multi-leg journal into explicit debit/credit pairs
+ * (one FBO debit may fund many vault credits).
+ */
+export function expandDebitCreditPairs(
+  legs: readonly GlLeg[],
+): DebitCreditPair[] {
+  const debits = compactLegs(legs)
+    .filter((leg) => leg.debit_cents > 0)
+    .map((leg) => ({ account: leg.account, remaining: leg.debit_cents }));
+  const credits = compactLegs(legs)
+    .filter((leg) => leg.credit_cents > 0)
+    .map((leg) => ({ account: leg.account, remaining: leg.credit_cents }));
+  const pairs: DebitCreditPair[] = [];
+  let di = 0;
+  let ci = 0;
+  while (di < debits.length && ci < credits.length) {
+    const debit = debits[di]!;
+    const credit = credits[ci]!;
+    const amount = Math.min(debit.remaining, credit.remaining);
+    pairs.push({
+      debit_account: debit.account,
+      credit_account: credit.account,
+      amount_cents: amount,
+    });
+    debit.remaining -= amount;
+    credit.remaining -= amount;
+    if (debit.remaining === 0) {
+      di += 1;
+    }
+    if (credit.remaining === 0) {
+      ci += 1;
+    }
+  }
+  return pairs;
+}

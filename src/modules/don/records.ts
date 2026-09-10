@@ -108,6 +108,10 @@ export type GlJournalRecord = {
   ref_type: string;
   ref_id: string;
   created_at: string;
+  sequence: number;
+  prev_hash: string;
+  entry_hash: string;
+  state: "posted";
 };
 
 export type GlEntryRecord = {
@@ -116,5 +120,39 @@ export type GlEntryRecord = {
   account: string;
   debit_cents: number;
   credit_cents: number;
+  created_at: string;
+};
+
+export type RecoupmentLedgerRecord = {
+  id: string;
+  creator_id: string;
+  split_run_id: string;
+  incoming_cents: number;
+  recouped_cents: number;
+  excess_cents: number;
+  recoupment_current_cents: number;
+  created_at: string;
+};
+
+export type CatalogDisputeRecord = {
+  work_id: string;
+  locked: number;
+  updated_at: string;
+};
+
+export type DspWebhookEventRecord = {
+  id: string;
+  event_id: string;
+  event: string;
+  source: string;
+  split_run_id: string | null;
+  payload_json: string;
+  created_at: string;
+};
+
+export type SplitReversalRecord = {
+  id: string;
+  split_run_id: string;
+  journal_id: string;
   created_at: string;
 };

@@ -145,6 +145,7 @@ export type SplitRunRecord = {
   line_item_count: number;
   variance_account_cents: number;
   created_at: string;
+  status: "posted" | "reversed";
 };
 
 export type RoyaltyLineItemRecord = {

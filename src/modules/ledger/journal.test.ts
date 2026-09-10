@@ -3,11 +3,14 @@ import {
   compactLegs,
   credit,
   debit,
+  expandDebitCreditPairs,
   fboCredit,
   fboDebit,
+  invertLegs,
   isVaultAccount,
   journalIsBalanced,
   netDebit,
+  parseVaultAccount,
   sumCredits,
   sumDebits,
   validateJournal,
@@ -64,5 +67,58 @@ describe("journal helpers", () => {
     );
     const ok = validateJournal([fboDebit(5), vaultCredit("c1", "pending", 5)]);
     expect(ok.ok).toBe(true);
+  });
+
+  it("parses vault accounts, inverts legs, and expands debit/credit pairs", () => {
+    expect(parseVaultAccount("vault:c1:pending")).toEqual({
+      payeeId: "c1",
+      bucket: "pending",
+    });
+    expect(parseVaultAccount("vault:c1:available")).toEqual({
+      payeeId: "c1",
+      bucket: "available",
+    });
+    expect(parseVaultAccount("vault:c1:reserve")).toEqual({
+      payeeId: "c1",
+      bucket: "reserve",
+    });
+    expect(parseVaultAccount("fbo_cash")).toBeNull();
+    expect(parseVaultAccount("vault:c1")).toBeNull();
+    expect(parseVaultAccount("vault:c1:other")).toBeNull();
+
+    expect(invertLegs([fboDebit(8), vaultCredit("c1", "pending", 8)])).toEqual([
+      { account: "fbo_cash", debit_cents: 0, credit_cents: 8 },
+      { account: "vault:c1:pending", debit_cents: 8, credit_cents: 0 },
+    ]);
+
+    expect(
+      expandDebitCreditPairs([
+        fboDebit(10),
+        vaultCredit("c1", "pending", 6),
+        vaultCredit("l1", "pending", 4),
+      ]),
+    ).toEqual([
+      {
+        debit_account: "fbo_cash",
+        credit_account: "vault:c1:pending",
+        amount_cents: 6,
+      },
+      {
+        debit_account: "fbo_cash",
+        credit_account: "vault:l1:pending",
+        amount_cents: 4,
+      },
+    ]);
+    expect(
+      expandDebitCreditPairs([
+        debit("a", 3),
+        debit("b", 7),
+        credit("c", 10),
+      ]),
+    ).toEqual([
+      { debit_account: "a", credit_account: "c", amount_cents: 3 },
+      { debit_account: "b", credit_account: "c", amount_cents: 7 },
+    ]);
+    expect(expandDebitCreditPairs([fboDebit(1)])).toEqual([]);
   });
 });

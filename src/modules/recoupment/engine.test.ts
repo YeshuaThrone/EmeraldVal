@@ -89,6 +89,9 @@ describe("applyRecoupmentSweep", () => {
     expect(store.getVault("platform")?.available_balance).toBe(5000);
     expect(store.getVault("c1")?.available_balance).toBe(320);
     expect(store.getVault("l1")?.pending_balance).toBe(3000);
+    expect(store.listRecoupmentLedgerByRun(result.value.split_run.id)[0]?.recouped_cents).toBe(
+      5000,
+    );
   });
 
   it("skips BaaS settlement for recouped parties when settle is true", async () => {
@@ -151,5 +154,48 @@ describe("applyRecoupmentSweep", () => {
     const result = applyRecoupmentSweep(store, "c1", "Yeshua Throne", 0);
     expect(result.applied).toBe(true);
     expect(result.recouped_cents).toBe(0);
+  });
+
+  it("credits disputed excess into reserve when requested", () => {
+    const store = new SqliteStore(":memory:");
+    upsertAdvance(store, {
+      creator_id: "c1",
+      creator_name: "Yeshua Throne",
+      recoupment_target_cents: 100,
+    });
+    const result = applyRecoupmentSweep(
+      store,
+      "c1",
+      "Yeshua Throne",
+      250,
+      new Date(),
+      { split_run_id: "run-1", excess_target: "reserve" },
+    );
+    expect(result.applied).toBe(true);
+    expect(result.recouped_cents).toBe(100);
+    expect(result.excess_cents).toBe(150);
+    expect(store.getVault("c1")?.reserve_balance).toBe(150);
+    expect(store.listRecoupmentLedgerByRun("run-1")[0]?.excess_cents).toBe(150);
+  });
+
+  it("still writes recoupment_ledger when the advance is already complete", () => {
+    const store = new SqliteStore(":memory:");
+    upsertAdvance(store, {
+      creator_id: "c1",
+      creator_name: "Yeshua Throne",
+      recoupment_target_cents: 50,
+    });
+    applyRecoupmentSweep(store, "c1", "Yeshua Throne", 50);
+    const result = applyRecoupmentSweep(
+      store,
+      "c1",
+      "Yeshua Throne",
+      25,
+      new Date(),
+      { split_run_id: "run-done" },
+    );
+    expect(result.recouped_cents).toBe(0);
+    expect(result.excess_cents).toBe(25);
+    expect(store.listRecoupmentLedgerByRun("run-done")[0]?.incoming_cents).toBe(25);
   });
 });

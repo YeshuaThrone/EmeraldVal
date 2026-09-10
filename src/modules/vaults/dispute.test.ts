@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { SqliteStore } from "@/lib/server/store";
 import { calculateUdrSplits } from "@/lib/server/udrSplits";
 import { creditVault } from "./engine";
-import { applyDisputeLock, isPayoutFrozen } from "./dispute";
+import { applyDisputeLock, isIncomingFrozen, isPayoutFrozen, isWorkFrozen } from "./dispute";
+import { upsertAdvance } from "@/modules/recoupment/engine";
 
 describe("applyDisputeLock", () => {
   it("returns vault_not_found for an unknown payee", () => {
@@ -186,5 +187,124 @@ describe("applyDisputeLock", () => {
     const unlocked = applyDisputeLock(store, { payee_id: "c1", locked: false });
     expect(unlocked.ok).toBe(true);
     expect(isPayoutFrozen(store, "c1")).toBe(false);
+  });
+
+  it("locks a catalog work without a vault and holds incoming splits in reserve", async () => {
+    const store = new SqliteStore(":memory:");
+    const catalog = applyDisputeLock(store, {
+      work_id: "trk_01",
+      locked: true,
+    });
+    expect(catalog.ok).toBe(true);
+    if (!catalog.ok) {
+      return;
+    }
+    expect(catalog.dispute).toBeNull();
+    expect(catalog.catalog_dispute?.locked).toBe(1);
+    expect(isWorkFrozen(store, "trk_01")).toBe(true);
+    expect(isWorkFrozen(store, "other")).toBe(false);
+
+    const missingVault = applyDisputeLock(store, {
+      payee_id: "ghost",
+      work_id: "trk_ghost",
+      locked: true,
+    });
+    expect(missingVault.ok).toBe(false);
+    if (missingVault.ok) {
+      return;
+    }
+    expect(missingVault.code).toBe("vault_not_found");
+    expect(isWorkFrozen(store, "trk_ghost")).toBe(true);
+
+    const split = await calculateUdrSplits(store, {
+      source: "spotify",
+      period: "2026-08",
+      currency: "USD",
+      settle: false,
+      rail: "rtp",
+      line_items: [
+        {
+          work_id: "trk_01",
+          work_title: "Midnight On 6th",
+          amount_cents: 10_000,
+          splits: [
+            {
+              payee_id: "c1",
+              payee_name: "Yeshua Throne",
+              role: "creator",
+              share_bps: 7000,
+            },
+            {
+              payee_id: "l1",
+              payee_name: "Throne Records",
+              role: "label",
+              share_bps: 3000,
+            },
+          ],
+        },
+      ],
+    });
+    expect(split.ok).toBe(true);
+    expect(store.getVault("c1")?.reserve_balance).toBe(7000);
+    expect(store.getVault("c1")?.pending_balance).toBe(0);
+    expect(store.getVault("l1")?.reserve_balance).toBe(3000);
+    expect(isIncomingFrozen(store, "c1", "trk_01")).toBe(true);
+
+    const unlocked = applyDisputeLock(store, { work_id: "trk_01", locked: false });
+    expect(unlocked.ok).toBe(true);
+    expect(isWorkFrozen(store, "trk_01")).toBe(false);
+  });
+
+  it("locks a payee and a work together and parks recoupment excess in reserve", async () => {
+    const store = new SqliteStore(":memory:");
+    creditVault(store, "c1", "Yeshua Throne", 10, "available");
+    upsertAdvance(store, {
+      creator_id: "c1",
+      creator_name: "Yeshua Throne",
+      recoupment_target_cents: 5000,
+    });
+    const locked = applyDisputeLock(store, {
+      payee_id: "c1",
+      work_id: "trk_01",
+      locked: true,
+    });
+    expect(locked.ok).toBe(true);
+    if (!locked.ok) {
+      return;
+    }
+    expect(locked.catalog_dispute?.work_id).toBe("trk_01");
+    expect(isPayoutFrozen(store, "c1")).toBe(true);
+    const split = await calculateUdrSplits(store, {
+      source: "spotify",
+      period: "2026-08",
+      currency: "USD",
+      settle: false,
+      rail: "rtp",
+      line_items: [
+        {
+          work_id: "trk_01",
+          work_title: "Midnight On 6th",
+          amount_cents: 10_000,
+          splits: [
+            {
+              payee_id: "c1",
+              payee_name: "Yeshua Throne",
+              role: "creator",
+              share_bps: 7000,
+            },
+            {
+              payee_id: "l1",
+              payee_name: "Throne Records",
+              role: "label",
+              share_bps: 3000,
+            },
+          ],
+        },
+      ],
+    });
+    expect(split.ok).toBe(true);
+    expect(store.getVault("c1")?.available_balance).toBe(0);
+    expect(store.getVault("c1")?.reserve_balance).toBe(10 + 1680 + 320);
+    expect(store.getVault("l1")?.reserve_balance).toBe(3000);
   });
 });

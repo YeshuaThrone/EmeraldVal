@@ -27,7 +27,16 @@ export const BAAS_WEBHOOK_EVENTS = [
 ] as const;
 export type BaasWebhookEvent = (typeof BAAS_WEBHOOK_EVENTS)[number];
 
+export const DSP_WEBHOOK_EVENTS = [
+  "royalty.report",
+  "royalty.adjusted",
+  "royalty.reversed",
+] as const;
+export type DspWebhookEvent = (typeof DSP_WEBHOOK_EVENTS)[number];
+
 export const GL_ACCOUNT_FBO_CASH = "fbo_cash";
+export const GL_GENESIS_HASH = "don-engine/gl/genesis";
+export const GL_RECOUPMENT_ACCOUNT = "recoupment_ledger";
 
 export const JOURNAL_KINDS = [
   "royalty_ingest",
@@ -37,6 +46,7 @@ export const JOURNAL_KINDS = [
   "payout_failed_reversal",
   "dispute_lock",
   "dispute_unlock",
+  "royalty_reversal",
 ] as const;
 export type JournalKind = (typeof JOURNAL_KINDS)[number];
 

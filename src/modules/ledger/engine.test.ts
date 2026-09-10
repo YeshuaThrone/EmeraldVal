@@ -18,6 +18,31 @@ describe("postJournal", () => {
     }
     expect(store.listGlEntriesByJournal(posted.journal.id)).toHaveLength(2);
     expect(store.listGlJournals()).toHaveLength(1);
+    expect(posted.journal.sequence).toBe(1);
+    expect(posted.journal.entry_hash.length).toBe(64);
+    expect(posted.journal.state).toBe("posted");
+  });
+
+  it("chains the previous digest and treats an empty prior hash as genesis", () => {
+    const store = new SqliteStore(":memory:");
+    store.insertGlJournal({
+      kind: "royalty_ingest",
+      ref_type: "x",
+      ref_id: "0",
+      created_at: new Date().toISOString(),
+    });
+    const posted = postJournal(store, {
+      kind: "royalty_ingest",
+      ref_type: "split_run",
+      ref_id: "run-1",
+      legs: [fboDebit(2), vaultCredit("c1", "pending", 2)],
+    });
+    expect(posted.ok).toBe(true);
+    if (!posted.ok) {
+      return;
+    }
+    expect(posted.journal.sequence).toBe(1);
+    expect(posted.journal.prev_hash).toBe("don-engine/gl/genesis");
   });
 
   it("rejects empty and unbalanced drafts", () => {
@@ -41,5 +66,16 @@ describe("postJournal", () => {
       return;
     }
     expect(unbalanced.code).toBe("unbalanced_journal");
+    const empty = postJournal(store, {
+      kind: "royalty_ingest",
+      ref_type: "x",
+      ref_id: "1",
+      legs: [fboDebit(0)],
+    });
+    expect(empty.ok).toBe(false);
+    if (empty.ok) {
+      return;
+    }
+    expect(empty.code).toBe("empty_journal");
   });
 });

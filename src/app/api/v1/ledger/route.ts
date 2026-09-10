@@ -3,30 +3,30 @@ import { jsonError } from "@/lib/server/http";
 import { checkRateLimit, DON_API_RATE_LIMIT } from "@/lib/server/rateLimit";
 import { getStore } from "@/lib/server/store";
 import { clientIdentity } from "@/modules/don/http";
-import { auditLedger } from "@/modules/ledger/audit";
+import { immutableLedgerLog } from "@/modules/ledger/audit";
 
 /**
- * GET /api/v1/ledger/audit — double-entry invariant, FBO vs vault
- * balance sheet, and immutable hash-chain verification.
+ * GET /api/v1/ledger — append-only hash-chained GL log with
+ * debit_account / credit_account pairs.
  */
 
 export async function GET(request: NextRequest) {
   const verdict = checkRateLimit(
-    `ledger-audit:${clientIdentity(request)}`,
+    `ledger-log:${clientIdentity(request)}`,
     DON_API_RATE_LIMIT,
   );
   if (!verdict.ok) {
     return jsonError(
       429,
       "rate_limited",
-      "Too many ledger audit requests from this address. Try again later.",
+      "Too many ledger log requests from this address. Try again later.",
     );
   }
 
   try {
-    return NextResponse.json(auditLedger(getStore()));
+    return NextResponse.json(immutableLedgerLog(getStore()));
   } catch (error) {
-    console.error("Failed ledger audit:", error);
-    return jsonError(500, "store_failure", "Failed to audit the general ledger.");
+    console.error("Failed ledger log:", error);
+    return jsonError(500, "store_failure", "Failed to read the general ledger.");
   }
 }

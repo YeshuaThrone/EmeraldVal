@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { calculateUdrSplits } from "@/lib/server/udrSplits";
 import { SqliteStore } from "@/lib/server/store";
 import { setBaasAdapter } from "@/services/baas";
+import { applyDisputeLock } from "@/modules/vaults/dispute";
+import { creditVault } from "@/modules/vaults/engine";
 
 const INPUT = {
   source: "spotify",
@@ -115,5 +117,18 @@ describe("calculateUdrSplits", () => {
     expect(result.value.company_dust_ledger[0]?.amount_cents).toBe(1);
     expect(store.getVault("platform")?.pending_balance).toBe(1);
     expect(store.getVault("c")?.pending_balance).toBe(33);
+  });
+
+  it("parks incoming credits in reserve when the payee payout is frozen", async () => {
+    const store = new SqliteStore(":memory:");
+    creditVault(store, "l1", "Throne Records", 1, "available");
+    applyDisputeLock(store, { payee_id: "l1", locked: true });
+    const result = await calculateUdrSplits(store, { ...INPUT, settle: true });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(store.getVault("l1")?.reserve_balance).toBe(3001);
+    expect(result.value.settlement?.transfers).toHaveLength(1);
   });
 });
