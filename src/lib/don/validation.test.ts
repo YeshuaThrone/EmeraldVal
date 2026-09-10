@@ -3,8 +3,12 @@ import {
   isAdult,
   parseIdentity,
   validateBaasPayoutPayload,
+  validatePlaidExchangePayload,
   validatePlaidKycPayload,
   validateSplitCalculatePayload,
+  validateVaultPayoutPayload,
+  validateVaultReleasePayload,
+  validateWithholdingPayload,
 } from "@/lib/don/validation";
 
 const NOW = new Date("2026-09-10T00:00:00.000Z");
@@ -258,5 +262,75 @@ describe("validateBaasPayoutPayload", () => {
       return;
     }
     expect(result.code).toBe("invalid_provider");
+  });
+});
+
+describe("validateWithholdingPayload", () => {
+  it("accepts a payout with optional TIN flags", () => {
+    const result = validateWithholdingPayload({
+      creator_id: "c1",
+      gross_cents: 7000,
+      tin_verified: false,
+      w9_on_file: false,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.tax_year).toBeNull();
+  });
+
+  it("rejects a bad tax year", () => {
+    expect(
+      validateWithholdingPayload({
+        creator_id: "c1",
+        gross_cents: 100,
+        tax_year: 19,
+      }).ok,
+    ).toBe(false);
+  });
+});
+
+describe("validatePlaidExchangePayload", () => {
+  it("accepts a public_token exchange", () => {
+    const result = validatePlaidExchangePayload({
+      creator_id: "c1",
+      public_token: "public-sandbox-abc",
+      processor: "unit",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.processor).toBe("unit");
+  });
+
+  it("rejects a missing public_token", () => {
+    expect(
+      validatePlaidExchangePayload({ creator_id: "c1" }).ok,
+    ).toBe(false);
+  });
+});
+
+describe("validateVault payloads", () => {
+  it("parses a release and a payout", () => {
+    const release = validateVaultReleasePayload({
+      action: "release",
+      payee_id: "c1",
+    });
+    expect(release.ok).toBe(true);
+    const payout = validateVaultPayoutPayload({ payee_id: "c1", rail: "ach" });
+    expect(payout.ok).toBe(true);
+    if (!payout.ok) {
+      return;
+    }
+    expect(payout.value.rail).toBe("ach");
+    expect(payout.value.amount_cents).toBeUndefined();
+  });
+
+  it("rejects an unknown vault action", () => {
+    expect(validateVaultReleasePayload({ action: "delete", payee_id: "c1" }).ok).toBe(
+      false,
+    );
   });
 });

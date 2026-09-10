@@ -68,6 +68,38 @@ describe("POST /api/v1/splits/calculate", () => {
     ).toHaveLength(2);
   });
 
+  it("sweeps three-way dust into the company variance account", async () => {
+    const response = await POST(
+      postRequest(
+        JSON.stringify({
+          source: "spotify",
+          line_items: [
+            {
+              work_id: "trk_thirds",
+              work_title: "Thirds",
+              amount_cents: 1000,
+              splits: [
+                { payee_id: "a", payee_name: "A", role: "creator", share_bps: 3333 },
+                { payee_id: "b", payee_name: "B", role: "creator", share_bps: 3333 },
+                { payee_id: "c", payee_name: "C", role: "label", share_bps: 3334 },
+              ],
+            },
+          ],
+        }),
+      ) as never,
+    );
+    expect(response.status).toBe(201);
+    const payload = await response.json();
+    expect(payload.variance_account_cents).toBe(1);
+    expect(payload.zero_balance).toBe(true);
+    expect(
+      payload.ledger.reduce(
+        (sum: number, row: { amount_cents: number }) => sum + row.amount_cents,
+        0,
+      ) + payload.variance_account_cents,
+    ).toBe(1000);
+  });
+
   it("settles through sandbox RTP when settle is true", async () => {
     const response = await POST(
       postRequest(JSON.stringify({ ...BODY, settle: true, rail: "rtp" })) as never,

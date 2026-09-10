@@ -126,6 +126,7 @@ export type AllocatedLineItem = {
   work_title: string;
   amount_cents: number;
   splits: AllocatedSplit[];
+  company_dust_cents: number;
 };
 
 export type SplitRunRecord = {
@@ -135,6 +136,7 @@ export type SplitRunRecord = {
   currency: string;
   gross_cents: number;
   line_item_count: number;
+  variance_account_cents: number;
   created_at: string;
 };
 

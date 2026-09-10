@@ -41,6 +41,8 @@ describe("calculateUdrSplits", () => {
       return;
     }
     expect(result.value.split_run.gross_cents).toBe(10_000);
+    expect(result.value.variance_account_cents).toBe(0);
+    expect(result.value.zero_balance).toBe(true);
     expect(result.value.ledger.map((row) => row.amount_cents)).toEqual([
       7000, 3000,
     ]);
@@ -67,5 +69,51 @@ describe("calculateUdrSplits", () => {
       true,
     );
     expect(store.listBaasTransfers()).toHaveLength(2);
+  });
+
+  it("sweeps three-way dust to the company ledger and pending vault", async () => {
+    const store = new SqliteStore(":memory:");
+    const result = await calculateUdrSplits(store, {
+      source: "spotify",
+      period: "2026-08",
+      currency: "USD",
+      settle: false,
+      rail: "rtp",
+      line_items: [
+        {
+          work_id: "trk_03",
+          work_title: "Thirds",
+          amount_cents: 100,
+          splits: [
+            {
+              payee_id: "a",
+              payee_name: "A",
+              role: "creator",
+              share_bps: 3333,
+            },
+            {
+              payee_id: "b",
+              payee_name: "B",
+              role: "creator",
+              share_bps: 3333,
+            },
+            {
+              payee_id: "c",
+              payee_name: "C",
+              role: "label",
+              share_bps: 3334,
+            },
+          ],
+        },
+      ],
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.variance_account_cents).toBe(1);
+    expect(result.value.company_dust_ledger[0]?.amount_cents).toBe(1);
+    expect(store.getVault("platform")?.pending_balance).toBe(1);
+    expect(store.getVault("c")?.pending_balance).toBe(33);
   });
 });

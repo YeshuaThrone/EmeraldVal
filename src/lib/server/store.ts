@@ -14,6 +14,14 @@ import type {
   RoyaltyLineItemRecord,
   SplitRunRecord,
 } from "@/lib/don/types";
+import type {
+  CompanyDustRecord,
+  CreatorTaxProfile,
+  CreatorYtdEarnings,
+  PlaidProcessorTokenRecord,
+  SovereignVaultRecord,
+  TaxEscrowRecord,
+} from "@/modules/don/records";
 
 /**
  * SQLite persistence for ATXLive — the round's one new dependency
@@ -124,6 +132,34 @@ export interface Store {
   ): LedgerTransactionRecord | undefined;
   insertBaasTransfer(row: Omit<BaasTransferRecord, "id">): BaasTransferRecord;
   listBaasTransfers(limit?: number): BaasTransferRecord[];
+  insertCompanyDust(row: Omit<CompanyDustRecord, "id">): CompanyDustRecord;
+  listCompanyDustByRun(splitRunId: string): CompanyDustRecord[];
+  getCreatorTaxProfile(creatorId: string): CreatorTaxProfile | undefined;
+  upsertCreatorTaxProfile(row: CreatorTaxProfile): CreatorTaxProfile;
+  getCreatorYtd(
+    creatorId: string,
+    taxYear: number,
+  ): CreatorYtdEarnings | undefined;
+  upsertCreatorYtd(row: CreatorYtdEarnings): CreatorYtdEarnings;
+  insertTaxEscrow(row: Omit<TaxEscrowRecord, "id">): TaxEscrowRecord;
+  listTaxEscrowByCreator(
+    creatorId: string,
+    taxYear: number,
+  ): TaxEscrowRecord[];
+  getVault(payeeId: string): SovereignVaultRecord | undefined;
+  listVaults(): SovereignVaultRecord[];
+  upsertVault(row: SovereignVaultRecord): SovereignVaultRecord;
+  updatePlaidAccessToken(
+    publicToken: string,
+    accessToken: string,
+  ): PlaidLinkTokenRecord | undefined;
+  insertProcessorToken(
+    row: Omit<PlaidProcessorTokenRecord, "id">,
+  ): PlaidProcessorTokenRecord;
+  getProcessorToken(
+    publicToken: string,
+    processor: PlaidProcessorTokenRecord["processor"],
+  ): PlaidProcessorTokenRecord | undefined;
 }
 
 const SCHEMA = `
@@ -204,6 +240,7 @@ CREATE TABLE IF NOT EXISTS split_runs (
   currency TEXT NOT NULL DEFAULT 'USD',
   gross_cents INTEGER NOT NULL,
   line_item_count INTEGER NOT NULL,
+  variance_account_cents INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
 
@@ -247,6 +284,65 @@ CREATE TABLE IF NOT EXISTS baas_transfers (
   ledger_transaction_id TEXT,
   created_at TEXT NOT NULL,
   estimated_settlement TEXT
+);
+
+CREATE TABLE IF NOT EXISTS company_dust_ledger (
+  id TEXT PRIMARY KEY,
+  split_run_id TEXT NOT NULL,
+  line_item_id TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  variance_account_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS creator_tax_profiles (
+  creator_id TEXT PRIMARY KEY,
+  tin_verified INTEGER NOT NULL DEFAULT 0,
+  w9_on_file INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS creator_ytd_earnings (
+  creator_id TEXT NOT NULL,
+  tax_year INTEGER NOT NULL,
+  gross_cents INTEGER NOT NULL DEFAULT 0,
+  withheld_cents INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (creator_id, tax_year)
+);
+
+CREATE TABLE IF NOT EXISTS tax_escrow_ledger (
+  id TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  tax_year INTEGER NOT NULL,
+  gross_cents INTEGER NOT NULL,
+  withheld_cents INTEGER NOT NULL,
+  net_cents INTEGER NOT NULL,
+  tin_verified INTEGER NOT NULL,
+  w9_on_file INTEGER NOT NULL,
+  requires_1099 INTEGER NOT NULL,
+  crossed_1099_threshold INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sovereign_vaults (
+  payee_id TEXT PRIMARY KEY,
+  payee_name TEXT NOT NULL,
+  available_balance INTEGER NOT NULL DEFAULT 0,
+  pending_balance INTEGER NOT NULL DEFAULT 0,
+  reserve_balance INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS plaid_processor_tokens (
+  id TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  public_token TEXT NOT NULL,
+  processor TEXT NOT NULL,
+  processor_token TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  UNIQUE (public_token, processor)
 );
 `;
 
@@ -304,6 +400,13 @@ export class SqliteStore implements Store {
     if (!artistColumns.has("key_prefix")) {
       this.db.exec(
         `ALTER TABLE artists ADD COLUMN key_prefix TEXT NOT NULL DEFAULT ''`,
+      );
+    }
+
+    const splitRunColumns = columnsOf("split_runs");
+    if (!splitRunColumns.has("variance_account_cents")) {
+      this.db.exec(
+        `ALTER TABLE split_runs ADD COLUMN variance_account_cents INTEGER NOT NULL DEFAULT 0`,
       );
     }
   }
@@ -519,9 +622,11 @@ export class SqliteStore implements Store {
     this.db
       .prepare(
         `INSERT INTO split_runs (
-           id, source, period, currency, gross_cents, line_item_count, created_at
+           id, source, period, currency, gross_cents, line_item_count,
+           variance_account_cents, created_at
          ) VALUES (
-           @id, @source, @period, @currency, @gross_cents, @line_item_count, @created_at
+           @id, @source, @period, @currency, @gross_cents, @line_item_count,
+           @variance_account_cents, @created_at
          )`,
       )
       .run(record);
@@ -625,6 +730,189 @@ export class SqliteStore implements Store {
          LIMIT ?`,
       )
       .all(limit) as BaasTransferRecord[];
+  }
+
+  insertCompanyDust(row: Omit<CompanyDustRecord, "id">): CompanyDustRecord {
+    const record: CompanyDustRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO company_dust_ledger (
+           id, split_run_id, line_item_id, amount_cents, variance_account_id, created_at
+         ) VALUES (
+           @id, @split_run_id, @line_item_id, @amount_cents, @variance_account_id, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  listCompanyDustByRun(splitRunId: string): CompanyDustRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM company_dust_ledger
+         WHERE split_run_id = ?
+         ORDER BY created_at ASC, rowid ASC`,
+      )
+      .all(splitRunId) as CompanyDustRecord[];
+  }
+
+  getCreatorTaxProfile(creatorId: string): CreatorTaxProfile | undefined {
+    return this.db
+      .prepare(`SELECT * FROM creator_tax_profiles WHERE creator_id = ?`)
+      .get(creatorId) as CreatorTaxProfile | undefined;
+  }
+
+  upsertCreatorTaxProfile(row: CreatorTaxProfile): CreatorTaxProfile {
+    this.db
+      .prepare(
+        `INSERT INTO creator_tax_profiles (
+           creator_id, tin_verified, w9_on_file, updated_at
+         ) VALUES (
+           @creator_id, @tin_verified, @w9_on_file, @updated_at
+         )
+         ON CONFLICT(creator_id) DO UPDATE SET
+           tin_verified = excluded.tin_verified,
+           w9_on_file = excluded.w9_on_file,
+           updated_at = excluded.updated_at`,
+      )
+      .run(row);
+    return row;
+  }
+
+  getCreatorYtd(
+    creatorId: string,
+    taxYear: number,
+  ): CreatorYtdEarnings | undefined {
+    return this.db
+      .prepare(
+        `SELECT * FROM creator_ytd_earnings
+         WHERE creator_id = ? AND tax_year = ?`,
+      )
+      .get(creatorId, taxYear) as CreatorYtdEarnings | undefined;
+  }
+
+  upsertCreatorYtd(row: CreatorYtdEarnings): CreatorYtdEarnings {
+    this.db
+      .prepare(
+        `INSERT INTO creator_ytd_earnings (
+           creator_id, tax_year, gross_cents, withheld_cents, updated_at
+         ) VALUES (
+           @creator_id, @tax_year, @gross_cents, @withheld_cents, @updated_at
+         )
+         ON CONFLICT(creator_id, tax_year) DO UPDATE SET
+           gross_cents = excluded.gross_cents,
+           withheld_cents = excluded.withheld_cents,
+           updated_at = excluded.updated_at`,
+      )
+      .run(row);
+    return row;
+  }
+
+  insertTaxEscrow(row: Omit<TaxEscrowRecord, "id">): TaxEscrowRecord {
+    const record: TaxEscrowRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO tax_escrow_ledger (
+           id, creator_id, tax_year, gross_cents, withheld_cents, net_cents,
+           tin_verified, w9_on_file, requires_1099, crossed_1099_threshold, created_at
+         ) VALUES (
+           @id, @creator_id, @tax_year, @gross_cents, @withheld_cents, @net_cents,
+           @tin_verified, @w9_on_file, @requires_1099, @crossed_1099_threshold, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  listTaxEscrowByCreator(
+    creatorId: string,
+    taxYear: number,
+  ): TaxEscrowRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM tax_escrow_ledger
+         WHERE creator_id = ? AND tax_year = ?
+         ORDER BY created_at ASC, rowid ASC`,
+      )
+      .all(creatorId, taxYear) as TaxEscrowRecord[];
+  }
+
+  getVault(payeeId: string): SovereignVaultRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM sovereign_vaults WHERE payee_id = ?`)
+      .get(payeeId) as SovereignVaultRecord | undefined;
+  }
+
+  listVaults(): SovereignVaultRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM sovereign_vaults
+         ORDER BY payee_id ASC`,
+      )
+      .all() as SovereignVaultRecord[];
+  }
+
+  upsertVault(row: SovereignVaultRecord): SovereignVaultRecord {
+    this.db
+      .prepare(
+        `INSERT INTO sovereign_vaults (
+           payee_id, payee_name, available_balance, pending_balance,
+           reserve_balance, updated_at
+         ) VALUES (
+           @payee_id, @payee_name, @available_balance, @pending_balance,
+           @reserve_balance, @updated_at
+         )
+         ON CONFLICT(payee_id) DO UPDATE SET
+           payee_name = excluded.payee_name,
+           available_balance = excluded.available_balance,
+           pending_balance = excluded.pending_balance,
+           reserve_balance = excluded.reserve_balance,
+           updated_at = excluded.updated_at`,
+      )
+      .run(row);
+    return row;
+  }
+
+  updatePlaidAccessToken(
+    publicToken: string,
+    accessToken: string,
+  ): PlaidLinkTokenRecord | undefined {
+    this.db
+      .prepare(
+        `UPDATE plaid_link_tokens SET access_token = ? WHERE public_token = ?`,
+      )
+      .run(accessToken, publicToken);
+    return this.getPlaidLinkTokenByPublicToken(publicToken);
+  }
+
+  insertProcessorToken(
+    row: Omit<PlaidProcessorTokenRecord, "id">,
+  ): PlaidProcessorTokenRecord {
+    const record: PlaidProcessorTokenRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO plaid_processor_tokens (
+           id, creator_id, public_token, processor, processor_token,
+           account_id, created_at
+         ) VALUES (
+           @id, @creator_id, @public_token, @processor, @processor_token,
+           @account_id, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  getProcessorToken(
+    publicToken: string,
+    processor: PlaidProcessorTokenRecord["processor"],
+  ): PlaidProcessorTokenRecord | undefined {
+    return this.db
+      .prepare(
+        `SELECT * FROM plaid_processor_tokens
+         WHERE public_token = ? AND processor = ?`,
+      )
+      .get(publicToken, processor) as PlaidProcessorTokenRecord | undefined;
   }
 }
 

@@ -1,7 +1,8 @@
 /**
  * UDR split controller — ingest DSP royalty line items, allocate cents
- * across creators/labels, persist the ledger, and optionally settle each
- * row through the BaaS adapter (sandbox ACH/RTP).
+ * with a Primary Company Variance Sweep, persist the ledger + dust,
+ * credit sovereign vaults, apply backup withholding for unverified
+ * creators, and optionally settle through the BaaS adapter.
  */
 
 import { allocateLineItems } from "@/lib/don/splitEngine";
@@ -17,6 +18,14 @@ import {
   settleLedgerThroughBaas,
   type BaasTransferResult,
 } from "@/services/baas";
+import {
+  COMPANY_VARIANCE_PAYEE_ID,
+  COMPANY_VARIANCE_PAYEE_NAME,
+} from "@/modules/don/constants";
+import { zeroBalanceHolds } from "@/modules/don/dust";
+import { applyWithholding } from "@/modules/compliance/engine";
+import { creditVault } from "@/modules/vaults/engine";
+import type { CompanyDustRecord, TaxEscrowRecord } from "@/modules/don/records";
 
 export type SplitCalculateSuccess = {
   ok: true;
@@ -24,6 +33,10 @@ export type SplitCalculateSuccess = {
     split_run: SplitRunRecord;
     line_items: Array<AllocatedLineItem & { id: string }>;
     ledger: LedgerTransactionRecord[];
+    company_dust_ledger: CompanyDustRecord[];
+    variance_account_cents: number;
+    zero_balance: true;
+    withholding: TaxEscrowRecord[];
     settlement: {
       rail: SplitCalculateInput["rail"];
       transfers: Array<Extract<BaasTransferResult, { ok: true }>["transfer"]>;
@@ -60,13 +73,30 @@ export async function calculateUdrSplits(
     currency: input.currency,
     gross_cents: allocated.grossCents,
     line_item_count: allocated.items.length,
+    variance_account_cents: allocated.varianceAccountCents,
     created_at: createdAt,
   });
 
   const lineItems: Array<AllocatedLineItem & { id: string }> = [];
   const ledger: LedgerTransactionRecord[] = [];
+  const dustLedger: CompanyDustRecord[] = [];
+  const withholding: TaxEscrowRecord[] = [];
 
   for (const item of allocated.items) {
+    if (
+      !zeroBalanceHolds(
+        item.amount_cents,
+        item.splits,
+        item.company_dust_cents,
+      )
+    ) {
+      return {
+        ok: false,
+        status: 500,
+        code: "zero_balance_violation",
+        message: "sum(creator_allocations) + company_dust !== gross_line_item.",
+      };
+    }
     const storedItem = store.insertRoyaltyLineItem({
       split_run_id: splitRun.id,
       work_id: item.work_id,
@@ -95,6 +125,56 @@ export async function calculateUdrSplits(
           settled_at: null,
         }),
       );
+
+      let creditAmount = party.amount_cents;
+      if (party.role === "creator" && party.amount_cents > 0) {
+        const taxed = applyWithholding(store, {
+          creator_id: party.payee_id,
+          gross_cents: party.amount_cents,
+          tax_year: now.getUTCFullYear(),
+        });
+        withholding.push(taxed.value.escrow);
+        creditAmount = taxed.value.net_cents;
+        if (taxed.value.withheld_cents > 0) {
+          creditVault(
+            store,
+            party.payee_id,
+            party.payee_name,
+            taxed.value.withheld_cents,
+            "reserve",
+            now,
+          );
+        }
+      }
+      if (!input.settle && creditAmount > 0) {
+        creditVault(
+          store,
+          party.payee_id,
+          party.payee_name,
+          creditAmount,
+          "pending",
+          now,
+        );
+      }
+    }
+    if (item.company_dust_cents > 0) {
+      dustLedger.push(
+        store.insertCompanyDust({
+          split_run_id: splitRun.id,
+          line_item_id: storedItem.id,
+          amount_cents: item.company_dust_cents,
+          variance_account_id: COMPANY_VARIANCE_PAYEE_ID,
+          created_at: createdAt,
+        }),
+      );
+      creditVault(
+        store,
+        COMPANY_VARIANCE_PAYEE_ID,
+        COMPANY_VARIANCE_PAYEE_NAME,
+        item.company_dust_cents,
+        "pending",
+        now,
+      );
     }
   }
 
@@ -105,6 +185,10 @@ export async function calculateUdrSplits(
         split_run: splitRun,
         line_items: lineItems,
         ledger,
+        company_dust_ledger: dustLedger,
+        variance_account_cents: allocated.varianceAccountCents,
+        zero_balance: true,
+        withholding,
         settlement: null,
       },
     };
@@ -137,6 +221,10 @@ export async function calculateUdrSplits(
       split_run: splitRun,
       line_items: lineItems,
       ledger: settledLedger,
+      company_dust_ledger: dustLedger,
+      variance_account_cents: allocated.varianceAccountCents,
+      zero_balance: true,
+      withholding,
       settlement: { rail: input.rail, transfers },
     },
   };

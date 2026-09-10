@@ -49,7 +49,11 @@ export type DonValidationErrorCode =
   | "splits_do_not_balance"
   | "invalid_provider"
   | "invalid_payee"
-  | "missing_ledger_transaction_id";
+  | "missing_ledger_transaction_id"
+  | "missing_public_token"
+  | "invalid_tax_year"
+  | "missing_payee_id"
+  | "invalid_vault_action";
 
 export type DonValidationSuccess<T> = { ok: true; value: T };
 export type DonValidationFailure = {
@@ -87,6 +91,10 @@ const ERROR_MESSAGES: Record<DonValidationErrorCode, string> = {
   invalid_provider: "provider must be 'column' or 'unit'.",
   invalid_payee: "payee_id and payee_name are required.",
   missing_ledger_transaction_id: "ledger_transaction_id must be a string when provided.",
+  missing_public_token: "public_token is required.",
+  invalid_tax_year: "tax_year must be a four-digit year.",
+  missing_payee_id: "payee_id is required.",
+  invalid_vault_action: "action must be 'release'.",
 };
 
 function fail<T>(code: DonValidationErrorCode): DonValidationResult<T> {
@@ -500,6 +508,159 @@ export function validateBaasPayoutPayload(
       currency: currencyRaw.trim().toUpperCase(),
       ledger_transaction_id: ledgerTransactionId,
       provider,
+    },
+  };
+}
+
+export type WithholdingPayload = {
+  creator_id: string;
+  gross_cents: number;
+  tax_year: number | null;
+  tin_verified?: boolean;
+  w9_on_file?: boolean;
+};
+
+export function validateWithholdingPayload(
+  input: unknown,
+): DonValidationResult<WithholdingPayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (!isNonEmptyString(input.creator_id)) {
+    return fail("missing_creator_id");
+  }
+  if (!isSafeInteger(input.gross_cents) || input.gross_cents < 1) {
+    return fail("invalid_amount");
+  }
+  let taxYear: number | null = null;
+  if (input.tax_year !== undefined && input.tax_year !== null) {
+    if (!isSafeInteger(input.tax_year) || input.tax_year < 2000 || input.tax_year > 2100) {
+      return fail("invalid_tax_year");
+    }
+    taxYear = input.tax_year;
+  }
+  const value: WithholdingPayload = {
+    creator_id: input.creator_id.trim(),
+    gross_cents: input.gross_cents,
+    tax_year: taxYear,
+  };
+  if (typeof input.tin_verified === "boolean") {
+    value.tin_verified = input.tin_verified;
+  }
+  if (typeof input.w9_on_file === "boolean") {
+    value.w9_on_file = input.w9_on_file;
+  }
+  return { ok: true, value };
+}
+
+export type PlaidExchangePayload = {
+  creator_id: string;
+  public_token: string;
+  processor: BaasProvider | null;
+};
+
+export function validatePlaidExchangePayload(
+  input: unknown,
+): DonValidationResult<PlaidExchangePayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (!isNonEmptyString(input.creator_id)) {
+    return fail("missing_creator_id");
+  }
+  if (!isNonEmptyString(input.public_token)) {
+    return fail("missing_public_token");
+  }
+  let processor: BaasProvider | null = null;
+  if (input.processor !== undefined && input.processor !== null && input.processor !== "") {
+    if (
+      typeof input.processor !== "string" ||
+      !(BAAS_PROVIDERS as readonly string[]).includes(input.processor)
+    ) {
+      return fail("invalid_provider");
+    }
+    processor = input.processor as BaasProvider;
+  }
+  return {
+    ok: true,
+    value: {
+      creator_id: input.creator_id.trim(),
+      public_token: input.public_token.trim(),
+      processor,
+    },
+  };
+}
+
+export type VaultReleasePayload = {
+  action: "release";
+  payee_id: string;
+  amount_cents: number | undefined;
+};
+
+export function validateVaultReleasePayload(
+  input: unknown,
+): DonValidationResult<VaultReleasePayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (input.action !== "release") {
+    return fail("invalid_vault_action");
+  }
+  if (!isNonEmptyString(input.payee_id)) {
+    return fail("missing_payee_id");
+  }
+  let amountCents: number | undefined;
+  if (input.amount_cents !== undefined && input.amount_cents !== null) {
+    if (!isSafeInteger(input.amount_cents) || input.amount_cents < 1) {
+      return fail("invalid_amount");
+    }
+    amountCents = input.amount_cents;
+  }
+  return {
+    ok: true,
+    value: {
+      action: "release",
+      payee_id: input.payee_id.trim(),
+      amount_cents: amountCents,
+    },
+  };
+}
+
+export type VaultPayoutPayload = {
+  payee_id: string;
+  amount_cents: number | undefined;
+  rail: SettlementRail;
+};
+
+export function validateVaultPayoutPayload(
+  input: unknown,
+): DonValidationResult<VaultPayoutPayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (!isNonEmptyString(input.payee_id)) {
+    return fail("missing_payee_id");
+  }
+  let amountCents: number | undefined;
+  if (input.amount_cents !== undefined && input.amount_cents !== null) {
+    if (!isSafeInteger(input.amount_cents) || input.amount_cents < 1) {
+      return fail("invalid_amount");
+    }
+    amountCents = input.amount_cents;
+  }
+  const railRaw = input.rail === undefined || input.rail === null ? "rtp" : input.rail;
+  if (
+    typeof railRaw !== "string" ||
+    !(SETTLEMENT_RAILS as readonly string[]).includes(railRaw)
+  ) {
+    return fail("invalid_rail");
+  }
+  return {
+    ok: true,
+    value: {
+      payee_id: input.payee_id.trim(),
+      amount_cents: amountCents,
+      rail: railRaw as SettlementRail,
     },
   };
 }

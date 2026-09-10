@@ -41,12 +41,14 @@ describe("allocateCents", () => {
       return;
     }
     expect(result.splits.map((s) => s.amount_cents)).toEqual([7000, 3000]);
-    expect(result.splits.reduce((sum, s) => sum + s.amount_cents, 0)).toBe(
-      10_000,
-    );
+    expect(result.company_dust_cents).toBe(0);
+    expect(
+      result.splits.reduce((sum, s) => sum + s.amount_cents, 0) +
+        result.company_dust_cents,
+    ).toBe(10_000);
   });
 
-  it("gives leftover pennies to the last party so the total is exact", () => {
+  it("sweeps leftover pennies into company dust instead of the last party", () => {
     const thirds: SplitPartyInput[] = [
       { ...CREATOR, payee_id: "a", share_bps: 3333 },
       { ...CREATOR, payee_id: "b", share_bps: 3333 },
@@ -57,8 +59,12 @@ describe("allocateCents", () => {
     if (!result.ok) {
       return;
     }
-    expect(result.splits.map((s) => s.amount_cents)).toEqual([33, 33, 34]);
-    expect(result.splits.reduce((sum, s) => sum + s.amount_cents, 0)).toBe(100);
+    expect(result.splits.map((s) => s.amount_cents)).toEqual([33, 33, 33]);
+    expect(result.company_dust_cents).toBe(1);
+    expect(
+      result.splits.reduce((sum, s) => sum + s.amount_cents, 0) +
+        result.company_dust_cents,
+    ).toBe(100);
   });
 
   it("rejects shares that do not sum to 10000 bps", () => {

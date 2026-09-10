@@ -22,6 +22,7 @@ function seedLedger(store: SqliteStore) {
     currency: "USD",
     gross_cents: 7000,
     line_item_count: 1,
+    variance_account_cents: 0,
     created_at: "2026-09-10T15:00:00.000Z",
   });
   const item = store.insertRoyaltyLineItem({

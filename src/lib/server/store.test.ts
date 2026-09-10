@@ -257,6 +257,7 @@ describe("Don Engine ledger", () => {
       currency: "USD",
       gross_cents: 10_000,
       line_item_count: 1,
+      variance_account_cents: 0,
       created_at: "2026-09-10T15:00:00.000Z",
     });
     const item = store.insertRoyaltyLineItem({
@@ -293,5 +294,83 @@ describe("Don Engine ledger", () => {
     expect(patched?.status).toBe("settled");
     expect(patched?.baas_transfer_id).toBe("xfer_1");
     expect(store.listLedgerTransactionsByRun(run.id)[0]?.id).toBe(ledger.id);
+  });
+
+  it("round-trips dust, tax escrow, vaults, and processor tokens", () => {
+    const dust = store.insertCompanyDust({
+      split_run_id: "run-1",
+      line_item_id: "item-1",
+      amount_cents: 1,
+      variance_account_id: "platform",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listCompanyDustByRun("run-1")[0]?.id).toBe(dust.id);
+
+    store.upsertCreatorTaxProfile({
+      creator_id: "c1",
+      tin_verified: 1,
+      w9_on_file: 1,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getCreatorTaxProfile("c1")?.tin_verified).toBe(1);
+
+    store.upsertCreatorYtd({
+      creator_id: "c1",
+      tax_year: 2026,
+      gross_cents: 60000,
+      withheld_cents: 0,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getCreatorYtd("c1", 2026)?.gross_cents).toBe(60000);
+
+    store.insertTaxEscrow({
+      creator_id: "c1",
+      tax_year: 2026,
+      gross_cents: 100,
+      withheld_cents: 24,
+      net_cents: 76,
+      tin_verified: 0,
+      w9_on_file: 0,
+      requires_1099: 1,
+      crossed_1099_threshold: 1,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listTaxEscrowByCreator("c1", 2026)).toHaveLength(1);
+
+    store.upsertVault({
+      payee_id: "c1",
+      payee_name: "Yeshua Throne",
+      available_balance: 10,
+      pending_balance: 5,
+      reserve_balance: 2,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listVaults()).toHaveLength(1);
+    expect(store.getVault("c1")?.pending_balance).toBe(5);
+
+    store.insertPlaidLinkToken({
+      creator_id: "c1",
+      link_token: "link-sandbox-x",
+      public_token: "public-sandbox-x",
+      access_token: "access-sandbox-x",
+      expiration: "2026-09-10T19:00:00.000Z",
+      products: "auth",
+    });
+    store.updatePlaidAccessToken("public-sandbox-x", "enc:v1:token");
+    expect(store.getPlaidLinkTokenByPublicToken("public-sandbox-x")?.access_token).toBe(
+      "enc:v1:token",
+    );
+
+    const processor = store.insertProcessorToken({
+      creator_id: "c1",
+      public_token: "public-sandbox-x",
+      processor: "unit",
+      processor_token: "processor-sandbox-unit-1",
+      account_id: "acc-sandbox-1",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(
+      store.getProcessorToken("public-sandbox-x", "unit")?.id,
+    ).toBe(processor.id);
   });
 });
