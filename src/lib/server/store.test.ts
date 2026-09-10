@@ -196,3 +196,102 @@ describe("checkout capacity accounting (PR 24)", () => {
     expect(store.recordCheckoutPurchase("cs_4", externalId, 1)).toBeNull();
   });
 });
+
+describe("Don Engine ledger", () => {
+  it("round-trips a Plaid Link token by both token kinds", () => {
+    const inserted = store.insertPlaidLinkToken({
+      creator_id: "creator-1",
+      link_token: "link-sandbox-aaa",
+      public_token: "public-sandbox-bbb",
+      access_token: "access-sandbox-ccc",
+      expiration: "2026-09-10T19:00:00.000Z",
+      products: "auth,identity",
+    });
+    expect(store.getPlaidLinkTokenByLinkToken("link-sandbox-aaa")).toEqual(
+      inserted,
+    );
+    expect(
+      store.getPlaidLinkTokenByPublicToken("public-sandbox-bbb"),
+    ).toEqual(inserted);
+  });
+
+  it("lists KYC rows for a creator newest first", () => {
+    const failed = store.insertKycVerification({
+      creator_id: "c1",
+      plaid_link_token: null,
+      plaid_public_token: null,
+      status: "failed",
+      identity_json: "{}",
+      failure_reason: "sandbox",
+      created_at: "2026-09-10T12:00:00.000Z",
+      verified_at: null,
+    });
+    const verified = store.insertKycVerification({
+      creator_id: "c1",
+      plaid_link_token: null,
+      plaid_public_token: null,
+      status: "verified",
+      identity_json: "{}",
+      failure_reason: null,
+      created_at: "2026-09-10T13:00:00.000Z",
+      verified_at: "2026-09-10T13:00:00.000Z",
+    });
+    store.insertKycVerification({
+      creator_id: "other",
+      plaid_link_token: null,
+      plaid_public_token: null,
+      status: "verified",
+      identity_json: "{}",
+      failure_reason: null,
+      created_at: "2026-09-10T14:00:00.000Z",
+      verified_at: "2026-09-10T14:00:00.000Z",
+    });
+    const listed = store.listKycVerificationsByCreator("c1");
+    expect(listed.map((row) => row.id)).toEqual([verified.id, failed.id]);
+  });
+
+  it("persists a split run, line item, and ledger row then patches settlement", () => {
+    const run = store.insertSplitRun({
+      source: "spotify",
+      period: "2026-08",
+      currency: "USD",
+      gross_cents: 10_000,
+      line_item_count: 1,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    const item = store.insertRoyaltyLineItem({
+      split_run_id: run.id,
+      work_id: "trk_01",
+      work_title: "Midnight On 6th",
+      amount_cents: 10_000,
+      splits_json: "[]",
+      created_at: run.created_at,
+    });
+    const ledger = store.insertLedgerTransaction({
+      split_run_id: run.id,
+      line_item_id: item.id,
+      payee_id: "c1",
+      payee_name: "Yeshua Throne",
+      role: "creator",
+      share_bps: 7000,
+      amount_cents: 7000,
+      currency: "USD",
+      status: "pending_settlement",
+      rail: null,
+      baas_provider: null,
+      baas_transfer_id: null,
+      created_at: run.created_at,
+      settled_at: null,
+    });
+    const patched = store.updateLedgerSettlement(ledger.id, {
+      status: "settled",
+      rail: "rtp",
+      baas_provider: "column",
+      baas_transfer_id: "xfer_1",
+      settled_at: run.created_at,
+    });
+    expect(patched?.status).toBe("settled");
+    expect(patched?.baas_transfer_id).toBe("xfer_1");
+    expect(store.listLedgerTransactionsByRun(run.id)[0]?.id).toBe(ledger.id);
+  });
+});

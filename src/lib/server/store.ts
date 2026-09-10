@@ -6,6 +6,14 @@ import type {
   ValidLivePingPayload,
   ValidShowPayload,
 } from "@/lib/validation";
+import type {
+  BaasTransferRecord,
+  KycVerificationRecord,
+  LedgerTransactionRecord,
+  PlaidLinkTokenRecord,
+  RoyaltyLineItemRecord,
+  SplitRunRecord,
+} from "@/lib/don/types";
 
 /**
  * SQLite persistence for ATXLive — the round's one new dependency
@@ -84,6 +92,38 @@ export interface Store {
   getArtist(id: string): ArtistRecord | undefined;
   /** Resolves a presented API key's stored hash to its artist row. */
   getArtistByKeyHash(keyHash: string): ArtistRecord | undefined;
+
+  insertPlaidLinkToken(
+    token: Omit<PlaidLinkTokenRecord, "id" | "created_at">,
+  ): PlaidLinkTokenRecord;
+  getPlaidLinkTokenByLinkToken(
+    linkToken: string,
+  ): PlaidLinkTokenRecord | undefined;
+  getPlaidLinkTokenByPublicToken(
+    publicToken: string,
+  ): PlaidLinkTokenRecord | undefined;
+  insertKycVerification(
+    row: Omit<KycVerificationRecord, "id">,
+  ): KycVerificationRecord;
+  listKycVerificationsByCreator(creatorId: string): KycVerificationRecord[];
+  insertSplitRun(row: Omit<SplitRunRecord, "id">): SplitRunRecord;
+  insertRoyaltyLineItem(
+    row: Omit<RoyaltyLineItemRecord, "id">,
+  ): RoyaltyLineItemRecord;
+  insertLedgerTransaction(
+    row: Omit<LedgerTransactionRecord, "id">,
+  ): LedgerTransactionRecord;
+  getLedgerTransaction(id: string): LedgerTransactionRecord | undefined;
+  listLedgerTransactionsByRun(splitRunId: string): LedgerTransactionRecord[];
+  updateLedgerSettlement(
+    id: string,
+    patch: Pick<
+      LedgerTransactionRecord,
+      "status" | "rail" | "baas_provider" | "baas_transfer_id" | "settled_at"
+    >,
+  ): LedgerTransactionRecord | undefined;
+  insertBaasTransfer(row: Omit<BaasTransferRecord, "id">): BaasTransferRecord;
+  listBaasTransfers(limit?: number): BaasTransferRecord[];
 }
 
 const SCHEMA = `
@@ -131,6 +171,82 @@ CREATE TABLE IF NOT EXISTS checkout_sessions (
   show_id TEXT NOT NULL,
   quantity INTEGER NOT NULL,
   created_at TEXT NOT NULL
+);
+
+-- Don Engine sandbox: Plaid Link tokens, KYC outcomes, UDR ledger, BaaS rails.
+CREATE TABLE IF NOT EXISTS plaid_link_tokens (
+  id TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  link_token TEXT NOT NULL UNIQUE,
+  public_token TEXT NOT NULL UNIQUE,
+  access_token TEXT NOT NULL,
+  expiration TEXT NOT NULL,
+  products TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS kyc_verifications (
+  id TEXT PRIMARY KEY,
+  creator_id TEXT NOT NULL,
+  plaid_link_token TEXT,
+  plaid_public_token TEXT,
+  status TEXT NOT NULL,
+  identity_json TEXT NOT NULL,
+  failure_reason TEXT,
+  created_at TEXT NOT NULL,
+  verified_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS split_runs (
+  id TEXT PRIMARY KEY,
+  source TEXT NOT NULL,
+  period TEXT,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  gross_cents INTEGER NOT NULL,
+  line_item_count INTEGER NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS royalty_line_items (
+  id TEXT PRIMARY KEY,
+  split_run_id TEXT NOT NULL,
+  work_id TEXT NOT NULL,
+  work_title TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  splits_json TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ledger_transactions (
+  id TEXT PRIMARY KEY,
+  split_run_id TEXT NOT NULL,
+  line_item_id TEXT NOT NULL,
+  payee_id TEXT NOT NULL,
+  payee_name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  share_bps INTEGER NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  status TEXT NOT NULL,
+  rail TEXT,
+  baas_provider TEXT,
+  baas_transfer_id TEXT,
+  created_at TEXT NOT NULL,
+  settled_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS baas_transfers (
+  id TEXT PRIMARY KEY,
+  provider TEXT NOT NULL,
+  rail TEXT NOT NULL,
+  payee_id TEXT NOT NULL,
+  payee_name TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'USD',
+  status TEXT NOT NULL,
+  ledger_transaction_id TEXT,
+  created_at TEXT NOT NULL,
+  estimated_settlement TEXT
 );
 `;
 
@@ -330,6 +446,185 @@ export class SqliteStore implements Store {
     return this.db
       .prepare(`SELECT * FROM artists WHERE key_hash = ?`)
       .get(keyHash) as ArtistRecord | undefined;
+  }
+
+  insertPlaidLinkToken(
+    token: Omit<PlaidLinkTokenRecord, "id" | "created_at">,
+  ): PlaidLinkTokenRecord {
+    const record: PlaidLinkTokenRecord = {
+      ...token,
+      id: randomUUID(),
+      created_at: new Date().toISOString(),
+    };
+    this.db
+      .prepare(
+        `INSERT INTO plaid_link_tokens (
+           id, creator_id, link_token, public_token, access_token,
+           expiration, products, created_at
+         ) VALUES (
+           @id, @creator_id, @link_token, @public_token, @access_token,
+           @expiration, @products, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  getPlaidLinkTokenByLinkToken(
+    linkToken: string,
+  ): PlaidLinkTokenRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM plaid_link_tokens WHERE link_token = ?`)
+      .get(linkToken) as PlaidLinkTokenRecord | undefined;
+  }
+
+  getPlaidLinkTokenByPublicToken(
+    publicToken: string,
+  ): PlaidLinkTokenRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM plaid_link_tokens WHERE public_token = ?`)
+      .get(publicToken) as PlaidLinkTokenRecord | undefined;
+  }
+
+  insertKycVerification(
+    row: Omit<KycVerificationRecord, "id">,
+  ): KycVerificationRecord {
+    const record: KycVerificationRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO kyc_verifications (
+           id, creator_id, plaid_link_token, plaid_public_token, status,
+           identity_json, failure_reason, created_at, verified_at
+         ) VALUES (
+           @id, @creator_id, @plaid_link_token, @plaid_public_token, @status,
+           @identity_json, @failure_reason, @created_at, @verified_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  listKycVerificationsByCreator(creatorId: string): KycVerificationRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM kyc_verifications
+         WHERE creator_id = ?
+         ORDER BY created_at DESC, rowid DESC`,
+      )
+      .all(creatorId) as KycVerificationRecord[];
+  }
+
+  insertSplitRun(row: Omit<SplitRunRecord, "id">): SplitRunRecord {
+    const record: SplitRunRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO split_runs (
+           id, source, period, currency, gross_cents, line_item_count, created_at
+         ) VALUES (
+           @id, @source, @period, @currency, @gross_cents, @line_item_count, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  insertRoyaltyLineItem(
+    row: Omit<RoyaltyLineItemRecord, "id">,
+  ): RoyaltyLineItemRecord {
+    const record: RoyaltyLineItemRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO royalty_line_items (
+           id, split_run_id, work_id, work_title, amount_cents, splits_json, created_at
+         ) VALUES (
+           @id, @split_run_id, @work_id, @work_title, @amount_cents, @splits_json, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  insertLedgerTransaction(
+    row: Omit<LedgerTransactionRecord, "id">,
+  ): LedgerTransactionRecord {
+    const record: LedgerTransactionRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO ledger_transactions (
+           id, split_run_id, line_item_id, payee_id, payee_name, role,
+           share_bps, amount_cents, currency, status, rail, baas_provider,
+           baas_transfer_id, created_at, settled_at
+         ) VALUES (
+           @id, @split_run_id, @line_item_id, @payee_id, @payee_name, @role,
+           @share_bps, @amount_cents, @currency, @status, @rail, @baas_provider,
+           @baas_transfer_id, @created_at, @settled_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  getLedgerTransaction(id: string): LedgerTransactionRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM ledger_transactions WHERE id = ?`)
+      .get(id) as LedgerTransactionRecord | undefined;
+  }
+
+  listLedgerTransactionsByRun(splitRunId: string): LedgerTransactionRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM ledger_transactions
+         WHERE split_run_id = ?
+         ORDER BY created_at ASC, rowid ASC`,
+      )
+      .all(splitRunId) as LedgerTransactionRecord[];
+  }
+
+  updateLedgerSettlement(
+    id: string,
+    patch: Pick<
+      LedgerTransactionRecord,
+      "status" | "rail" | "baas_provider" | "baas_transfer_id" | "settled_at"
+    >,
+  ): LedgerTransactionRecord | undefined {
+    this.db
+      .prepare(
+        `UPDATE ledger_transactions
+         SET status = @status,
+             rail = @rail,
+             baas_provider = @baas_provider,
+             baas_transfer_id = @baas_transfer_id,
+             settled_at = @settled_at
+         WHERE id = @id`,
+      )
+      .run({ id, ...patch });
+    return this.getLedgerTransaction(id);
+  }
+
+  insertBaasTransfer(row: Omit<BaasTransferRecord, "id">): BaasTransferRecord {
+    const record: BaasTransferRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO baas_transfers (
+           id, provider, rail, payee_id, payee_name, amount_cents, currency,
+           status, ledger_transaction_id, created_at, estimated_settlement
+         ) VALUES (
+           @id, @provider, @rail, @payee_id, @payee_name, @amount_cents, @currency,
+           @status, @ledger_transaction_id, @created_at, @estimated_settlement
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  listBaasTransfers(limit: number = DEFAULT_LIST_SHOWS_LIMIT): BaasTransferRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM baas_transfers
+         ORDER BY created_at DESC, rowid DESC
+         LIMIT ?`,
+      )
+      .all(limit) as BaasTransferRecord[];
   }
 }
 
