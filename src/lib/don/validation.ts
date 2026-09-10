@@ -7,6 +7,11 @@
  */
 
 import {
+  BAAS_WEBHOOK_EVENTS,
+  DEFAULT_RECOUPMENT_BPS,
+  type BaasWebhookEvent,
+} from "@/modules/don/constants";
+import {
   BAAS_PROVIDERS,
   PAYEE_ROLES,
   PLAID_KYC_ACTIONS,
@@ -53,7 +58,11 @@ export type DonValidationErrorCode =
   | "missing_public_token"
   | "invalid_tax_year"
   | "missing_payee_id"
-  | "invalid_vault_action";
+  | "invalid_vault_action"
+  | "invalid_webhook_event"
+  | "missing_transfer_id"
+  | "invalid_recoupment"
+  | "invalid_locked";
 
 export type DonValidationSuccess<T> = { ok: true; value: T };
 export type DonValidationFailure = {
@@ -95,6 +104,11 @@ const ERROR_MESSAGES: Record<DonValidationErrorCode, string> = {
   invalid_tax_year: "tax_year must be a four-digit year.",
   missing_payee_id: "payee_id is required.",
   invalid_vault_action: "action must be 'release'.",
+  invalid_webhook_event:
+    "event must be 'payout.settled', 'payout.returned', or 'payout.failed'.",
+  missing_transfer_id: "transfer_id is required.",
+  invalid_recoupment: "recoupment_target_cents must be a whole number of at least 1.",
+  invalid_locked: "locked must be a boolean.",
 };
 
 function fail<T>(code: DonValidationErrorCode): DonValidationResult<T> {
@@ -661,6 +675,139 @@ export function validateVaultPayoutPayload(
       payee_id: input.payee_id.trim(),
       amount_cents: amountCents,
       rail: railRaw as SettlementRail,
+    },
+  };
+}
+
+export type BaasWebhookPayload = {
+  event: BaasWebhookEvent;
+  transfer_id: string;
+  event_id: string | undefined;
+};
+
+export function validateBaasWebhookPayload(
+  input: unknown,
+): DonValidationResult<BaasWebhookPayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (
+    typeof input.event !== "string" ||
+    !(BAAS_WEBHOOK_EVENTS as readonly string[]).includes(input.event)
+  ) {
+    return fail("invalid_webhook_event");
+  }
+  if (!isNonEmptyString(input.transfer_id)) {
+    return fail("missing_transfer_id");
+  }
+  let eventId: string | undefined;
+  if (input.event_id !== undefined && input.event_id !== null && input.event_id !== "") {
+    if (!isNonEmptyString(input.event_id)) {
+      return fail("malformed_body");
+    }
+    eventId = input.event_id.trim();
+  }
+  return {
+    ok: true,
+    value: {
+      event: input.event as BaasWebhookEvent,
+      transfer_id: input.transfer_id.trim(),
+      event_id: eventId,
+    },
+  };
+}
+
+export type RecoupmentPayload = {
+  creator_id: string;
+  creator_name: string;
+  recoupment_target_cents: number;
+  recoupment_bps: number;
+};
+
+export function validateRecoupmentPayload(
+  input: unknown,
+): DonValidationResult<RecoupmentPayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (!isNonEmptyString(input.creator_id)) {
+    return fail("missing_creator_id");
+  }
+  if (
+    !isSafeInteger(input.recoupment_target_cents) ||
+    input.recoupment_target_cents < 1
+  ) {
+    return fail("invalid_recoupment");
+  }
+  let bps = DEFAULT_RECOUPMENT_BPS;
+  if (input.recoupment_bps !== undefined && input.recoupment_bps !== null) {
+    if (
+      !isSafeInteger(input.recoupment_bps) ||
+      input.recoupment_bps < 1 ||
+      input.recoupment_bps > BPS_DENOMINATOR
+    ) {
+      return fail("invalid_share");
+    }
+    bps = input.recoupment_bps;
+  }
+  const name = isNonEmptyString(input.creator_name)
+    ? input.creator_name.trim()
+    : input.creator_id.trim();
+  return {
+    ok: true,
+    value: {
+      creator_id: input.creator_id.trim(),
+      creator_name: name,
+      recoupment_target_cents: input.recoupment_target_cents,
+      recoupment_bps: bps,
+    },
+  };
+}
+
+export type DisputeLockPayload = {
+  payee_id: string;
+  locked: boolean;
+  line_item_id: string | undefined;
+  amount_cents: number | undefined;
+};
+
+export function validateDisputeLockPayload(
+  input: unknown,
+): DonValidationResult<DisputeLockPayload> {
+  if (!isRecord(input)) {
+    return fail("malformed_body");
+  }
+  if (!isNonEmptyString(input.payee_id)) {
+    return fail("missing_payee_id");
+  }
+  if (typeof input.locked !== "boolean") {
+    return fail("invalid_locked");
+  }
+  let lineItemId: string | undefined;
+  if (
+    input.line_item_id !== undefined &&
+    input.line_item_id !== null &&
+    input.line_item_id !== ""
+  ) {
+    if (!isNonEmptyString(input.line_item_id)) {
+      return fail("malformed_body");
+    }
+    lineItemId = input.line_item_id.trim();
+  }
+  let amountCents: number | undefined;
+  if (input.amount_cents !== undefined && input.amount_cents !== null) {
+    if (!isSafeInteger(input.amount_cents) || input.amount_cents < 1) {
+      return fail("invalid_amount");
+    }
+    amountCents = input.amount_cents;
+  }
+  return {
+    ok: true,
+    value: {
+      payee_id: input.payee_id.trim(),
+      locked: input.locked,
+      line_item_id: lineItemId,
+      amount_cents: amountCents,
     },
   };
 }

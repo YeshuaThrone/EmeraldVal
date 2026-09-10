@@ -91,6 +91,13 @@ export const LEDGER_STATUSES = [
 ] as const;
 export type LedgerStatus = (typeof LEDGER_STATUSES)[number];
 
+export const LEDGER_KINDS = [
+  "royalty",
+  "payout",
+  "payout_failed_reversal",
+] as const;
+export type LedgerKind = (typeof LEDGER_KINDS)[number];
+
 export const BAAS_PROVIDERS = ["column", "unit"] as const;
 export type BaasProvider = (typeof BAAS_PROVIDERS)[number];
 
@@ -166,6 +173,7 @@ export type LedgerTransactionRecord = {
   baas_transfer_id: string | null;
   created_at: string;
   settled_at: string | null;
+  kind: LedgerKind;
 };
 
 export type BaasTransferRecord = {
@@ -176,7 +184,7 @@ export type BaasTransferRecord = {
   payee_name: string;
   amount_cents: number;
   currency: string;
-  status: "submitted" | "settled" | "failed";
+  status: "submitted" | "settled" | "failed" | "returned";
   ledger_transaction_id: string | null;
   created_at: string;
   estimated_settlement: string | null;

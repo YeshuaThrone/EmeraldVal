@@ -54,3 +54,67 @@ export type PlaidProcessorTokenRecord = {
   account_id: string;
   created_at: string;
 };
+
+export type RecoupmentAdvanceRecord = {
+  creator_id: string;
+  creator_name: string;
+  recoupment_target_cents: number;
+  recoupment_current_cents: number;
+  recoupment_bps: number;
+  updated_at: string;
+};
+
+export type VaultDisputeRecord = {
+  payee_id: string;
+  locked: number;
+  line_item_id: string | null;
+  frozen_from_available: number;
+  frozen_from_pending: number;
+  updated_at: string;
+};
+
+export type PayoutHoldRecord = {
+  transfer_id: string;
+  payee_id: string;
+  amount_cents: number;
+  status: "in_flight" | "settled" | "reversed";
+  created_at: string;
+};
+
+export type BaasWebhookEventRecord = {
+  id: string;
+  event_id: string;
+  event: string;
+  transfer_id: string;
+  payload_json: string;
+  reversal_id: string | null;
+  created_at: string;
+};
+
+export type PayoutReversalRecord = {
+  id: string;
+  transfer_id: string;
+  payee_id: string;
+  amount_cents: number;
+  reason: "payout.returned" | "payout.failed";
+  ledger_transaction_id: string | null;
+  journal_id: string;
+  created_at: string;
+};
+
+export type GlJournalRecord = {
+  id: string;
+  kind: string;
+  ref_type: string;
+  ref_id: string;
+  created_at: string;
+};
+
+export type GlEntryRecord = {
+  id: string;
+  journal_id: string;
+  account: string;
+  debit_cents: number;
+  credit_cents: number;
+  created_at: string;
+};

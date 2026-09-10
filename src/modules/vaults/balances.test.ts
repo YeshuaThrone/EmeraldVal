@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   creditBalances,
   debitAvailable,
+  debitPending,
   emptyVaultBalances,
+  freezeIntoReserve,
+  holdPayout,
   releasePending,
+  reversePayoutHold,
+  unfreezeFromReserve,
 } from "./balances";
 
 describe("creditBalances", () => {
@@ -76,5 +81,66 @@ describe("debitAvailable", () => {
         0,
       ).ok,
     ).toBe(false);
+  });
+});
+
+describe("hold / reverse / freeze", () => {
+  const base = {
+    available_balance: 80,
+    pending_balance: 40,
+    reserve_balance: 5,
+  };
+
+  it("holds a payout in pending and reverses it", () => {
+    const held = holdPayout(base, 50);
+    expect(held.ok).toBe(true);
+    if (!held.ok) {
+      return;
+    }
+    expect(held.balances.available_balance).toBe(30);
+    expect(held.balances.pending_balance).toBe(90);
+    const reversed = reversePayoutHold(held.balances, 50);
+    expect(reversed.ok).toBe(true);
+    if (!reversed.ok) {
+      return;
+    }
+    expect(reversed.balances.available_balance).toBe(80);
+    expect(reversed.balances.pending_balance).toBe(40);
+  });
+
+  it("rejects holds and reverses that exceed balances", () => {
+    expect(holdPayout(base, 81).ok).toBe(false);
+    expect(debitPending(base, 41).ok).toBe(false);
+    expect(reversePayoutHold(base, 41).ok).toBe(false);
+  });
+
+  it("freezes available then pending into reserve and thaws them", () => {
+    const frozen = freezeIntoReserve(base, 100);
+    expect(frozen.ok).toBe(true);
+    if (!frozen.ok) {
+      return;
+    }
+    expect(frozen.frozen_from_available).toBe(80);
+    expect(frozen.frozen_from_pending).toBe(20);
+    expect(frozen.balances.reserve_balance).toBe(105);
+    const thawed = unfreezeFromReserve(
+      frozen.balances,
+      frozen.frozen_from_available,
+      frozen.frozen_from_pending,
+    );
+    expect(thawed.ok).toBe(true);
+    if (!thawed.ok) {
+      return;
+    }
+    expect(thawed.balances).toEqual(base);
+  });
+
+  it("rejects an over-freeze and an over-thaw", () => {
+    expect(freezeIntoReserve(base, 0)).toEqual({
+      ok: false,
+      code: "insufficient_funds",
+    });
+    expect(freezeIntoReserve(base, 121).ok).toBe(false);
+    expect(unfreezeFromReserve(base, 10, 0).ok).toBe(false);
   });
 });

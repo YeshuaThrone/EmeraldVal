@@ -3,8 +3,11 @@ import {
   isAdult,
   parseIdentity,
   validateBaasPayoutPayload,
+  validateBaasWebhookPayload,
+  validateDisputeLockPayload,
   validatePlaidExchangePayload,
   validatePlaidKycPayload,
+  validateRecoupmentPayload,
   validateSplitCalculatePayload,
   validateVaultPayoutPayload,
   validateVaultReleasePayload,
@@ -341,5 +344,83 @@ describe("validateVault payloads", () => {
     expect(validateVaultReleasePayload({ action: "delete", payee_id: "c1" }).ok).toBe(
       false,
     );
+  });
+});
+
+describe("validateBaasWebhookPayload", () => {
+  it("parses a settled callback", () => {
+    const result = validateBaasWebhookPayload({
+      event: "payout.settled",
+      transfer_id: "xfer_1",
+      event_id: "evt_1",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.event_id).toBe("evt_1");
+  });
+
+  it("rejects a missing transfer or unknown event", () => {
+    expect(validateBaasWebhookPayload({ event: "payout.settled" }).ok).toBe(false);
+    expect(
+      validateBaasWebhookPayload({ event: "payout.nope", transfer_id: "x" }).ok,
+    ).toBe(false);
+    expect(validateBaasWebhookPayload("nope").ok).toBe(false);
+  });
+});
+
+describe("validateRecoupmentPayload", () => {
+  it("defaults bps to 100% and name to creator_id", () => {
+    const result = validateRecoupmentPayload({
+      creator_id: "c1",
+      recoupment_target_cents: 1000,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.recoupment_bps).toBe(10_000);
+    expect(result.value.creator_name).toBe("c1");
+  });
+
+  it("rejects a bad target or bps", () => {
+    expect(
+      validateRecoupmentPayload({ creator_id: "c1", recoupment_target_cents: 0 }).ok,
+    ).toBe(false);
+    expect(
+      validateRecoupmentPayload({
+        creator_id: "c1",
+        recoupment_target_cents: 1,
+        recoupment_bps: 0,
+      }).ok,
+    ).toBe(false);
+    expect(validateRecoupmentPayload({ recoupment_target_cents: 1 }).ok).toBe(false);
+    expect(validateRecoupmentPayload("nope").ok).toBe(false);
+  });
+});
+
+describe("validateDisputeLockPayload", () => {
+  it("parses a lock with optional line item", () => {
+    const result = validateDisputeLockPayload({
+      payee_id: "c1",
+      locked: true,
+      line_item_id: "li_1",
+      amount_cents: 50,
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.value.amount_cents).toBe(50);
+  });
+
+  it("rejects missing fields", () => {
+    expect(validateDisputeLockPayload({ locked: true }).ok).toBe(false);
+    expect(validateDisputeLockPayload({ payee_id: "c1" }).ok).toBe(false);
+    expect(
+      validateDisputeLockPayload({ payee_id: "c1", locked: true, amount_cents: 0 }).ok,
+    ).toBe(false);
+    expect(validateDisputeLockPayload("nope").ok).toBe(false);
   });
 });

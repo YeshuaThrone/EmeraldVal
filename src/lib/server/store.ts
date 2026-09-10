@@ -21,6 +21,13 @@ import type {
   PlaidProcessorTokenRecord,
   SovereignVaultRecord,
   TaxEscrowRecord,
+  RecoupmentAdvanceRecord,
+  VaultDisputeRecord,
+  PayoutHoldRecord,
+  BaasWebhookEventRecord,
+  PayoutReversalRecord,
+  GlJournalRecord,
+  GlEntryRecord,
 } from "@/modules/don/records";
 
 /**
@@ -119,10 +126,15 @@ export interface Store {
     row: Omit<RoyaltyLineItemRecord, "id">,
   ): RoyaltyLineItemRecord;
   insertLedgerTransaction(
-    row: Omit<LedgerTransactionRecord, "id">,
+    row: Omit<LedgerTransactionRecord, "id" | "kind"> & {
+      kind?: LedgerTransactionRecord["kind"];
+    },
   ): LedgerTransactionRecord;
   getLedgerTransaction(id: string): LedgerTransactionRecord | undefined;
   listLedgerTransactionsByRun(splitRunId: string): LedgerTransactionRecord[];
+  listLedgerTransactionsByLineItem(
+    lineItemId: string,
+  ): LedgerTransactionRecord[];
   updateLedgerSettlement(
     id: string,
     patch: Pick<
@@ -131,7 +143,12 @@ export interface Store {
     >,
   ): LedgerTransactionRecord | undefined;
   insertBaasTransfer(row: Omit<BaasTransferRecord, "id">): BaasTransferRecord;
+  getBaasTransfer(id: string): BaasTransferRecord | undefined;
   listBaasTransfers(limit?: number): BaasTransferRecord[];
+  updateBaasTransferStatus(
+    id: string,
+    status: BaasTransferRecord["status"],
+  ): BaasTransferRecord | undefined;
   insertCompanyDust(row: Omit<CompanyDustRecord, "id">): CompanyDustRecord;
   listCompanyDustByRun(splitRunId: string): CompanyDustRecord[];
   getCreatorTaxProfile(creatorId: string): CreatorTaxProfile | undefined;
@@ -160,6 +177,33 @@ export interface Store {
     publicToken: string,
     processor: PlaidProcessorTokenRecord["processor"],
   ): PlaidProcessorTokenRecord | undefined;
+  getRecoupmentAdvance(creatorId: string): RecoupmentAdvanceRecord | undefined;
+  upsertRecoupmentAdvance(row: RecoupmentAdvanceRecord): RecoupmentAdvanceRecord;
+  listRecoupmentAdvances(): RecoupmentAdvanceRecord[];
+  getVaultDispute(payeeId: string): VaultDisputeRecord | undefined;
+  upsertVaultDispute(row: VaultDisputeRecord): VaultDisputeRecord;
+  getPayoutHold(transferId: string): PayoutHoldRecord | undefined;
+  insertPayoutHold(row: PayoutHoldRecord): PayoutHoldRecord;
+  updatePayoutHoldStatus(
+    transferId: string,
+    status: PayoutHoldRecord["status"],
+  ): PayoutHoldRecord | undefined;
+  sumInFlightPayoutHolds(payeeId: string): number;
+  getWebhookEvent(eventId: string): BaasWebhookEventRecord | undefined;
+  insertWebhookEvent(
+    row: Omit<BaasWebhookEventRecord, "id">,
+  ): BaasWebhookEventRecord;
+  insertPayoutReversal(
+    row: Omit<PayoutReversalRecord, "id">,
+  ): PayoutReversalRecord;
+  getPayoutReversalByTransfer(
+    transferId: string,
+  ): PayoutReversalRecord | undefined;
+  insertGlJournal(row: Omit<GlJournalRecord, "id">): GlJournalRecord;
+  insertGlEntry(row: Omit<GlEntryRecord, "id">): GlEntryRecord;
+  listGlJournals(): GlJournalRecord[];
+  listGlEntries(): GlEntryRecord[];
+  listGlEntriesByJournal(journalId: string): GlEntryRecord[];
 }
 
 const SCHEMA = `
@@ -269,7 +313,8 @@ CREATE TABLE IF NOT EXISTS ledger_transactions (
   baas_provider TEXT,
   baas_transfer_id TEXT,
   created_at TEXT NOT NULL,
-  settled_at TEXT
+  settled_at TEXT,
+  kind TEXT NOT NULL DEFAULT 'royalty'
 );
 
 CREATE TABLE IF NOT EXISTS baas_transfers (
@@ -344,6 +389,70 @@ CREATE TABLE IF NOT EXISTS plaid_processor_tokens (
   created_at TEXT NOT NULL,
   UNIQUE (public_token, processor)
 );
+
+CREATE TABLE IF NOT EXISTS recoupment_advances (
+  creator_id TEXT PRIMARY KEY,
+  creator_name TEXT NOT NULL,
+  recoupment_target_cents INTEGER NOT NULL,
+  recoupment_current_cents INTEGER NOT NULL DEFAULT 0,
+  recoupment_bps INTEGER NOT NULL DEFAULT 10000,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS vault_disputes (
+  payee_id TEXT PRIMARY KEY,
+  locked INTEGER NOT NULL DEFAULT 0,
+  line_item_id TEXT,
+  frozen_from_available INTEGER NOT NULL DEFAULT 0,
+  frozen_from_pending INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS payout_holds (
+  transfer_id TEXT PRIMARY KEY,
+  payee_id TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS baas_webhook_events (
+  id TEXT PRIMARY KEY,
+  event_id TEXT NOT NULL UNIQUE,
+  event TEXT NOT NULL,
+  transfer_id TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  reversal_id TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS payout_reversals (
+  id TEXT PRIMARY KEY,
+  transfer_id TEXT NOT NULL,
+  payee_id TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  ledger_transaction_id TEXT,
+  journal_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS gl_journals (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,
+  ref_type TEXT NOT NULL,
+  ref_id TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS gl_entries (
+  id TEXT PRIMARY KEY,
+  journal_id TEXT NOT NULL,
+  account TEXT NOT NULL,
+  debit_cents INTEGER NOT NULL DEFAULT 0,
+  credit_cents INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
 `;
 
 export class SqliteStore implements Store {
@@ -407,6 +516,13 @@ export class SqliteStore implements Store {
     if (!splitRunColumns.has("variance_account_cents")) {
       this.db.exec(
         `ALTER TABLE split_runs ADD COLUMN variance_account_cents INTEGER NOT NULL DEFAULT 0`,
+      );
+    }
+
+    const ledgerColumns = columnsOf("ledger_transactions");
+    if (!ledgerColumns.has("kind")) {
+      this.db.exec(
+        `ALTER TABLE ledger_transactions ADD COLUMN kind TEXT NOT NULL DEFAULT 'royalty'`,
       );
     }
   }
@@ -650,19 +766,25 @@ export class SqliteStore implements Store {
   }
 
   insertLedgerTransaction(
-    row: Omit<LedgerTransactionRecord, "id">,
+    row: Omit<LedgerTransactionRecord, "id" | "kind"> & {
+      kind?: LedgerTransactionRecord["kind"];
+    },
   ): LedgerTransactionRecord {
-    const record: LedgerTransactionRecord = { ...row, id: randomUUID() };
+    const record: LedgerTransactionRecord = {
+      ...row,
+      kind: row.kind ?? "royalty",
+      id: randomUUID(),
+    };
     this.db
       .prepare(
         `INSERT INTO ledger_transactions (
            id, split_run_id, line_item_id, payee_id, payee_name, role,
            share_bps, amount_cents, currency, status, rail, baas_provider,
-           baas_transfer_id, created_at, settled_at
+           baas_transfer_id, created_at, settled_at, kind
          ) VALUES (
            @id, @split_run_id, @line_item_id, @payee_id, @payee_name, @role,
            @share_bps, @amount_cents, @currency, @status, @rail, @baas_provider,
-           @baas_transfer_id, @created_at, @settled_at
+           @baas_transfer_id, @created_at, @settled_at, @kind
          )`,
       )
       .run(record);
@@ -683,6 +805,18 @@ export class SqliteStore implements Store {
          ORDER BY created_at ASC, rowid ASC`,
       )
       .all(splitRunId) as LedgerTransactionRecord[];
+  }
+
+  listLedgerTransactionsByLineItem(
+    lineItemId: string,
+  ): LedgerTransactionRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM ledger_transactions
+         WHERE line_item_id = ?
+         ORDER BY created_at ASC, rowid ASC`,
+      )
+      .all(lineItemId) as LedgerTransactionRecord[];
   }
 
   updateLedgerSettlement(
@@ -722,6 +856,12 @@ export class SqliteStore implements Store {
     return record;
   }
 
+  getBaasTransfer(id: string): BaasTransferRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM baas_transfers WHERE id = ?`)
+      .get(id) as BaasTransferRecord | undefined;
+  }
+
   listBaasTransfers(limit: number = DEFAULT_LIST_SHOWS_LIMIT): BaasTransferRecord[] {
     return this.db
       .prepare(
@@ -730,6 +870,16 @@ export class SqliteStore implements Store {
          LIMIT ?`,
       )
       .all(limit) as BaasTransferRecord[];
+  }
+
+  updateBaasTransferStatus(
+    id: string,
+    status: BaasTransferRecord["status"],
+  ): BaasTransferRecord | undefined {
+    this.db
+      .prepare(`UPDATE baas_transfers SET status = ? WHERE id = ?`)
+      .run(status, id);
+    return this.getBaasTransfer(id);
   }
 
   insertCompanyDust(row: Omit<CompanyDustRecord, "id">): CompanyDustRecord {
@@ -913,6 +1063,207 @@ export class SqliteStore implements Store {
          WHERE public_token = ? AND processor = ?`,
       )
       .get(publicToken, processor) as PlaidProcessorTokenRecord | undefined;
+  }
+
+  getRecoupmentAdvance(creatorId: string): RecoupmentAdvanceRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM recoupment_advances WHERE creator_id = ?`)
+      .get(creatorId) as RecoupmentAdvanceRecord | undefined;
+  }
+
+  upsertRecoupmentAdvance(row: RecoupmentAdvanceRecord): RecoupmentAdvanceRecord {
+    this.db
+      .prepare(
+        `INSERT INTO recoupment_advances (
+           creator_id, creator_name, recoupment_target_cents,
+           recoupment_current_cents, recoupment_bps, updated_at
+         ) VALUES (
+           @creator_id, @creator_name, @recoupment_target_cents,
+           @recoupment_current_cents, @recoupment_bps, @updated_at
+         )
+         ON CONFLICT(creator_id) DO UPDATE SET
+           creator_name = excluded.creator_name,
+           recoupment_target_cents = excluded.recoupment_target_cents,
+           recoupment_current_cents = excluded.recoupment_current_cents,
+           recoupment_bps = excluded.recoupment_bps,
+           updated_at = excluded.updated_at`,
+      )
+      .run(row);
+    return row;
+  }
+
+  listRecoupmentAdvances(): RecoupmentAdvanceRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM recoupment_advances ORDER BY creator_id ASC`,
+      )
+      .all() as RecoupmentAdvanceRecord[];
+  }
+
+  getVaultDispute(payeeId: string): VaultDisputeRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM vault_disputes WHERE payee_id = ?`)
+      .get(payeeId) as VaultDisputeRecord | undefined;
+  }
+
+  upsertVaultDispute(row: VaultDisputeRecord): VaultDisputeRecord {
+    this.db
+      .prepare(
+        `INSERT INTO vault_disputes (
+           payee_id, locked, line_item_id, frozen_from_available,
+           frozen_from_pending, updated_at
+         ) VALUES (
+           @payee_id, @locked, @line_item_id, @frozen_from_available,
+           @frozen_from_pending, @updated_at
+         )
+         ON CONFLICT(payee_id) DO UPDATE SET
+           locked = excluded.locked,
+           line_item_id = excluded.line_item_id,
+           frozen_from_available = excluded.frozen_from_available,
+           frozen_from_pending = excluded.frozen_from_pending,
+           updated_at = excluded.updated_at`,
+      )
+      .run(row);
+    return row;
+  }
+
+  getPayoutHold(transferId: string): PayoutHoldRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM payout_holds WHERE transfer_id = ?`)
+      .get(transferId) as PayoutHoldRecord | undefined;
+  }
+
+  insertPayoutHold(row: PayoutHoldRecord): PayoutHoldRecord {
+    this.db
+      .prepare(
+        `INSERT INTO payout_holds (
+           transfer_id, payee_id, amount_cents, status, created_at
+         ) VALUES (
+           @transfer_id, @payee_id, @amount_cents, @status, @created_at
+         )`,
+      )
+      .run(row);
+    return row;
+  }
+
+  updatePayoutHoldStatus(
+    transferId: string,
+    status: PayoutHoldRecord["status"],
+  ): PayoutHoldRecord | undefined {
+    this.db
+      .prepare(`UPDATE payout_holds SET status = ? WHERE transfer_id = ?`)
+      .run(status, transferId);
+    return this.getPayoutHold(transferId);
+  }
+
+  sumInFlightPayoutHolds(payeeId: string): number {
+    const row = this.db
+      .prepare(
+        `SELECT COALESCE(SUM(amount_cents), 0) AS total
+         FROM payout_holds
+         WHERE payee_id = ? AND status = 'in_flight'`,
+      )
+      .get(payeeId) as { total: number };
+    return row.total;
+  }
+
+  getWebhookEvent(eventId: string): BaasWebhookEventRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM baas_webhook_events WHERE event_id = ?`)
+      .get(eventId) as BaasWebhookEventRecord | undefined;
+  }
+
+  insertWebhookEvent(
+    row: Omit<BaasWebhookEventRecord, "id">,
+  ): BaasWebhookEventRecord {
+    const record: BaasWebhookEventRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO baas_webhook_events (
+           id, event_id, event, transfer_id, payload_json, reversal_id, created_at
+         ) VALUES (
+           @id, @event_id, @event, @transfer_id, @payload_json, @reversal_id, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  insertPayoutReversal(
+    row: Omit<PayoutReversalRecord, "id">,
+  ): PayoutReversalRecord {
+    const record: PayoutReversalRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO payout_reversals (
+           id, transfer_id, payee_id, amount_cents, reason,
+           ledger_transaction_id, journal_id, created_at
+         ) VALUES (
+           @id, @transfer_id, @payee_id, @amount_cents, @reason,
+           @ledger_transaction_id, @journal_id, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  getPayoutReversalByTransfer(
+    transferId: string,
+  ): PayoutReversalRecord | undefined {
+    return this.db
+      .prepare(`SELECT * FROM payout_reversals WHERE transfer_id = ?`)
+      .get(transferId) as PayoutReversalRecord | undefined;
+  }
+
+  insertGlJournal(row: Omit<GlJournalRecord, "id">): GlJournalRecord {
+    const record: GlJournalRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO gl_journals (id, kind, ref_type, ref_id, created_at)
+         VALUES (@id, @kind, @ref_type, @ref_id, @created_at)`,
+      )
+      .run(record);
+    return record;
+  }
+
+  insertGlEntry(row: Omit<GlEntryRecord, "id">): GlEntryRecord {
+    const record: GlEntryRecord = { ...row, id: randomUUID() };
+    this.db
+      .prepare(
+        `INSERT INTO gl_entries (
+           id, journal_id, account, debit_cents, credit_cents, created_at
+         ) VALUES (
+           @id, @journal_id, @account, @debit_cents, @credit_cents, @created_at
+         )`,
+      )
+      .run(record);
+    return record;
+  }
+
+  listGlJournals(): GlJournalRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM gl_journals ORDER BY created_at ASC, rowid ASC`,
+      )
+      .all() as GlJournalRecord[];
+  }
+
+  listGlEntries(): GlEntryRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM gl_entries ORDER BY created_at ASC, rowid ASC`,
+      )
+      .all() as GlEntryRecord[];
+  }
+
+  listGlEntriesByJournal(journalId: string): GlEntryRecord[] {
+    return this.db
+      .prepare(
+        `SELECT * FROM gl_entries
+         WHERE journal_id = ?
+         ORDER BY rowid ASC`,
+      )
+      .all(journalId) as GlEntryRecord[];
   }
 }
 

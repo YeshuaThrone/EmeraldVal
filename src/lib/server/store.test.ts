@@ -294,6 +294,7 @@ describe("Don Engine ledger", () => {
     expect(patched?.status).toBe("settled");
     expect(patched?.baas_transfer_id).toBe("xfer_1");
     expect(store.listLedgerTransactionsByRun(run.id)[0]?.id).toBe(ledger.id);
+    expect(store.listLedgerTransactionsByLineItem(item.id)[0]?.kind).toBe("royalty");
   });
 
   it("round-trips dust, tax escrow, vaults, and processor tokens", () => {
@@ -372,5 +373,88 @@ describe("Don Engine ledger", () => {
     expect(
       store.getProcessorToken("public-sandbox-x", "unit")?.id,
     ).toBe(processor.id);
+
+    const advance = store.upsertRecoupmentAdvance({
+      creator_id: "c1",
+      creator_name: "Yeshua Throne",
+      recoupment_target_cents: 1000,
+      recoupment_current_cents: 0,
+      recoupment_bps: 10_000,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getRecoupmentAdvance("c1")?.creator_id).toBe(advance.creator_id);
+    expect(store.listRecoupmentAdvances()).toHaveLength(1);
+
+    store.upsertVaultDispute({
+      payee_id: "c1",
+      locked: 1,
+      line_item_id: null,
+      frozen_from_available: 10,
+      frozen_from_pending: 0,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getVaultDispute("c1")?.locked).toBe(1);
+
+    const transfer = store.insertBaasTransfer({
+      provider: "column",
+      rail: "ach",
+      payee_id: "c1",
+      payee_name: "Yeshua Throne",
+      amount_cents: 10,
+      currency: "USD",
+      status: "submitted",
+      ledger_transaction_id: null,
+      created_at: "2026-09-10T15:00:00.000Z",
+      estimated_settlement: null,
+    });
+    expect(store.getBaasTransfer(transfer.id)?.id).toBe(transfer.id);
+    expect(store.updateBaasTransferStatus(transfer.id, "failed")?.status).toBe("failed");
+    store.insertPayoutHold({
+      transfer_id: transfer.id,
+      payee_id: "c1",
+      amount_cents: 10,
+      status: "in_flight",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.sumInFlightPayoutHolds("c1")).toBe(10);
+    store.updatePayoutHoldStatus(transfer.id, "settled");
+    expect(store.getPayoutHold(transfer.id)?.status).toBe("settled");
+
+    const journal = store.insertGlJournal({
+      kind: "royalty_ingest",
+      ref_type: "split_run",
+      ref_id: "run-1",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    store.insertGlEntry({
+      journal_id: journal.id,
+      account: "fbo_cash",
+      debit_cents: 10,
+      credit_cents: 0,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listGlEntriesByJournal(journal.id)).toHaveLength(1);
+    expect(store.listGlEntries()).toHaveLength(1);
+    expect(store.listGlJournals()).toHaveLength(1);
+
+    const webhook = store.insertWebhookEvent({
+      event_id: `${transfer.id}:payout.failed`,
+      event: "payout.failed",
+      transfer_id: transfer.id,
+      payload_json: "{}",
+      reversal_id: null,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getWebhookEvent(webhook.event_id)?.id).toBe(webhook.id);
+    const reversal = store.insertPayoutReversal({
+      transfer_id: transfer.id,
+      payee_id: "c1",
+      amount_cents: 10,
+      reason: "payout.failed",
+      ledger_transaction_id: null,
+      journal_id: journal.id,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getPayoutReversalByTransfer(transfer.id)?.id).toBe(reversal.id);
   });
 });

@@ -2,7 +2,8 @@
  * UDR split controller — ingest DSP royalty line items, allocate cents
  * with a Primary Company Variance Sweep, persist the ledger + dust,
  * credit sovereign vaults, apply backup withholding for unverified
- * creators, and optionally settle through the BaaS adapter.
+ * creators, sweep active recoupment advances, post a balanced GL
+ * journal, and optionally settle through the BaaS adapter.
  */
 
 import { allocateLineItems } from "@/lib/don/splitEngine";
@@ -24,6 +25,17 @@ import {
 } from "@/modules/don/constants";
 import { zeroBalanceHolds } from "@/modules/don/dust";
 import { applyWithholding } from "@/modules/compliance/engine";
+import { postJournal } from "@/modules/ledger/engine";
+import {
+  fboCredit,
+  fboDebit,
+  vaultCredit,
+  type GlLeg,
+} from "@/modules/ledger/journal";
+import {
+  applyRecoupmentSweep,
+  type RecoupmentApplyResult,
+} from "@/modules/recoupment/engine";
 import { creditVault } from "@/modules/vaults/engine";
 import type { CompanyDustRecord, TaxEscrowRecord } from "@/modules/don/records";
 
@@ -37,6 +49,7 @@ export type SplitCalculateSuccess = {
     variance_account_cents: number;
     zero_balance: true;
     withholding: TaxEscrowRecord[];
+    recoupment: Array<RecoupmentApplyResult & { payee_id: string }>;
     settlement: {
       rail: SplitCalculateInput["rail"];
       transfers: Array<Extract<BaasTransferResult, { ok: true }>["transfer"]>;
@@ -81,6 +94,10 @@ export async function calculateUdrSplits(
   const ledger: LedgerTransactionRecord[] = [];
   const dustLedger: CompanyDustRecord[] = [];
   const withholding: TaxEscrowRecord[] = [];
+  const recoupment: Array<RecoupmentApplyResult & { payee_id: string }> = [];
+  const glLegs: GlLeg[] = [fboDebit(allocated.grossCents)];
+  const skipBaas = new Set<string>();
+  let baasDirectCents = 0;
 
   for (const item of allocated.items) {
     if (
@@ -144,9 +161,36 @@ export async function calculateUdrSplits(
             "reserve",
             now,
           );
+          glLegs.push(
+            vaultCredit(party.payee_id, "reserve", taxed.value.withheld_cents),
+          );
         }
       }
-      if (!input.settle && creditAmount > 0) {
+      const recouped = applyRecoupmentSweep(
+        store,
+        party.payee_id,
+        party.payee_name,
+        creditAmount,
+        now,
+      );
+      if (recouped.applied) {
+        recoupment.push({ ...recouped, payee_id: party.payee_id });
+        skipBaas.add(ledger[ledger.length - 1]!.id);
+        if (recouped.recouped_cents > 0) {
+          glLegs.push(
+            vaultCredit(
+              COMPANY_VARIANCE_PAYEE_ID,
+              "available",
+              recouped.recouped_cents,
+            ),
+          );
+        }
+        if (recouped.excess_cents > 0) {
+          glLegs.push(
+            vaultCredit(party.payee_id, "available", recouped.excess_cents),
+          );
+        }
+      } else if (!input.settle && creditAmount > 0) {
         creditVault(
           store,
           party.payee_id,
@@ -155,6 +199,9 @@ export async function calculateUdrSplits(
           "pending",
           now,
         );
+        glLegs.push(vaultCredit(party.payee_id, "pending", creditAmount));
+      } else if (input.settle && creditAmount > 0) {
+        baasDirectCents += creditAmount;
       }
     }
     if (item.company_dust_cents > 0) {
@@ -175,7 +222,36 @@ export async function calculateUdrSplits(
         "pending",
         now,
       );
+      glLegs.push(
+        vaultCredit(
+          COMPANY_VARIANCE_PAYEE_ID,
+          "pending",
+          item.company_dust_cents,
+        ),
+      );
     }
+  }
+
+  if (baasDirectCents > 0) {
+    glLegs.push(fboCredit(baasDirectCents));
+  }
+  const journal = postJournal(
+    store,
+    {
+      kind: "royalty_ingest",
+      ref_type: "split_run",
+      ref_id: splitRun.id,
+      legs: glLegs,
+    },
+    now,
+  );
+  if (!journal.ok) {
+    return {
+      ok: false,
+      status: 500,
+      code: journal.code,
+      message: journal.message,
+    };
   }
 
   if (!input.settle) {
@@ -189,6 +265,7 @@ export async function calculateUdrSplits(
         variance_account_cents: allocated.varianceAccountCents,
         zero_balance: true,
         withholding,
+        recoupment,
         settlement: null,
       },
     };
@@ -199,6 +276,10 @@ export async function calculateUdrSplits(
     [];
   const settledLedger: LedgerTransactionRecord[] = [];
   for (const row of ledger) {
+    if (skipBaas.has(row.id)) {
+      settledLedger.push(row);
+      continue;
+    }
     const result = await settleLedgerThroughBaas(
       store,
       adapter,
@@ -225,6 +306,7 @@ export async function calculateUdrSplits(
       variance_account_cents: allocated.varianceAccountCents,
       zero_balance: true,
       withholding,
+      recoupment,
       settlement: { rail: input.rail, transfers },
     },
   };
