@@ -7,7 +7,6 @@ import dynamic from "next/dynamic";
 import {
   AudioLines,
   Filter,
-  Flame,
   LoaderCircle,
   Plus,
 } from "lucide-react";
@@ -81,7 +80,6 @@ export default function LiveMapApp() {
   const [isClicking, setIsClicking] = useState(false);
   const [goLiveOpen, setGoLiveOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [heatmapOn, setHeatmapOn] = useState(true);
   // Starts collapsed to match filtersOpen's initial false so the two never
   // overlap on first paint.
   const [searchCollapsed, setSearchCollapsed] = useState(filtersOpen);
@@ -516,24 +514,21 @@ export default function LiveMapApp() {
           onSelectPin={setSelectedPinId}
           onMapClick={handleMapClick}
           onPanStart={collapseSearchForPan}
-          heatmapOn={heatmapOn}
         />
       </div>
 
-      {heatmapOn ? (
-        <div
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-24 left-4 z-20 flex items-center gap-2 rounded-2xl border border-atx-line bg-atx-paper/90 px-3 py-2 text-xs text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md md:bottom-28"
+      >
+        <span
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-24 left-4 z-20 flex items-center gap-2 rounded-2xl border border-atx-line bg-atx-paper/90 px-3 py-2 text-xs text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md md:bottom-28"
-        >
-          <span
-            aria-hidden="true"
-            className="h-2 w-16 rounded-full bg-[linear-gradient(to_right,rgba(0,0,0,0),rgba(255,140,0,0.4),rgba(255,165,0,0.75),rgba(255,215,0,0.95),#ffffff)]"
-          />
-          <span className="font-medium">
-            Low Density (Amber) &rarr; Peak Foot Traffic (White)
-          </span>
-        </div>
-      ) : null}
+          className="h-2 w-16 rounded-full bg-[linear-gradient(to_right,rgba(0,0,0,0),rgba(255,140,0,0.4),rgba(255,165,0,0.75),rgba(255,215,0,0.95),#ffffff)]"
+        />
+        <span className="font-medium">
+          Low Density (Amber) &rarr; Peak Foot Traffic (White)
+        </span>
+      </div>
 
       {filtersOpen ? (
         <button
@@ -643,19 +638,6 @@ export default function LiveMapApp() {
               <span className="text-xs font-normal text-stone-400">
                 {visiblePins.length} / {pins.length}
               </span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setHeatmapOn((on) => !on)}
-              aria-pressed={heatmapOn}
-              className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2.5 text-sm font-semibold shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] backdrop-blur-md transition ${
-                heatmapOn
-                  ? "border-atx-red/40 bg-atx-red text-white"
-                  : "border-atx-line bg-atx-paper/95 text-atx-ink hover:border-atx-red/40"
-              }`}
-            >
-              <Flame className={`h-4 w-4 ${heatmapOn ? "text-white" : "text-atx-red"}`} />
-              Heatmap
             </button>
           </div>
           <SearchBar

@@ -28,8 +28,6 @@ type MapCanvasProps = {
   onMapClick: (lat: number, lng: number) => void;
   /** Fired the moment the user starts dragging/panning the map. */
   onPanStart?: () => void;
-  /** Mounts/unmounts the corridor heat overlay; reflects the currently visible pins. */
-  heatmapOn?: boolean;
 };
 
 /**
@@ -108,7 +106,6 @@ export default function MapCanvas({
   onSelectPin,
   onMapClick,
   onPanStart,
-  heatmapOn = false,
 }: MapCanvasProps) {
   // Heat reflects whatever pins are currently visible (post-filter); the
   // five corridor clusters themselves are filter-independent (see heat.ts).
@@ -133,7 +130,7 @@ export default function MapCanvas({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapController flyTo={flyTo} onMapClick={onMapClick} onPanStart={onPanStart} />
-      {heatmapOn ? <HeatmapLayer points={heatPoints} /> : null}
+      <HeatmapLayer points={heatPoints} />
       {pins.map((pin) => (
         <Marker
           key={pin.id}
