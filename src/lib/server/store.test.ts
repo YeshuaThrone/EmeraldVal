@@ -196,3 +196,305 @@ describe("checkout capacity accounting (PR 24)", () => {
     expect(store.recordCheckoutPurchase("cs_4", externalId, 1)).toBeNull();
   });
 });
+
+describe("Don Engine ledger", () => {
+  it("round-trips a Plaid Link token by both token kinds", () => {
+    const inserted = store.insertPlaidLinkToken({
+      creator_id: "creator-1",
+      link_token: "link-sandbox-aaa",
+      public_token: "public-sandbox-bbb",
+      access_token: "access-sandbox-ccc",
+      expiration: "2026-09-10T19:00:00.000Z",
+      products: "auth,identity",
+    });
+    expect(store.getPlaidLinkTokenByLinkToken("link-sandbox-aaa")).toEqual(
+      inserted,
+    );
+    expect(
+      store.getPlaidLinkTokenByPublicToken("public-sandbox-bbb"),
+    ).toEqual(inserted);
+  });
+
+  it("lists KYC rows for a creator newest first", () => {
+    const failed = store.insertKycVerification({
+      creator_id: "c1",
+      plaid_link_token: null,
+      plaid_public_token: null,
+      status: "failed",
+      identity_json: "{}",
+      failure_reason: "sandbox",
+      created_at: "2026-09-10T12:00:00.000Z",
+      verified_at: null,
+    });
+    const verified = store.insertKycVerification({
+      creator_id: "c1",
+      plaid_link_token: null,
+      plaid_public_token: null,
+      status: "verified",
+      identity_json: "{}",
+      failure_reason: null,
+      created_at: "2026-09-10T13:00:00.000Z",
+      verified_at: "2026-09-10T13:00:00.000Z",
+    });
+    store.insertKycVerification({
+      creator_id: "other",
+      plaid_link_token: null,
+      plaid_public_token: null,
+      status: "verified",
+      identity_json: "{}",
+      failure_reason: null,
+      created_at: "2026-09-10T14:00:00.000Z",
+      verified_at: "2026-09-10T14:00:00.000Z",
+    });
+    const listed = store.listKycVerificationsByCreator("c1");
+    expect(listed.map((row) => row.id)).toEqual([verified.id, failed.id]);
+  });
+
+  it("persists a split run, line item, and ledger row then patches settlement", () => {
+    const run = store.insertSplitRun({
+      source: "spotify",
+      period: "2026-08",
+      currency: "USD",
+      gross_cents: 10_000,
+      line_item_count: 1,
+      variance_account_cents: 0,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    const item = store.insertRoyaltyLineItem({
+      split_run_id: run.id,
+      work_id: "trk_01",
+      work_title: "Midnight On 6th",
+      amount_cents: 10_000,
+      splits_json: "[]",
+      created_at: run.created_at,
+    });
+    const ledger = store.insertLedgerTransaction({
+      split_run_id: run.id,
+      line_item_id: item.id,
+      payee_id: "c1",
+      payee_name: "Yeshua Throne",
+      role: "creator",
+      share_bps: 7000,
+      amount_cents: 7000,
+      currency: "USD",
+      status: "pending_settlement",
+      rail: null,
+      baas_provider: null,
+      baas_transfer_id: null,
+      created_at: run.created_at,
+      settled_at: null,
+    });
+    const patched = store.updateLedgerSettlement(ledger.id, {
+      status: "settled",
+      rail: "rtp",
+      baas_provider: "column",
+      baas_transfer_id: "xfer_1",
+      settled_at: run.created_at,
+    });
+    expect(patched?.status).toBe("settled");
+    expect(patched?.baas_transfer_id).toBe("xfer_1");
+    expect(store.listLedgerTransactionsByRun(run.id)[0]?.id).toBe(ledger.id);
+    expect(store.listLedgerTransactionsByLineItem(item.id)[0]?.kind).toBe("royalty");
+    expect(store.getSplitRun(run.id)?.status).toBe("posted");
+    expect(store.updateSplitRunStatus(run.id, "reversed")?.status).toBe("reversed");
+  });
+
+  it("round-trips dust, tax escrow, vaults, and processor tokens", () => {
+    const dust = store.insertCompanyDust({
+      split_run_id: "run-1",
+      line_item_id: "item-1",
+      amount_cents: 1,
+      variance_account_id: "platform",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listCompanyDustByRun("run-1")[0]?.id).toBe(dust.id);
+
+    store.upsertCreatorTaxProfile({
+      creator_id: "c1",
+      tin_verified: 1,
+      w9_on_file: 1,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getCreatorTaxProfile("c1")?.tin_verified).toBe(1);
+
+    store.upsertCreatorYtd({
+      creator_id: "c1",
+      tax_year: 2026,
+      gross_cents: 60000,
+      withheld_cents: 0,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getCreatorYtd("c1", 2026)?.gross_cents).toBe(60000);
+
+    store.insertTaxEscrow({
+      creator_id: "c1",
+      tax_year: 2026,
+      gross_cents: 100,
+      withheld_cents: 24,
+      net_cents: 76,
+      tin_verified: 0,
+      w9_on_file: 0,
+      requires_1099: 1,
+      crossed_1099_threshold: 1,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listTaxEscrowByCreator("c1", 2026)).toHaveLength(1);
+
+    store.upsertVault({
+      payee_id: "c1",
+      payee_name: "Yeshua Throne",
+      available_balance: 10,
+      pending_balance: 5,
+      reserve_balance: 2,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listVaults()).toHaveLength(1);
+    expect(store.getVault("c1")?.pending_balance).toBe(5);
+
+    store.insertPlaidLinkToken({
+      creator_id: "c1",
+      link_token: "link-sandbox-x",
+      public_token: "public-sandbox-x",
+      access_token: "access-sandbox-x",
+      expiration: "2026-09-10T19:00:00.000Z",
+      products: "auth",
+    });
+    store.updatePlaidAccessToken("public-sandbox-x", "enc:v1:token");
+    expect(store.getPlaidLinkTokenByPublicToken("public-sandbox-x")?.access_token).toBe(
+      "enc:v1:token",
+    );
+
+    const processor = store.insertProcessorToken({
+      creator_id: "c1",
+      public_token: "public-sandbox-x",
+      processor: "unit",
+      processor_token: "processor-sandbox-unit-1",
+      account_id: "acc-sandbox-1",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(
+      store.getProcessorToken("public-sandbox-x", "unit")?.id,
+    ).toBe(processor.id);
+
+    const advance = store.upsertRecoupmentAdvance({
+      creator_id: "c1",
+      creator_name: "Yeshua Throne",
+      recoupment_target_cents: 1000,
+      recoupment_current_cents: 0,
+      recoupment_bps: 10_000,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getRecoupmentAdvance("c1")?.creator_id).toBe(advance.creator_id);
+    expect(store.listRecoupmentAdvances()).toHaveLength(1);
+
+    store.upsertVaultDispute({
+      payee_id: "c1",
+      locked: 1,
+      line_item_id: null,
+      frozen_from_available: 10,
+      frozen_from_pending: 0,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getVaultDispute("c1")?.locked).toBe(1);
+
+    const transfer = store.insertBaasTransfer({
+      provider: "column",
+      rail: "ach",
+      payee_id: "c1",
+      payee_name: "Yeshua Throne",
+      amount_cents: 10,
+      currency: "USD",
+      status: "submitted",
+      ledger_transaction_id: null,
+      created_at: "2026-09-10T15:00:00.000Z",
+      estimated_settlement: null,
+    });
+    expect(store.getBaasTransfer(transfer.id)?.id).toBe(transfer.id);
+    expect(store.updateBaasTransferStatus(transfer.id, "failed")?.status).toBe("failed");
+    store.insertPayoutHold({
+      transfer_id: transfer.id,
+      payee_id: "c1",
+      amount_cents: 10,
+      status: "in_flight",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.sumInFlightPayoutHolds("c1")).toBe(10);
+    store.updatePayoutHoldStatus(transfer.id, "settled");
+    expect(store.getPayoutHold(transfer.id)?.status).toBe("settled");
+
+    const journal = store.insertGlJournal({
+      kind: "royalty_ingest",
+      ref_type: "split_run",
+      ref_id: "run-1",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    store.insertGlEntry({
+      journal_id: journal.id,
+      account: "fbo_cash",
+      debit_cents: 10,
+      credit_cents: 0,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listGlEntriesByJournal(journal.id)).toHaveLength(1);
+    expect(store.listGlEntries()).toHaveLength(1);
+    expect(store.listGlJournals()).toHaveLength(1);
+
+    const webhook = store.insertWebhookEvent({
+      event_id: `${transfer.id}:payout.failed`,
+      event: "payout.failed",
+      transfer_id: transfer.id,
+      payload_json: "{}",
+      reversal_id: null,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getWebhookEvent(webhook.event_id)?.id).toBe(webhook.id);
+    const reversal = store.insertPayoutReversal({
+      transfer_id: transfer.id,
+      payee_id: "c1",
+      amount_cents: 10,
+      reason: "payout.failed",
+      ledger_transaction_id: null,
+      journal_id: journal.id,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getPayoutReversalByTransfer(transfer.id)?.id).toBe(reversal.id);
+
+    const recouped = store.insertRecoupmentLedger({
+      creator_id: "c1",
+      split_run_id: "run-1",
+      incoming_cents: 10,
+      recouped_cents: 4,
+      excess_cents: 6,
+      recoupment_current_cents: 4,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.listRecoupmentLedgerByRun("run-1")[0]?.id).toBe(recouped.id);
+
+    const catalog = store.upsertCatalogDispute({
+      work_id: "trk_01",
+      locked: 1,
+      updated_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getCatalogDispute("trk_01")?.locked).toBe(catalog.locked);
+
+    const dsp = store.insertDspWebhookEvent({
+      event_id: "evt_1",
+      event: "royalty.report",
+      source: "spotify",
+      split_run_id: "run-1",
+      payload_json: "{}",
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getDspWebhookEvent("evt_1")?.id).toBe(dsp.id);
+
+    const splitReversal = store.insertSplitReversal({
+      split_run_id: "run-1",
+      journal_id: journal.id,
+      created_at: "2026-09-10T15:00:00.000Z",
+    });
+    expect(store.getSplitReversalByRun("run-1")?.id).toBe(splitReversal.id);
+    expect(store.getLatestGlJournal()?.id).toBe(journal.id);
+    expect(store.listGlJournalsByRef("split_run", "run-1")).toHaveLength(1);
+    expect(store.getSplitRun("missing")).toBeUndefined();
+  });
+});
