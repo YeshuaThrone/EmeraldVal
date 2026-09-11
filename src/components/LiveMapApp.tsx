@@ -81,7 +81,7 @@ export default function LiveMapApp() {
   const [isClicking, setIsClicking] = useState(false);
   const [goLiveOpen, setGoLiveOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [heatmapOn, setHeatmapOn] = useState(false);
+  const [heatmapOn, setHeatmapOn] = useState(true);
   // Starts collapsed to match filtersOpen's initial false so the two never
   // overlap on first paint.
   const [searchCollapsed, setSearchCollapsed] = useState(filtersOpen);

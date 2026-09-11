@@ -5,6 +5,8 @@ import {
   CORRIDORS,
   corridorPointCount,
   generateHeatPoints,
+  impliedCrowdSize,
+  MIN_PEOPLE_FOR_HEAT,
   type CorridorName,
 } from "@/lib/heat";
 import { CITY_PINS } from "@/lib/seedData";
@@ -94,5 +96,30 @@ describe("generateHeatPoints", () => {
     const points = generateHeatPoints(CITY_PINS);
     const blendedPoints = points.filter((point) => point.corridor === undefined);
     expect(blendedPoints.length).toBe(livePinCount);
+  });
+});
+
+describe("crowd floor (MIN_PEOPLE_FOR_HEAT)", () => {
+  it("maps heat intensity onto the stylized 0–100 crowd scale", () => {
+    expect(impliedCrowdSize(1)).toBe(100);
+    expect(impliedCrowdSize(0.05)).toBe(5);
+    expect(impliedCrowdSize(0.04)).toBe(4);
+  });
+
+  it("keeps every generated point at or above the 5-person crowd floor", () => {
+    const points = generateHeatPoints(CITY_PINS);
+    expect(points.length).toBeGreaterThan(0);
+    for (const point of points) {
+      expect(impliedCrowdSize(point.intensity)).toBeGreaterThanOrEqual(MIN_PEOPLE_FOR_HEAT);
+    }
+  });
+
+  it("drops a sub-floor point while keeping one exactly at the floor", () => {
+    const quiet = { lat: 30.27, lng: -97.74, intensity: 0.04 }; // 4 people
+    const atFloor = { lat: 30.27, lng: -97.74, intensity: 0.05 }; // 5 people
+    const filtered = [quiet, atFloor].filter(
+      (point) => impliedCrowdSize(point.intensity) >= MIN_PEOPLE_FOR_HEAT,
+    );
+    expect(filtered).toEqual([atFloor]);
   });
 });

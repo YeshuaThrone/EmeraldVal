@@ -221,9 +221,26 @@ function livePinHeatPoints(pins: Pin[], rng: () => number): HeatPoint[] {
  * corridor baseline itself is unaffected by filters, since the corridors
  * are fixed geography, not filtered venues.
  */
+/**
+ * Stylized crowd scale: intensity 1.0 ≈ a 100-person hotspot. The corridor
+ * dataset is deliberately mock foot-traffic data (same synthetic convention
+ * as seedData.ts), so this mapping is a UI convention, not a survey.
+ * Product rule: heat only renders where an area holds at least a 5-person
+ * crowd — sparse or quiet areas stay clean on the map.
+ */
+export const MIN_PEOPLE_FOR_HEAT = 5;
+
+export function impliedCrowdSize(intensity: number): number {
+  return Math.round(intensity * 100);
+}
+
 export function generateHeatPoints(pins: Pin[] = CITY_PINS): HeatPoint[] {
   const rng = mulberry32(HEAT_SEED);
   const corridorPoints = CORRIDORS.flatMap((corridor) => corridorHeatPoints(corridor, rng));
   const livePoints = livePinHeatPoints(pins, rng);
-  return [...corridorPoints, ...livePoints];
+  // Crowd floor: drop any heat point whose implied crowd is under the
+  // 5-person minimum so the layer only paints where people actually are.
+  return [...corridorPoints, ...livePoints].filter(
+    (point) => impliedCrowdSize(point.intensity) >= MIN_PEOPLE_FOR_HEAT,
+  );
 }
