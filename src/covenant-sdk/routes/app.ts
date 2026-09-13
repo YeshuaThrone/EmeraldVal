@@ -7,12 +7,9 @@
  *   app.use('/api/v1/sweeper', luminateRoutes);
  *
  * EmeraldVal serves the same mounts via Next.js App Router.
+ * This file is the mount table only — importing it must not load the
+ * route handlers (that created a Vercel collect-page-data cycle).
  */
-
-import workRoutes from "./works";
-import sweepDirectRoutes from "./sweep-direct";
-import sweepAsyncRoutes from "./sweep-async";
-import luminateRoutes from "./luminate";
 
 export const COVENANT_HTTP_MOUNTS = [
   {
@@ -39,13 +36,6 @@ export const COVENANT_HTTP_MOUNTS = [
     routes: [{ method: "POST", path: "/luminate" }],
   },
 ] as const;
-
-export const covenantRouters = {
-  works: workRoutes,
-  sweepDirect: sweepDirectRoutes,
-  sweepAsync: sweepAsyncRoutes,
-  luminate: luminateRoutes,
-};
 
 export function covenantMountPath(
   mount: (typeof COVENANT_HTTP_MOUNTS)[number],

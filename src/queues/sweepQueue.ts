@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
-import { CovenantMasterEngineFacade } from "@/covenant-sdk/covenant-master-production-sdk";
-import type { SystemSweepResult } from "@/covenant-sdk/facade";
+/** Import facade directly — the production-sdk barrel must not load HTTP routers. */
+import {
+  CovenantMasterEngineFacade,
+  type SystemSweepResult,
+} from "@/covenant-sdk/facade";
 import type { CovenantMcpRegistry } from "@/covenant-sdk/mcp-registry";
 import type { UnclaimedRoyaltyRecord } from "@/covenant-sdk/universal-blackbox-sweeper";
 import { getCovenantRegistry } from "@/lib/server/covenantRegistry";

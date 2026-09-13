@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  COVENANT_HTTP_MOUNTS,
-  covenantMountPath,
-  covenantRouters,
-} from "./app";
+import { COVENANT_HTTP_MOUNTS, covenantMountPath } from "./app";
+import { covenantRouters } from "./routers";
 
 describe("Covenant HTTP app mounts", () => {
   it("matches the Express modular endpoint map", () => {
