@@ -1,0 +1,44 @@
+# Optional local Postgres + Redis for Covenant collection workers.
+# The Next.js sandbox still uses better-sqlite3 and an in-memory sweep queue.
+# Do not put production secrets in this file — override via the environment.
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: covenant_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${COVENANT_POSTGRES_USER:-covenant_admin}
+      POSTGRES_PASSWORD: ${COVENANT_POSTGRES_PASSWORD:-covenant_dev_password}
+      POSTGRES_DB: ${COVENANT_POSTGRES_DB:-covenant_royalty_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${COVENANT_POSTGRES_USER:-covenant_admin} -d ${COVENANT_POSTGRES_DB:-covenant_royalty_db}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: covenant_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
+  redis_data:
