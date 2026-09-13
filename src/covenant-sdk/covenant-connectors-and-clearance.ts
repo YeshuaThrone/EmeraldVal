@@ -106,6 +106,17 @@ function isUnmatchedAckStatus(status: string): status is UnmatchedCwrAckStatus {
   return UNMATCHED_ACK.has(status);
 }
 
+function looksLikeIsrc(value: string): boolean {
+  const compact = value.replace(/[^A-Za-z0-9]/g, "");
+  return /^[A-Z]{2}[A-Z0-9]{3}\d{7}$/i.test(compact);
+}
+
+function looksLikeIswc(value: string): boolean {
+  const compact = value.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return /^T\d{9,10}$/.test(compact);
+}
+
+/** Short sandbox ACK lines park NP/RJ/UN in the last two characters. */
 function ackStatusOf(line: string): string {
   const compact = sliceField(
     line,
@@ -127,12 +138,13 @@ function ackStatusOf(line: string): string {
   if (isUnmatchedAckStatus(fallback)) {
     return fallback;
   }
+  if (line.length < CWR_ISWC.start) {
+    const tail = line.trim().slice(-2);
+    if (isUnmatchedAckStatus(tail)) {
+      return tail;
+    }
+  }
   return compact || primary;
-}
-
-function looksLikeIsrc(value: string): boolean {
-  const compact = value.replace(/[^A-Za-z0-9]/g, "");
-  return /^[A-Z]{2}[A-Z0-9]{3}\d{7}$/i.test(compact);
 }
 
 function recIsrc(line: string): string | undefined {
@@ -154,12 +166,36 @@ function recIsrc(line: string): string | undefined {
 
 function nwrIswc(line: string): string | undefined {
   const official = optionalField(sliceField(line, CWR_ISWC.start, CWR_ISWC.end));
-  if (official) {
+  if (official && looksLikeIswc(official)) {
     return official;
   }
-  return optionalField(
+  const compact = optionalField(
     sliceField(line, CWR_ISWC_COMPACT.start, CWR_ISWC_COMPACT.end),
   );
+  if (compact && looksLikeIswc(compact)) {
+    return compact;
+  }
+  if (line.length < CWR_ISWC.start) {
+    const match = line.match(/\b(T\d{10})\b/i);
+    if (match?.[1]) {
+      return match[1].toUpperCase();
+    }
+  }
+  return official ?? compact;
+}
+
+function nwrTitle(line: string): string | undefined {
+  if (line.length < CWR_ISWC.start) {
+    const iswcMatch = line.match(/T\d{10}\s*$/i);
+    if (
+      iswcMatch &&
+      iswcMatch.index !== undefined &&
+      iswcMatch.index > CWR_TITLE.start
+    ) {
+      return optionalField(line.slice(CWR_TITLE.start, iswcMatch.index).trim());
+    }
+  }
+  return optionalField(sliceField(line, CWR_TITLE.start, CWR_TITLE.end));
 }
 
 function addUtcYears(from: Date, years: number): Date {
@@ -219,9 +255,7 @@ export class CovenantIngestionEngine {
       const current = transactions.get(seq) ?? { seq };
 
       if (recordType === "NWR" || recordType === "REV") {
-        current.title = optionalField(
-          sliceField(line, CWR_TITLE.start, CWR_TITLE.end),
-        );
+        current.title = nwrTitle(line);
         current.iswc = nwrIswc(line);
       } else if (recordType === "REC") {
         current.isrc = recIsrc(line) ?? current.isrc;

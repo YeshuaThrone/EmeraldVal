@@ -95,6 +95,26 @@ describe("CovenantIngestionEngine", () => {
     expect(records[0]?.holdingPeriodEnd).toBe("2029-09-13T12:00:00.000Z");
   });
 
+  it("parses compact CISAC-style CWR ACK/NWR/REC short lines", () => {
+    const mockCWR =
+      "NWR0000000000000000STATE OF THE ART                                           T1234567890\r\n" +
+      "REC000000000000USXX12600001\r\n" +
+      "ACK000000000000000000000000000000000000UN\r\n";
+    const records = ingestion.parseCWRUnmatchedFeed(mockCWR, "The MLC");
+    expect(records).toHaveLength(1);
+    expect(records[0]).toMatchObject({
+      sourceChannel: "PRO_CMO_UNMATCHED",
+      unallocatedAmountCents: 0,
+      rawMetadata: {
+        title: "STATE OF THE ART",
+        identifiers: {
+          iswc: "T1234567890",
+          isrc: "USXX12600001",
+        },
+      },
+    });
+  });
+
   it("parses DDEX DSR unmatched holds as integer cents", () => {
     const dsr = [
       "# comment",
