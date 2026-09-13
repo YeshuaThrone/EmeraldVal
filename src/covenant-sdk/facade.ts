@@ -2,7 +2,10 @@ import { CovenantIngestionEngine } from "./covenant-connectors-and-clearance";
 import { CovenantClearanceDispatchNode } from "./covenant-connectors-and-clearance";
 import type { MULClearanceNotice } from "./covenant-connectors-and-clearance";
 import { CovenantUniversalBlackBoxSweeper } from "./universal-blackbox-sweeper";
-import type { BlackBoxReconcileResult } from "./universal-blackbox-sweeper";
+import type {
+  BlackBoxReconcileResult,
+  UnclaimedRoyaltyRecord,
+} from "./universal-blackbox-sweeper";
 import { CovenantDisputeResolutionNode } from "./dispute";
 import type { DisputeState } from "./dispute";
 import { CovenantSplitLedgerNode } from "./split-ledger";
@@ -57,6 +60,7 @@ export class CovenantMasterEngineFacade {
     cwrRawFeed: string,
     dsrRawFeed: string,
     registeredWorks: UniversalWorkManifest[],
+    extraRecords: UnclaimedRoyaltyRecord[] = [],
   ): Promise<SystemSweepResult> {
     const cwrRecords = this.ingestion.parseCWRUnmatchedFeed(
       cwrRawFeed,
@@ -67,7 +71,7 @@ export class CovenantMasterEngineFacade {
       "Spotify_DSR",
     );
     const sweeperSummary = await this.sweeper.reconcileBlackBoxPool(
-      [...cwrRecords, ...dsrRecords],
+      [...cwrRecords, ...dsrRecords, ...extraRecords],
       registeredWorks,
     );
 

@@ -139,8 +139,10 @@ export class CovenantExternalDataIngestionEngine {
 
   public parseLuminateConsumptionData(
     luminatePayloads: LuminateConsumptionPayload[],
-    estimatedPerStreamRateMicros: number = DEFAULT_LUMINATE_RATE_MICROS,
+    estimatedPerStreamRateMicros?: number,
   ): UnclaimedRoyaltyRecord[] {
+    const rateMicros =
+      estimatedPerStreamRateMicros ?? DEFAULT_LUMINATE_RATE_MICROS;
     const holdingPeriodEnd = addUtcYears(this.clock(), 2).toISOString();
     const unclaimedRecords: UnclaimedRoyaltyRecord[] = [];
 
@@ -153,7 +155,7 @@ export class CovenantExternalDataIngestionEngine {
       const unallocatedAmountCents =
         units === undefined
           ? undefined
-          : yieldCentsFromUnits(units, estimatedPerStreamRateMicros);
+          : yieldCentsFromUnits(units, rateMicros);
       if (unallocatedAmountCents === undefined) {
         continue;
       }

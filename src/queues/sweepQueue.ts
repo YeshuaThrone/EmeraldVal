@@ -2,11 +2,13 @@ import { createHash } from "node:crypto";
 import { CovenantMasterEngineFacade } from "@/covenant-sdk/covenant-master-production-sdk";
 import type { SystemSweepResult } from "@/covenant-sdk/facade";
 import type { CovenantMcpRegistry } from "@/covenant-sdk/mcp-registry";
+import type { UnclaimedRoyaltyRecord } from "@/covenant-sdk/universal-blackbox-sweeper";
 import { getCovenantRegistry } from "@/lib/server/covenantRegistry";
 
 export type SweepJobData = {
   cwrRawFeed?: string;
   dsrRawFeed?: string;
+  extraRecords?: UnclaimedRoyaltyRecord[];
   jobId: string;
 };
 
@@ -35,7 +37,9 @@ function jobIdOf(data: SweepJobData): string {
     return data.jobId;
   }
   return `sweep_${createHash("sha256")
-    .update(`${data.cwrRawFeed ?? ""}:${data.dsrRawFeed ?? ""}`)
+    .update(
+      `${data.cwrRawFeed ?? ""}:${data.dsrRawFeed ?? ""}:${JSON.stringify(data.extraRecords ?? [])}`,
+    )
     .digest("hex")
     .slice(0, 16)}`;
 }
@@ -67,6 +71,7 @@ export async function processSweepJob(
         data.cwrRawFeed ?? "",
         data.dsrRawFeed ?? "",
         registry.listWorks(),
+        data.extraRecords ?? [],
       );
       registry.recordSweep(result);
       return {
