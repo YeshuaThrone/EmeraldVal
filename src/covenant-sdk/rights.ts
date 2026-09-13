@@ -9,6 +9,9 @@ export const RIGHTS_PIPELINES = [
   "master_interactive",
 ] as const;
 
+export const RIGHTS_PIPELINE_CODES = RIGHTS_PIPELINES;
+export const RIGHTS_PIPELINE_COUNT = RIGHTS_PIPELINES.length;
+
 export type RightsPipeline = (typeof RIGHTS_PIPELINES)[number];
 
 export const RIGHTS_PIPELINE_LABELS: Record<RightsPipeline, string> = {
