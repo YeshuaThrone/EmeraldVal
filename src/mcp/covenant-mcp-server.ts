@@ -5,12 +5,13 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { CovenantMasterEngineFacade } from "@/covenant-sdk/covenant-master-production-sdk";
-import { CovenantMcpRegistry } from "@/covenant-sdk/mcp-registry";
 import { CovenantMcpToolHost } from "@/covenant-sdk/mcp-tools";
+import { getCovenantRegistry } from "@/lib/server/covenantRegistry";
 
-const registry = new CovenantMcpRegistry();
-const masterEngine = new CovenantMasterEngineFacade();
-const tools = new CovenantMcpToolHost(registry, masterEngine);
+const tools = new CovenantMcpToolHost(
+  getCovenantRegistry(),
+  new CovenantMasterEngineFacade(),
+);
 
 const server = new Server(
   {

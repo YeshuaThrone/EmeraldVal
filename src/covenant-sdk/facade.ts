@@ -11,6 +11,10 @@ import { CovenantAuditProofGenerator } from "./audit-proof";
 import type { ImmutableAuditProofPackage } from "./audit-proof";
 import { CovenantFXSettlementNode } from "./fx";
 import type { UniversalWorkManifest } from "./types";
+import {
+  dispatchCovenantWebhook,
+  type DispatchWebhookOptions,
+} from "./outbound-webhook";
 
 export type SystemSweepResult = {
   sweeperSummary: BlackBoxReconcileResult;
@@ -31,8 +35,11 @@ export class CovenantMasterEngineFacade {
   private readonly ledgerNode: CovenantSplitLedgerNode;
   private readonly clearanceNode: CovenantClearanceDispatchNode;
   private readonly auditNode: CovenantAuditProofGenerator;
+  private readonly webhookOptions: DispatchWebhookOptions;
 
-  constructor(options: { clock?: () => Date } = {}) {
+  constructor(
+    options: { clock?: () => Date; webhook?: DispatchWebhookOptions } = {},
+  ) {
     const clock = options.clock ?? (() => new Date());
     this.ingestion = new CovenantIngestionEngine({ clock });
     this.sweeper = new CovenantUniversalBlackBoxSweeper();
@@ -43,6 +50,7 @@ export class CovenantMasterEngineFacade {
     });
     this.clearanceNode = new CovenantClearanceDispatchNode({ clock });
     this.auditNode = new CovenantAuditProofGenerator(clock);
+    this.webhookOptions = { clock, ...options.webhook };
   }
 
   public async executeSystemSweep(
@@ -109,12 +117,23 @@ export class CovenantMasterEngineFacade {
       );
     }
 
-    return {
+    const result = {
       sweeperSummary,
       disputesEncountered,
       payoutLedgers,
       clearanceNotices,
       auditProofs,
     };
+    await dispatchCovenantWebhook(
+      "sweep.completed",
+      {
+        recoveredRevenueCents: sweeperSummary.totalRecoveredRevenueCents,
+        matchesFound: sweeperSummary.matches.length,
+        disputes: disputesEncountered.length,
+        channelBreakdownCents: sweeperSummary.channelBreakdownCents,
+      },
+      this.webhookOptions,
+    );
+    return result;
   }
 }

@@ -19,6 +19,18 @@ export class CovenantMcpRegistry {
   private readonly proofs: ImmutableAuditProofPackage[] = [];
   private readonly matches: MatchingResult[] = [];
 
+  public getWork(workId: string): UniversalWorkManifest | undefined {
+    return this.works.get(workId);
+  }
+
+  public hasWork(workId: string): boolean {
+    return this.works.has(workId);
+  }
+
+  public occupiedWorkIds(): Set<string> {
+    return new Set(this.works.keys());
+  }
+
   public registerWork(manifest: UniversalWorkManifest): void {
     this.works.set(manifest.workId, manifest);
   }

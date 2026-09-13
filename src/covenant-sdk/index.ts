@@ -78,6 +78,14 @@ export { CovenantAuditProofGenerator } from "./audit-proof";
 export type { ImmutableAuditProofPackage } from "./audit-proof";
 export { CovenantMasterEngineFacade } from "./facade";
 export type { SystemSweepResult } from "./facade";
+export { parseWorkRegistration, allocateWorkId } from "./manifest-parse";
+export type { ParseWorkResult } from "./manifest-parse";
+export { dispatchCovenantWebhook, COVENANT_WEBHOOK_EVENTS } from "./outbound-webhook";
+export type {
+  CovenantWebhookEvent,
+  CovenantWebhookEnvelope,
+  DispatchWebhookResult,
+} from "./outbound-webhook";
 export { CovenantMcpRegistry } from "./mcp-registry";
 export { COVENANT_MCP_TOOLS, CovenantMcpToolHost } from "./mcp-tools";
 export { CovenantMasterEngineFacade as CovenantProductionFacade } from "./covenant-master-production-sdk";
