@@ -88,6 +88,11 @@ export type {
 } from "./outbound-webhook";
 export { CovenantMcpRegistry } from "./mcp-registry";
 export { COVENANT_MCP_TOOLS, CovenantMcpToolHost } from "./mcp-tools";
+export { COVENANT_HTTP_MOUNTS, covenantRouters } from "./routes/app";
+export { default as workRoutes } from "./routes/works";
+export { default as sweepDirectRoutes } from "./routes/sweep-direct";
+export { default as sweepAsyncRoutes } from "./routes/sweep-async";
+export { default as luminateRoutes } from "./routes/luminate";
 export { CovenantMasterEngineFacade as CovenantProductionFacade } from "./covenant-master-production-sdk";
 export type {
   AssetCategory,
