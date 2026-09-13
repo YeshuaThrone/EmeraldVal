@@ -55,6 +55,7 @@ export {
   UNMATCHED_CWR_ACK_STATUSES,
   parseDecimalDollarsToCents,
   CWR_REV_LINE_LENGTH,
+  CWR_REV_TERMINATOR,
 } from "./covenant-connectors-and-clearance";
 export type {
   ClearanceAction,
@@ -64,6 +65,22 @@ export type {
   RawDDEXDSRLine,
   UnmatchedCwrAckStatus,
 } from "./covenant-connectors-and-clearance";
+export { CovenantDisputeResolutionNode } from "./dispute";
+export type { DisputeState, SplitIntegrityResult } from "./dispute";
+export { CovenantFXSettlementNode, EXCHANGE_RATES_TO_USD_MICROS } from "./fx";
+export type { FxConvertResult } from "./fx";
+export {
+  CovenantSplitLedgerNode,
+  DEFAULT_ADMIN_FEE_BPS,
+} from "./split-ledger";
+export type { LedgerPayoutEntry, SplitLedgerResult } from "./split-ledger";
+export { CovenantAuditProofGenerator } from "./audit-proof";
+export type { ImmutableAuditProofPackage } from "./audit-proof";
+export { CovenantMasterEngineFacade } from "./facade";
+export type { SystemSweepResult } from "./facade";
+export { CovenantMcpRegistry } from "./mcp-registry";
+export { COVENANT_MCP_TOOLS, CovenantMcpToolHost } from "./mcp-tools";
+export { CovenantMasterEngineFacade as CovenantProductionFacade } from "./covenant-master-production-sdk";
 export type {
   AssetCategory,
   GlobalCompanyNode,

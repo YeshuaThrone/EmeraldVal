@@ -66,8 +66,15 @@ export const SPLIT_PARTY_ROLES = [
   "DEVELOPER",
   "DESIGNER",
   "RIGHTS_HOLDER",
+  "PUBLISHER",
+  "SUB_PUBLISHER",
+  "ADMINISTRATOR",
 ] as const;
 export type SplitPartyRole = (typeof SPLIT_PARTY_ROLES)[number];
+
+export function isSplitPartyRole(value: string): value is SplitPartyRole {
+  return (SPLIT_PARTY_ROLES as readonly string[]).includes(value);
+}
 
 export const SOCIAL_UGC_PLATFORMS = [
   "FACEBOOK",
@@ -136,6 +143,7 @@ export type UniversalWorkManifest = {
   mulCertificateId: string;
   primaryMediaUrl?: string;
   metadataHash: string;
+  registeredTerritories?: string[];
 };
 
 export type SocialMediaUGCEvent = {

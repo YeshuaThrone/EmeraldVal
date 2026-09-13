@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
+import type { UniversalWorkManifest } from "./types";
 import {
   CWR_REV_LINE_LENGTH,
+  CWR_REV_TERMINATOR,
   CovenantClearanceDispatchNode,
   CovenantIngestionEngine,
   parseDecimalDollarsToCents,
@@ -149,6 +151,43 @@ describe("CovenantIngestionEngine", () => {
     ]);
     expect(records[0]?.holdingPeriodEnd).toBe("2028-09-13T12:00:00.000Z");
   });
+
+  it("resolves DDEX AS01 resource blocks into SU02 orphaned holds", () => {
+    const dsr = [
+      ["AS01", "BLK1", "Mapped Title", "", "US-AAA-00-00001", "T-000.000.001-0"].join(
+        "\t",
+      ),
+      [
+        "SU02",
+        "BLK1",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "US",
+        "USD",
+        "5.50",
+        "",
+        "ORPHANED",
+      ].join("\t"),
+    ].join("\n");
+    const records = ingestion.parseDDEXDSRFeed(dsr, "Spotify");
+    expect(records).toEqual([
+      expect.objectContaining({
+        unallocatedAmountCents: 550,
+        rawMetadata: {
+          title: "Mapped Title",
+          identifiers: {
+            isrc: "US-AAA-00-00001",
+            iswc: "T-000.000.001-0",
+          },
+          confidenceScore: 0.9,
+        },
+      }),
+    ]);
+  });
 });
 
 describe("CovenantClearanceDispatchNode", () => {
@@ -185,7 +224,31 @@ describe("CovenantClearanceDispatchNode", () => {
       },
     ];
 
-    const notices = await dispatch.dispatchClearance(matches);
+    const work: UniversalWorkManifest = {
+      workId: "work_audio_1",
+      title: "Sandbox Track",
+      category: "AUDIO",
+      identifiers: { iswc: "T-000.000.001-0" },
+      splits: [
+        {
+          partyId: "writer-1",
+          name: "Ada Writer",
+          role: "COMPOSER",
+          sharePercentage: 70,
+          payoutWalletOrBank: "acct_writer",
+        },
+        {
+          partyId: "pub-1",
+          name: "Pub",
+          role: "PUBLISHER",
+          sharePercentage: 30,
+          payoutWalletOrBank: "acct_pub",
+        },
+      ],
+      mulCertificateId: "mul_1",
+      metadataHash: "hash_1",
+    };
+    const notices = await dispatch.dispatchClearance(matches, [work]);
     expect(notices).toHaveLength(3);
     expect(notices[0]).toMatchObject({
       clearanceId: "CLR_CWR_ACK_The_MLC_00000001_work_audio_1",
@@ -193,10 +256,12 @@ describe("CovenantClearanceDispatchNode", () => {
       claimedAmountCents: 0,
     });
     const rev = notices[0]?.cwrRevisionPayload ?? "";
-    expect(rev).toHaveLength(CWR_REV_LINE_LENGTH);
-    expect(rev.startsWith("REV0000000100000000")).toBe(true);
-    expect(rev.slice(19, 79).trim()).toBe("RECLAIM_work_audio_1");
-    expect(rev.slice(79, 90).trim()).toBe("");
+    expect(rev.endsWith(CWR_REV_TERMINATOR)).toBe(true);
+    const body = rev.slice(0, CWR_REV_LINE_LENGTH);
+    expect(body).toHaveLength(CWR_REV_LINE_LENGTH);
+    expect(body.startsWith("REV0000000100000000")).toBe(true);
+    expect(body.slice(19, 79).trim()).toBe("SANDBOX TRACK");
+    expect(body.slice(79, 90).trim()).toBe("T0000000010");
     expect(notices[1]).toMatchObject({
       actionTaken: "DIRECT_DSP_CLAIM_SUBMITTED",
       claimedAmountCents: 1234,

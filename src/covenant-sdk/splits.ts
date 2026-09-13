@@ -27,8 +27,11 @@ const ROLE_TO_PAYEE: Record<SplitPartyRole, PayeeRole> = {
   DESIGNER: "creator",
   PRODUCER: "producer",
   LABEL: "label",
+  PUBLISHER: "publisher",
+  SUB_PUBLISHER: "publisher",
   DEVELOPER: "other",
   RIGHTS_HOLDER: "other",
+  ADMINISTRATOR: "other",
 };
 
 export function shareBpsOf(party: SplitParty): number | null {

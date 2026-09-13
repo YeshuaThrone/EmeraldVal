@@ -3,6 +3,7 @@ import type {
   RoyaltyChannelSource,
   UnclaimedRoyaltyRecord,
 } from "./universal-blackbox-sweeper";
+import type { UniversalWorkManifest } from "./types";
 
 export type RawCWRRecordType =
   | "HDR"
@@ -29,6 +30,7 @@ export type UnmatchedCwrAckStatus = (typeof UNMATCHED_CWR_ACK_STATUSES)[number];
 export const DSR_UNMATCHED_STATUSES = [
   "UNMATCHED_HOLD",
   "MISSING_PUBLISHER",
+  "ORPHANED",
 ] as const;
 
 export const CLEARANCE_ACTIONS = [
@@ -49,16 +51,20 @@ export type MULClearanceNotice = {
   clearanceTimestamp: string;
 };
 
-/** CWR 2.1 NWR/REV: prefix 19, title 60, language 2, submitter work # 14, ISWC 11. */
+/** CWR 2.1 NWR/REV: prefix 19, title 60. Official ISWC at 95-106; compact feeds at 79-90. */
 const CWR_TITLE = { start: 19, end: 79 } as const;
 const CWR_ISWC = { start: 95, end: 106 } as const;
-/** CWR 2.1 REC: prefix + catalog 18 + duration 6 + album 60 + label 60 + date 8 + recording title 60. */
+const CWR_ISWC_COMPACT = { start: 79, end: 90 } as const;
+/** CWR 2.1 REC ISRC at 231-243; compact feeds at 15-27. */
 const CWR_REC_ISRC = { start: 231, end: 243 } as const;
-/** CWR 2.1 ACK after prefix: orig tx seq 8 + orig type 3 + processing date 8, then 2-char status. */
+const CWR_REC_ISRC_COMPACT = { start: 15, end: 27 } as const;
+/** ACK status: compact 36-38, then official 38-40 / 40-42. */
+const CWR_ACK_STATUS_COMPACT = { start: 36, end: 38 } as const;
 const CWR_ACK_STATUS = { start: 38, end: 40 } as const;
 const CWR_ACK_STATUS_FALLBACK = { start: 40, end: 42 } as const;
-/** Fixed-width sandbox REV line (prefix + title + ISWC + space pad). */
+/** Fixed-width sandbox REV body (prefix + title + ISWC + space pad). Terminator is CRLF. */
 export const CWR_REV_LINE_LENGTH = 197;
+export const CWR_REV_TERMINATOR = "\r\n";
 
 const UNMATCHED_ACK = new Set<string>(UNMATCHED_CWR_ACK_STATUSES);
 const UNMATCHED_DSR = new Set<string>(DSR_UNMATCHED_STATUSES);
@@ -101,6 +107,14 @@ function isUnmatchedAckStatus(status: string): status is UnmatchedCwrAckStatus {
 }
 
 function ackStatusOf(line: string): string {
+  const compact = sliceField(
+    line,
+    CWR_ACK_STATUS_COMPACT.start,
+    CWR_ACK_STATUS_COMPACT.end,
+  );
+  if (isUnmatchedAckStatus(compact)) {
+    return compact;
+  }
   const primary = sliceField(line, CWR_ACK_STATUS.start, CWR_ACK_STATUS.end);
   if (isUnmatchedAckStatus(primary)) {
     return primary;
@@ -113,7 +127,39 @@ function ackStatusOf(line: string): string {
   if (isUnmatchedAckStatus(fallback)) {
     return fallback;
   }
-  return primary;
+  return compact || primary;
+}
+
+function looksLikeIsrc(value: string): boolean {
+  const compact = value.replace(/[^A-Za-z0-9]/g, "");
+  return /^[A-Z]{2}[A-Z0-9]{3}\d{7}$/i.test(compact);
+}
+
+function recIsrc(line: string): string | undefined {
+  const compact = optionalField(
+    sliceField(line, CWR_REC_ISRC_COMPACT.start, CWR_REC_ISRC_COMPACT.end),
+  );
+  if (compact && looksLikeIsrc(compact)) {
+    return compact;
+  }
+  const official = optionalField(
+    sliceField(line, CWR_REC_ISRC.start, CWR_REC_ISRC.end),
+  );
+  if (official && looksLikeIsrc(official)) {
+    return official;
+  }
+  const match = line.match(/\b([A-Z]{2}[A-Z0-9]{3}\d{7})\b/);
+  return match?.[1];
+}
+
+function nwrIswc(line: string): string | undefined {
+  const official = optionalField(sliceField(line, CWR_ISWC.start, CWR_ISWC.end));
+  if (official) {
+    return official;
+  }
+  return optionalField(
+    sliceField(line, CWR_ISWC_COMPACT.start, CWR_ISWC_COMPACT.end),
+  );
 }
 
 function addUtcYears(from: Date, years: number): Date {
@@ -125,17 +171,6 @@ function addUtcYears(from: Date, years: number): Date {
 function slugIdPart(value: string): string {
   const slug = value.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
   return slug === "" ? "NA" : slug.slice(0, 40);
-}
-
-function recIsrc(line: string): string | undefined {
-  const sliced = optionalField(
-    sliceField(line, CWR_REC_ISRC.start, CWR_REC_ISRC.end),
-  );
-  if (sliced) {
-    return sliced;
-  }
-  const match = line.match(/\b([A-Z]{2}[A-Z0-9]{3}\d{7})\b/);
-  return match?.[1];
 }
 
 /**
@@ -187,7 +222,7 @@ export class CovenantIngestionEngine {
         current.title = optionalField(
           sliceField(line, CWR_TITLE.start, CWR_TITLE.end),
         );
-        current.iswc = optionalField(sliceField(line, CWR_ISWC.start, CWR_ISWC.end));
+        current.iswc = nwrIswc(line);
       } else if (recordType === "REC") {
         current.isrc = recIsrc(line) ?? current.isrc;
       } else if (recordType === "ACK") {
@@ -231,9 +266,10 @@ export class CovenantIngestionEngine {
   }
 
   /**
-   * Sandbox DDEX DSR TSV dialect:
-   * 0=record type, 3=title, 4=ISRC, 5=ISWC, 8=territory, 9=currency,
-   * 10=net dollars, 12=status (UNMATCHED_HOLD | MISSING_PUBLISHER).
+   * Sandbox DDEX DSR TSV dialect with stateful AS01/AS02/MW01 blocks.
+   * SU02 sales lines resolve identifiers from the block map, then fall back
+   * to in-line columns: 3=title, 4=ISRC, 5=ISWC, 8=territory, 9=currency,
+   * 10=net dollars, 12=status.
    */
   public parseDDEXDSRFeed(
     dsrFileContent: string,
@@ -241,6 +277,10 @@ export class CovenantIngestionEngine {
   ): UnclaimedRoyaltyRecord[] {
     const holdingPeriodEnd = addUtcYears(this.clock(), 2).toISOString();
     const records: UnclaimedRoyaltyRecord[] = [];
+    const resourceMap = new Map<
+      string,
+      { title?: string; isrc?: string; iswc?: string }
+    >();
     const lines = dsrFileContent.split(/\r?\n/);
 
     for (let index = 0; index < lines.length; index += 1) {
@@ -250,9 +290,26 @@ export class CovenantIngestionEngine {
       }
       const fields = line.split("\t");
       const recordType = fields[0] ?? "";
-      if (recordType !== "SU02" && recordType !== "MW01") {
+
+      if (recordType === "AS01" || recordType === "AS02" || recordType === "MW01") {
+        const blockId = (fields[1] ?? "").trim();
+        if (blockId !== "") {
+          resourceMap.set(blockId, {
+            title: optionalField((fields[2] ?? fields[3] ?? "").trim()),
+            isrc: optionalField((fields[4] ?? "").trim()),
+            iswc: optionalField((fields[5] ?? "").trim()),
+          });
+        }
+      }
+
+      const isSalesLine = recordType === "SU02";
+      const unmatchedBlock =
+        recordType === "MW01" &&
+        UNMATCHED_DSR.has((fields[12] ?? "").trim());
+      if (!isSalesLine && !unmatchedBlock) {
         continue;
       }
+
       const status = (fields[12] ?? "").trim();
       if (!UNMATCHED_DSR.has(status)) {
         continue;
@@ -261,9 +318,12 @@ export class CovenantIngestionEngine {
       if (netAmountCents === undefined) {
         continue;
       }
-      const title = optionalField((fields[3] ?? "").trim());
-      const isrc = optionalField((fields[4] ?? "").trim());
-      const iswc = optionalField((fields[5] ?? "").trim());
+      const blockRef = (fields[1] ?? "").trim();
+      const mapped = blockRef === "" ? undefined : resourceMap.get(blockRef);
+      const title =
+        mapped?.title ?? optionalField((fields[3] ?? "").trim());
+      const isrc = mapped?.isrc ?? optionalField((fields[4] ?? "").trim());
+      const iswc = mapped?.iswc ?? optionalField((fields[5] ?? "").trim());
       records.push({
         recordId: `DSR_${slugIdPart(dspName)}_${index}_${slugIdPart(isrc ?? title ?? "line")}`,
         sourceChannel: "DSP_DIRECT_DISTRIBUTION",
@@ -300,19 +360,22 @@ export class CovenantClearanceDispatchNode {
 
   public async dispatchClearance(
     matches: MatchingResult[],
+    works: UniversalWorkManifest[] = [],
   ): Promise<MULClearanceNotice[]> {
     const clearanceTimestamp = this.clock().toISOString();
     const notices: MULClearanceNotice[] = [];
+    const worksById = new Map(works.map((work) => [work.workId, work]));
 
     for (const match of matches) {
       let actionTaken: ClearanceAction = "DIRECT_DSP_CLAIM_SUBMITTED";
       let cwrRevisionPayload: string | undefined;
+      const work = worksById.get(match.matchedWorkId);
 
       if (match.sourceChannel === "PRO_CMO_UNMATCHED") {
         actionTaken = "CWR_RE_REGISTRATION_GENERATED";
         cwrRevisionPayload = this.generateCWRRevisionRecord(
-          match.matchedWorkId,
-          match.recordId,
+          work?.title ?? match.matchedWorkId,
+          work?.identifiers.iswc ?? "",
         );
       } else if (
         match.sourceChannel === "SYNC_CUE_SHEETS" ||
@@ -336,18 +399,23 @@ export class CovenantClearanceDispatchNode {
     return notices;
   }
 
-  private generateCWRRevisionRecord(workId: string, _recordId: string): string {
+  /**
+   * Strictly formats a 197-character CWR REV body with a CRLF terminator.
+   */
+  private generateCWRRevisionRecord(workTitle: string, iswc: string): string {
     const transactionNum = "00000001";
     const recordSeq = "00000000";
-    // REV Record Type (3) + Transaction Sequence (8) + Record Sequence (8) = 19 char prefix
     const revHeader = `REV${transactionNum}${recordSeq}`;
-    const titlePadded = `RECLAIM_${workId}`.slice(0, 60).padEnd(60, " ");
-    const iswcPadded = "".padEnd(11, " ");
+    const titlePadded = workTitle.toUpperCase().padEnd(60, " ").slice(0, 60);
+    const iswcPadded = iswc
+      .replace(/[^A-Z0-9]/gi, "")
+      .toUpperCase()
+      .padEnd(11, " ")
+      .slice(0, 11);
 
-    // Construct valid 197-char line padded with spaces
-    return `${revHeader}${titlePadded}${iswcPadded}`.padEnd(
-      CWR_REV_LINE_LENGTH,
-      " ",
+    return (
+      `${revHeader}${titlePadded}${iswcPadded}`.padEnd(CWR_REV_LINE_LENGTH, " ") +
+      CWR_REV_TERMINATOR
     );
   }
 }
