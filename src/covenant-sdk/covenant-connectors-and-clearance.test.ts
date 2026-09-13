@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CWR_REV_LINE_LENGTH,
   CovenantClearanceDispatchNode,
   CovenantIngestionEngine,
   parseDecimalDollarsToCents,
@@ -191,8 +192,11 @@ describe("CovenantClearanceDispatchNode", () => {
       actionTaken: "CWR_RE_REGISTRATION_GENERATED",
       claimedAmountCents: 0,
     });
-    expect(notices[0]?.cwrRevisionPayload).toContain("REV00000000");
-    expect(notices[0]?.cwrRevisionPayload).toContain("ORIGINAL_PUBLISHER_CLAIM_CWR_ACK_The_MLC_00000001");
+    const rev = notices[0]?.cwrRevisionPayload ?? "";
+    expect(rev).toHaveLength(CWR_REV_LINE_LENGTH);
+    expect(rev.startsWith("REV0000000100000000")).toBe(true);
+    expect(rev.slice(19, 79).trim()).toBe("RECLAIM_work_audio_1");
+    expect(rev.slice(79, 90).trim()).toBe("");
     expect(notices[1]).toMatchObject({
       actionTaken: "DIRECT_DSP_CLAIM_SUBMITTED",
       claimedAmountCents: 1234,

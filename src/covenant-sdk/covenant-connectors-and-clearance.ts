@@ -57,6 +57,8 @@ const CWR_REC_ISRC = { start: 231, end: 243 } as const;
 /** CWR 2.1 ACK after prefix: orig tx seq 8 + orig type 3 + processing date 8, then 2-char status. */
 const CWR_ACK_STATUS = { start: 38, end: 40 } as const;
 const CWR_ACK_STATUS_FALLBACK = { start: 40, end: 42 } as const;
+/** Fixed-width sandbox REV line (prefix + title + ISWC + space pad). */
+export const CWR_REV_LINE_LENGTH = 197;
 
 const UNMATCHED_ACK = new Set<string>(UNMATCHED_CWR_ACK_STATUSES);
 const UNMATCHED_DSR = new Set<string>(DSR_UNMATCHED_STATUSES);
@@ -118,14 +120,6 @@ function addUtcYears(from: Date, years: number): Date {
   const next = new Date(from.getTime());
   next.setUTCFullYear(next.getUTCFullYear() + years);
   return next;
-}
-
-function compactTimestamp(date: Date): string {
-  return date.toISOString().replace(/[-:T.Z]/g, "").slice(0, 14);
-}
-
-function yyyymmdd(date: Date): string {
-  return date.toISOString().slice(0, 10).replace(/-/g, "");
 }
 
 function slugIdPart(value: string): string {
@@ -342,9 +336,18 @@ export class CovenantClearanceDispatchNode {
     return notices;
   }
 
-  private generateCWRRevisionRecord(workId: string, recordId: string): string {
-    const now = this.clock();
-    const workToken = workId.replace(/\s+/g, "").slice(0, 14).padEnd(14, " ");
-    return `REV00000000${workToken}${yyyymmdd(now)}${compactTimestamp(now)}ORIGINAL_PUBLISHER_CLAIM_${recordId}`;
+  private generateCWRRevisionRecord(workId: string, _recordId: string): string {
+    const transactionNum = "00000001";
+    const recordSeq = "00000000";
+    // REV Record Type (3) + Transaction Sequence (8) + Record Sequence (8) = 19 char prefix
+    const revHeader = `REV${transactionNum}${recordSeq}`;
+    const titlePadded = `RECLAIM_${workId}`.slice(0, 60).padEnd(60, " ");
+    const iswcPadded = "".padEnd(11, " ");
+
+    // Construct valid 197-char line padded with spaces
+    return `${revHeader}${titlePadded}${iswcPadded}`.padEnd(
+      CWR_REV_LINE_LENGTH,
+      " ",
+    );
   }
 }

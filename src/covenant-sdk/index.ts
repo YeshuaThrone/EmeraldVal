@@ -54,6 +54,7 @@ export {
   DSR_UNMATCHED_STATUSES,
   UNMATCHED_CWR_ACK_STATUSES,
   parseDecimalDollarsToCents,
+  CWR_REV_LINE_LENGTH,
 } from "./covenant-connectors-and-clearance";
 export type {
   ClearanceAction,
