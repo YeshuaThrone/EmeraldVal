@@ -188,7 +188,7 @@ describe("CovenantUniversalBlackBoxSweeper", () => {
     expect(result.channelBreakdownCents.GAMING_INTERACTIVE).toBe(0);
   });
 
-  it("skips non-integer or non-positive amounts without throwing", async () => {
+  it("skips non-integer or negative amounts without throwing", async () => {
     const result = await sweeper.reconcileBlackBoxPool(
       [
         record({
@@ -198,9 +198,9 @@ describe("CovenantUniversalBlackBoxSweeper", () => {
           rawMetadata: { identifiers: { isrc: "US-AAA-00-00001" } },
         }),
         record({
-          recordId: "zero",
+          recordId: "negative",
           sourceChannel: "SOCIAL_UGC",
-          unallocatedAmountCents: 0,
+          unallocatedAmountCents: -1,
           rawMetadata: { identifiers: { isrc: "US-AAA-00-00001" } },
         }),
       ],
@@ -209,5 +209,27 @@ describe("CovenantUniversalBlackBoxSweeper", () => {
     expect(result.totalRecordsEvaluated).toBe(2);
     expect(result.totalRecoveredRevenueCents).toBe(0);
     expect(result.matches).toHaveLength(0);
+  });
+
+  it("matches zero-cent CWR ACK records so clearance can re-register", async () => {
+    const result = await sweeper.reconcileBlackBoxPool(
+      [
+        record({
+          recordId: "ack_np",
+          sourceChannel: "PRO_CMO_UNMATCHED",
+          unallocatedAmountCents: 0,
+          rawMetadata: { identifiers: { isrc: "US-AAA-00-00001" } },
+        }),
+      ],
+      [work()],
+    );
+    expect(result.matches).toEqual([
+      expect.objectContaining({
+        recordId: "ack_np",
+        matchType: "EXACT_CODE_MATCH",
+        recoveredAmountCents: 0,
+      }),
+    ]);
+    expect(result.totalRecoveredRevenueCents).toBe(0);
   });
 });

@@ -47,6 +47,22 @@ export type {
   RoyaltyChannelSource,
   UnclaimedRoyaltyRecord,
 } from "./universal-blackbox-sweeper";
+export {
+  CLEARANCE_ACTIONS,
+  CovenantClearanceDispatchNode,
+  CovenantIngestionEngine,
+  DSR_UNMATCHED_STATUSES,
+  UNMATCHED_CWR_ACK_STATUSES,
+  parseDecimalDollarsToCents,
+} from "./covenant-connectors-and-clearance";
+export type {
+  ClearanceAction,
+  MULClearanceNotice,
+  RawCWRRecord,
+  RawCWRRecordType,
+  RawDDEXDSRLine,
+  UnmatchedCwrAckStatus,
+} from "./covenant-connectors-and-clearance";
 export type {
   AssetCategory,
   GlobalCompanyNode,

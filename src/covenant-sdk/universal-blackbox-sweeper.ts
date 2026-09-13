@@ -83,8 +83,8 @@ function normalizeText(value: string | undefined): string | undefined {
   return normalized === "" ? undefined : normalized;
 }
 
-function recoverableCents(amount: number): number | undefined {
-  if (!Number.isSafeInteger(amount) || amount < 1) {
+function matchableCents(amount: number): number | undefined {
+  if (!Number.isSafeInteger(amount) || amount < 0) {
     return undefined;
   }
   return amount;
@@ -180,7 +180,7 @@ export class CovenantUniversalBlackBoxSweeper {
     const channelBreakdownCents = emptyChannelBreakdown();
 
     for (const record of unclaimedRecords) {
-      const recoveredAmountCents = recoverableCents(record.unallocatedAmountCents);
+      const recoveredAmountCents = matchableCents(record.unallocatedAmountCents);
       if (recoveredAmountCents === undefined) {
         continue;
       }
