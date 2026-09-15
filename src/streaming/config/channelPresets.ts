@@ -59,6 +59,26 @@ export const CHANNEL_PRESETS: ChannelNetworkConfig[] = [
     ],
   },
   {
+    channelId: "ch-04",
+    channelNumber: 4,
+    channelName: "ATX NEWS",
+    category: "LOCAL_NEWS",
+    stationBugLogoUrl: "",
+    programmingGrid: [
+      {
+        id: "atx-news-ticker",
+        title: "Austin Live News Ticker",
+        creatorName: "ATX Local News",
+        type: "SHOW",
+        videoUrl: SAMPLE.bunny,
+        durationSeconds: 1800,
+        metadata: {
+          episodeTitle: "Municipal • Traffic • Weather",
+        },
+      },
+    ],
+  },
+  {
     channelId: "ch-atx-01",
     channelNumber: 11,
     channelName: "WORFI MAIN",

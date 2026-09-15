@@ -9,6 +9,7 @@ import {
   provisionSponsorCampaign,
 } from "../ads/sponsorCampaigns";
 import { HlsIngestionPipeline } from "../ingest/hlsIngestionService";
+import { AtxNewsService } from "../news/atxNewsService";
 
 export const adminRouter = Router();
 
@@ -19,6 +20,16 @@ adminRouter.get("/channels", async (_req: Request, res: Response): Promise<void>
   } catch {
     res.status(500).json({ success: false, error: "Failed to list channels" });
   }
+});
+
+adminRouter.get("/news/austin", async (_req: Request, res: Response): Promise<void> => {
+  const headlines = await AtxNewsService.getLiveAustinHeadlines();
+  res.json({
+    success: true,
+    channelId: "ch-04",
+    headlines,
+    ticker: AtxNewsService.formatTicker(headlines),
+  });
 });
 
 adminRouter.get(

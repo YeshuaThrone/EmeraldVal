@@ -16,6 +16,7 @@ describe("MultiChannelEngine", () => {
     expect(list.map((ch) => ch.id)).toEqual([
       "ch-01",
       "ch-02",
+      "ch-04",
       "ch-block",
       "ch-atx-01",
       "ch-haven",

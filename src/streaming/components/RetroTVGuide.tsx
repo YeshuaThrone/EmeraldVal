@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import type { MultiChannelEngine } from "../playout/multiChannelEngine";
+import { AtxNewsService } from "../news/atxNewsService";
 
 interface GuideProps {
   engine: MultiChannelEngine;
@@ -14,10 +15,23 @@ export const RetroTVGuide: React.FC<GuideProps> = ({
 }) => {
   const networks = engine.getNetworks();
   const [now, setNow] = useState(new Date());
+  const [ticker, setTicker] = useState(
+    "CH 04 ATX NEWS • STAND BY FOR MUNICIPAL, TRAFFIC, AND WEATHER UPDATES",
+  );
 
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void AtxNewsService.getLiveAustinHeadlines().then((headlines) => {
+      if (!cancelled) setTicker(AtxNewsService.formatTicker(headlines));
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const networkTime = now.toLocaleTimeString("en-US", {
@@ -107,15 +121,13 @@ export const RetroTVGuide: React.FC<GuideProps> = ({
 
       <div className="mt-6 flex items-center overflow-hidden rounded-lg border border-blue-900/60 bg-slate-900/90 p-3">
         <span className="mr-3 rounded bg-yellow-500 px-2 py-0.5 text-[10px] font-black text-black uppercase">
-          WORFI TICKER
+          CH 04 ATX NEWS
         </span>
         <div
           className="whitespace-nowrap text-xs text-blue-200"
           style={{ animation: "atx-marquee 22s linear infinite" }}
         >
-          WELCOME TO WORFI (&quot;WER-FEE&quot;) BROADCAST NETWORK • TUNE IN TO
-          CHANNEL 01 FOR LIVE ATX CREATOR FEATURES • SUBMIT YOUR CONTENT VIA THE
-          CREATOR PORTAL
+          {ticker}
         </div>
       </div>
     </div>
