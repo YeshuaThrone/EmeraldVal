@@ -1,16 +1,20 @@
 import type { ProgramSegment } from "../playout/multiChannelEngine";
 
-export interface IngestPayload {
+export interface IngestRequest {
+  sourceUrl: string; // YouTube link or directly hosted MP4
   creatorName: string;
-  title: string;
-  videoUrl: string;
-  durationSeconds?: number;
-  type?: ProgramSegment["type"];
-  socialHandle?: string;
-  artistBio?: string;
-  email?: string;
   creatorAvatarUrl?: string;
+  titleOverride?: string;
+  customDurationSeconds?: number;
+  type?: "SHOW" | "CREATOR_PROMO" | "STATION_ID";
+  socialHandle?: string;
 }
+
+const INGEST_TYPES: NonNullable<IngestRequest["type"]>[] = [
+  "SHOW",
+  "CREATOR_PROMO",
+  "STATION_ID",
+];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -26,58 +30,83 @@ function asPositiveNumber(value: unknown): number | undefined {
     : undefined;
 }
 
-const SEGMENT_TYPES: ProgramSegment["type"][] = [
-  "SHOW",
-  "STATION_ID",
-  "CREATOR_PROMO",
-  "INTERLUDE",
-];
-
 export class VideoIngestionEngine {
-  public static parsePayload(body: unknown): IngestPayload {
+  /**
+   * Accepts the typed ingest request or a raw JSON body from the API /
+   * onboarding portal (videoUrl/title/durationSeconds aliases).
+   */
+  public static parseRequest(body: unknown): IngestRequest {
     if (!isRecord(body)) {
       throw new Error("Ingest body must be a JSON object");
     }
 
     const creatorName = asString(body.creatorName);
-    const title = asString(body.title);
-    const videoUrl = asString(body.videoUrl);
-    if (!creatorName || !title || !videoUrl) {
-      throw new Error("creatorName, title, and videoUrl are required");
+    const sourceUrl = asString(body.sourceUrl) ?? asString(body.videoUrl);
+    if (!creatorName || !sourceUrl) {
+      throw new Error("creatorName and sourceUrl are required");
     }
 
     const rawType = asString(body.type);
-    const type = SEGMENT_TYPES.includes(rawType as ProgramSegment["type"])
-      ? (rawType as ProgramSegment["type"])
+    const type = INGEST_TYPES.includes(rawType as IngestRequest["type"])
+      ? (rawType as IngestRequest["type"])
       : "SHOW";
 
     return {
+      sourceUrl,
       creatorName,
-      title,
-      videoUrl,
-      durationSeconds: asPositiveNumber(body.durationSeconds),
+      creatorAvatarUrl: asString(body.creatorAvatarUrl),
+      titleOverride: asString(body.titleOverride) ?? asString(body.title),
+      customDurationSeconds:
+        asPositiveNumber(body.customDurationSeconds) ??
+        asPositiveNumber(body.durationSeconds),
       type,
       socialHandle: asString(body.socialHandle),
-      artistBio: asString(body.artistBio),
-      email: asString(body.email),
-      creatorAvatarUrl: asString(body.creatorAvatarUrl),
     };
   }
 
-  public static async processIngest(body: unknown): Promise<ProgramSegment> {
-    const payload = VideoIngestionEngine.parsePayload(body);
+  /**
+   * Converts a raw YouTube URL or standard MP4 into a normalized ProgramSegment for channels
+   */
+  public static async processIngest(
+    request: IngestRequest | unknown,
+  ): Promise<ProgramSegment> {
+    const normalized = VideoIngestionEngine.parseRequest(request);
+
+    const isYouTube =
+      normalized.sourceUrl.includes("youtube.com") ||
+      normalized.sourceUrl.includes("youtu.be");
+
+    let videoStreamUrl = normalized.sourceUrl;
+    let extractedTitle = normalized.titleOverride || "Ingested Content";
+
+    if (isYouTube) {
+      const videoId = this.extractYouTubeId(normalized.sourceUrl);
+      videoStreamUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&mute=1`;
+      extractedTitle =
+        normalized.titleOverride || `YouTube Asset (${videoId})`;
+    }
+
     return {
-      id: `seg-${Date.now()}`,
-      title: payload.title,
-      creatorName: payload.creatorName,
-      creatorAvatarUrl: payload.creatorAvatarUrl,
-      type: payload.type ?? "SHOW",
-      videoUrl: payload.videoUrl,
-      durationSeconds: payload.durationSeconds ?? 300,
+      id: `asset-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      title: extractedTitle,
+      creatorName: normalized.creatorName,
+      creatorAvatarUrl:
+        normalized.creatorAvatarUrl ||
+        "https://cdn.yourdomain.com/defaults/avatar.png",
+      type: normalized.type || "SHOW",
+      videoUrl: videoStreamUrl,
+      durationSeconds: normalized.customDurationSeconds || 300,
       metadata: {
-        description: payload.artistBio,
-        socialHandle: payload.socialHandle,
+        socialHandle: normalized.socialHandle,
       },
     };
+  }
+
+  private static extractYouTubeId(url: string): string {
+    const regExp =
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    const id = match?.[2];
+    return id && id.length === 11 ? id : "UNKNOWN_ID";
   }
 }

@@ -43,7 +43,8 @@ export function createStreamingHandlers(engine: MultiChannelEngine) {
             { status: 404 },
           );
         }
-        const segment = await VideoIngestionEngine.processIngest(body);
+        const request = VideoIngestionEngine.parseRequest(body);
+        const segment = await VideoIngestionEngine.processIngest(request);
         const network = engine.appendSegment(channelId, segment);
         return NextResponse.json({
           success: true,

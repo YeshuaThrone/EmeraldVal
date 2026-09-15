@@ -34,7 +34,12 @@ export const CreatorOnboardingPortal: React.FC<CreatorOnboardingProps> = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...formData,
+          sourceUrl: formData.videoUrl,
+          creatorName: formData.creatorName,
+          titleOverride: formData.title,
+          customDurationSeconds: formData.durationSeconds,
+          type: formData.type,
+          socialHandle: formData.socialHandle,
           inviteToken,
         }),
       });
