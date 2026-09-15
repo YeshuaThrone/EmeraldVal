@@ -5,11 +5,11 @@ import { describe, expect, it } from "vitest";
 const src = readFileSync(path.join(import.meta.dirname, "page.tsx"), "utf8");
 
 describe("StreamingOnboardPage", () => {
-  it("never opens creator delivery without a valid operator invite", () => {
-    expect(src).toContain("assertCreatorInviteToken");
+  it("never opens creator delivery without an operator invite token", () => {
+    expect(src).toContain("CreatorOnboardGate");
     expect(src).toContain("redirect(STREAMING_ROUTE)");
     expect(src).toContain("if (!invite)");
-    expect(src).toContain("if (!check.ok)");
-    expect(src).not.toContain("CreatorOnboardingPortal inviteToken={token}");
+    expect(src).not.toContain("CreatorOnboardingPortal");
+    expect(src).not.toContain("assertCreatorInviteToken");
   });
 });

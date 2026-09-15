@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import { CreatorOnboardingPortal } from "@/streaming/admin/creator-onboarding/CreatorOnboardingPortal";
+import { CreatorOnboardGate } from "@/streaming/admin/creator-onboarding/CreatorOnboardGate";
 import { STREAMING_ROUTE } from "@/lib/routes";
-import { assertCreatorInviteToken } from "@/streaming/server/creatorInvites";
 
 export default async function StreamingOnboardPage({
   searchParams,
@@ -13,9 +12,5 @@ export default async function StreamingOnboardPage({
   if (!invite) {
     redirect(STREAMING_ROUTE);
   }
-  const check = await assertCreatorInviteToken(invite);
-  if (!check.ok) {
-    redirect(STREAMING_ROUTE);
-  }
-  return <CreatorOnboardingPortal inviteToken={invite} />;
+  return <CreatorOnboardGate inviteToken={invite} />;
 }
