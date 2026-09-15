@@ -1,12 +1,14 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { createServer } from "node:http";
 import { Server as SocketIOServer } from "socket.io";
+import { adminRouter } from "./adminIngestApi";
 import { isAdminAuthorized } from "./adminAuth";
 import { WorfiChatServer } from "./chatWebSocketServer";
 import { createCreatorInvite, findValidInvite } from "./creatorInvites";
 
 const app = express();
 app.use(express.json());
+app.use("/api/v1", adminRouter);
 const httpServer = createServer(app);
 
 const io = new SocketIOServer(httpServer, {
