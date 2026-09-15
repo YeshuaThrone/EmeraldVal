@@ -4,7 +4,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { CableSoundFX } from "../audio/cableSoundFx";
 import { CableGraphicsEngine, type CableOverlayState } from "../graphics/cableGraphicsEngine";
 import { OverTheAirGraphicsEngine } from "../graphics/overTheAirGraphicsEngine";
+import { WorfiScreenSaver } from "../graphics/WorfiScreenSaver";
 import type { MultiChannelEngine, ProgramSegment } from "../playout/multiChannelEngine";
+import { StreamHealthMonitor } from "../playout/streamHealthMonitor";
 
 interface RetroCablePlayerProps {
   engine: MultiChannelEngine;
@@ -41,6 +43,8 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
   );
   const [nextShowTitle, setNextShowTitle] = useState<string | undefined>();
   const [offsetSeconds, setOffsetSeconds] = useState(0);
+  const [failedSegmentId, setFailedSegmentId] = useState<string | null>(null);
+  const triedFallback = useRef(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const activeChannel = channels[currentChannelIndex];
@@ -71,6 +75,10 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
     const interval = setInterval(updatePlayout, 1000);
     return () => clearInterval(interval);
   }, [activeChannel, currentChannelIndex, engine]);
+
+  useEffect(() => {
+    triedFallback.current = false;
+  }, [currentSegment?.id]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -128,6 +136,9 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
   }
 
   const youtube = currentSegment ? youtubeEmbedUrl(currentSegment.videoUrl) : null;
+  const standby =
+    currentSegment?.type === "STATION_ID" ||
+    failedSegmentId === currentSegment?.id;
 
   return (
     <div className="relative aspect-video w-full max-w-5xl select-none overflow-hidden rounded-lg border-8 border-gray-900 bg-black font-mono shadow-2xl">
@@ -145,6 +156,16 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
           autoPlay
           muted
           playsInline
+          onError={() => {
+            const video = videoRef.current;
+            if (video && !triedFallback.current) {
+              triedFallback.current = true;
+              video.src = StreamHealthMonitor.getEmergencyFallbackUrl();
+              void video.play();
+              return;
+            }
+            setFailedSegmentId(currentSegment?.id ?? "failed");
+          }}
           className={`h-full w-full object-cover transition-opacity duration-150 ${
             isFlipping ? "opacity-10 blur-sm" : "opacity-100"
           }`}
@@ -168,6 +189,13 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
         </div>
       )}
 
+      {standby && !isFlipping ? (
+        <WorfiScreenSaver
+          channelNumber={activeChannel.number}
+          channelName={activeChannel.name}
+        />
+      ) : null}
+
       {showOSD && !isFlipping && (
         <div className="absolute top-6 left-6 rounded border border-green-500/50 bg-black/70 px-4 py-2 font-mono text-lg text-green-400 shadow-lg">
           <span className="font-bold">
@@ -180,7 +208,7 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
         </div>
       )}
 
-      {!isFlipping && currentSegment ? (
+      {!isFlipping && currentSegment && !standby ? (
         <OverTheAirGraphicsEngine
           channelNumber={activeChannel.number}
           channelName={activeChannel.name}
