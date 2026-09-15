@@ -242,7 +242,7 @@ export const WerfiePlayerView: React.FC = () => {
         />
 
         {!isPlaying && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 p-4 text-center">
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black p-4 text-center">
             <div className="font-osd mb-4 animate-pulse text-2xl tracking-widest text-emerald-400">
               {selectedChannel.station} • READY FOR PLAYOUT
             </div>
