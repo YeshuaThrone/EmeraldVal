@@ -8,7 +8,7 @@ export function getDbPool(): Pool {
     pool = new Pool({
       connectionString:
         process.env.DATABASE_URL ||
-        "postgresql://postgres:postgres@localhost:5432/cable_network",
+        "postgres://worfi_admin:worfi_dev_password@localhost:5432/worfi_db",
     });
   }
   return pool;
