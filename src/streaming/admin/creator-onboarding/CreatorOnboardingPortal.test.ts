@@ -16,11 +16,11 @@ describe("CreatorOnboardingPortal", () => {
     expect(hasCreatorInviteToken("invite-abc")).toBe(true);
   });
 
-  it("locks public signup and only renders the delivery form after an invite", () => {
-    expect(src).toContain("hasCreatorInviteToken(inviteToken)");
-    expect(src).toContain("Creator signup is closed");
-    expect(src).toContain("Watch the lineup");
+  it("is a private delivery form, not a public upload page", () => {
+    expect(src).toContain("inviteToken: string");
     expect(src).toContain("Invite token accepted.");
     expect(src).toContain("Deliver Master Asset to Network");
+    expect(src).not.toContain("Creator signup is closed");
+    expect(src).not.toContain("they join only after receiving a private invite");
   });
 });

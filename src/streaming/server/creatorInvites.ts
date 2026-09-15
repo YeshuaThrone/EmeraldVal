@@ -47,8 +47,8 @@ export function readInviteToken(body: unknown): string | null {
 }
 
 /**
- * Public creator ingest is invite-only. When Postgres is down the token
- * still has to be present; a live row check runs when the DB is reachable.
+ * Creator ingest is operator-invite only. A missing, expired, or
+ * unverifiable token never opens an upload path.
  */
 export async function assertCreatorInviteToken(
   token: string,
@@ -61,7 +61,7 @@ export async function assertCreatorInviteToken(
     return { ok: true };
   } catch (err) {
     if (isUnavailableDb(err)) {
-      return { ok: true };
+      return { ok: false, error: "Invalid or expired invite token" };
     }
     throw err;
   }

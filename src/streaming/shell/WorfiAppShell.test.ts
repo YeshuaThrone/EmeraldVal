@@ -46,9 +46,15 @@ describe("WorfiAppShell", () => {
     expect(src).not.toContain("AdminLineupManager");
     expect(src).not.toContain("WorfiAdIntelligenceDashboard");
     expect(src).not.toContain("setActiveTab");
+    expect(src).not.toContain("AUSTIN CABLE BROADCAST");
+    expect(src).not.toContain("Austin Evening News Broadcast");
+    expect(src).not.toContain("Austin News Broadcast");
     expect(signInSrc).toContain("Viewer sign-in");
     expect(signInSrc).toContain("Watch the lineup");
-    expect(signInSrc).toContain("Creators cannot sign up here");
+    expect(signInSrc).toContain("Sign in to watch the lineup.");
+    expect(signInSrc).not.toContain("AUSTIN CABLE BROADCAST");
+    expect(signInSrc).not.toContain("Creators cannot sign up here");
+    expect(signInSrc).not.toContain("invite link");
     expect(signInSrc).not.toContain("Deliver Master Asset");
   });
 });

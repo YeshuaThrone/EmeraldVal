@@ -43,8 +43,8 @@ export const WORFI_DEMO_LINEUP: ProgramItem[] = [
   {
     chNumber: "04",
     station: "ATX LOCAL NEWS",
-    nowPlaying: "Austin Evening News Broadcast",
-    nowCreator: "LIVE • Travis County News Desk",
+    nowPlaying: "Live Feed",
+    nowCreator: "WORFI Network",
     upNext: "Travis County Traffic & Weather",
     nextCreator: "ATX Weather Network",
     streamUrl:
@@ -99,9 +99,6 @@ export const WorfiAppShell: React.FC = () => {
     <div className="font-epg flex min-h-screen select-none flex-col items-center bg-[#050814] p-4 text-slate-100 sm:p-8">
       <header className="mb-6 flex w-full max-w-6xl flex-col items-center justify-between rounded-t-xl border-t border-r border-l border-blue-500/50 border-b-2 border-b-blue-600/80 bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 p-4 shadow-[0_4px_20px_rgba(0,0,0,0.6)] sm:flex-row">
         <div className="flex items-center gap-3">
-          <span className="rounded bg-yellow-400 px-2.5 py-0.5 text-[11px] font-black tracking-wider text-blue-950 shadow-[1px_1px_0px_#000]">
-            AUSTIN CABLE BROADCAST
-          </span>
           <h1 className="text-3xl font-black tracking-widest text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.9)]">
             WORFI <span className="text-yellow-400">NETWORK</span>
           </h1>

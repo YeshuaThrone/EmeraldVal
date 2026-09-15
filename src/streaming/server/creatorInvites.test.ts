@@ -52,4 +52,15 @@ describe("creatorInvites", () => {
       error: "Invalid or expired invite token",
     });
   });
+
+  it("rejects tokens when Postgres is unreachable instead of opening upload", async () => {
+    query.mockRejectedValue(
+      Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }),
+    );
+    const { assertCreatorInviteToken } = await import("../server/creatorInvites");
+    await expect(assertCreatorInviteToken("any-token")).resolves.toEqual({
+      ok: false,
+      error: "Invalid or expired invite token",
+    });
+  });
 });

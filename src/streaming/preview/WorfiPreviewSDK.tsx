@@ -35,7 +35,7 @@ export const WORFI_FREE_LINEUP: RoyaltyFreeChannel[] = [
   {
     chNumber: "04",
     station: "ATX LOCAL NEWS",
-    title: "Austin Live Municipal Feed & Headlines",
+    title: "Live Feed",
     rights: "AUSTIN_MUNICIPAL",
     streamUrl:
       "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",

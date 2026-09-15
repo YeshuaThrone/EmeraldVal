@@ -60,7 +60,7 @@ export const RetroTVGuide: React.FC<GuideProps> = ({
             NETWORK TIME:{" "}
             <span className="font-bold text-yellow-400">{networkTime}</span>
           </div>
-          <div className="text-[10px] text-slate-500">AUSTIN CABLE BROADCAST</div>
+          <div className="text-[10px] text-slate-500">WORFI NETWORK</div>
         </div>
       </div>
 
