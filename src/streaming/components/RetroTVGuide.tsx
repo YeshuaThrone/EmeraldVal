@@ -3,110 +3,119 @@
 import React, { useEffect, useState } from "react";
 import type { MultiChannelEngine } from "../playout/multiChannelEngine";
 
-interface RetroTVGuideProps {
+interface GuideProps {
   engine: MultiChannelEngine;
   onSelectChannel?: (channelId: string) => void;
 }
 
-export const RetroTVGuide: React.FC<RetroTVGuideProps> = ({
+export const RetroTVGuide: React.FC<GuideProps> = ({
   engine,
   onSelectChannel,
 }) => {
-  const channels = engine.getChannelList();
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const networks = engine.getNetworks();
+  const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: true,
-    });
-  };
+  const networkTime = now.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "America/Chicago",
+    timeZoneName: "short",
+  });
 
   return (
-    <div className="w-full max-w-5xl select-none overflow-hidden rounded-lg border-4 border-yellow-500 bg-blue-950 font-mono shadow-2xl">
-      <div className="flex items-center justify-between border-b-4 border-yellow-500 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 p-4 text-yellow-400">
+    <div className="w-full max-w-6xl rounded-2xl border-2 border-blue-900/80 bg-slate-950 p-6 font-mono text-slate-100 shadow-[0_0_40px_rgba(15,23,42,0.8)]">
+      <div className="mb-6 flex flex-col items-start justify-between gap-4 border-b border-blue-900/60 pb-4 md:flex-row md:items-center">
         <div>
-          <div className="text-2xl font-black tracking-widest text-yellow-300 drop-shadow-[0_2px_2px_rgba(0,0,0,0.8)]">
-            CABLE NETWORK GUIDE
+          <div className="flex items-center gap-2">
+            <span className="h-3 w-3 animate-pulse rounded-full bg-yellow-400" />
+            <h1 className="text-2xl font-black tracking-widest text-yellow-400">
+              WORFI PROGRAM GUIDE
+            </h1>
           </div>
-          <div className="text-xs tracking-wider text-blue-200">
-            EXCLUSIVE PROGRAMMING CHANNEL LINEUP
-          </div>
+          <p className="mt-1 text-xs text-blue-300/80">
+            Pronounced &quot;Wer-Fee&quot; • Synchronized 24/7 Cable Grid
+          </p>
         </div>
-        <div className="text-right">
-          <div className="rounded border border-yellow-500/50 bg-black/60 px-3 py-1 font-mono text-xl font-bold text-yellow-300">
-            {formatTime(currentTime)}
+        <div className="rounded-lg border border-blue-900/50 bg-slate-900/80 px-4 py-2 text-right text-xs text-slate-400">
+          <div>
+            NETWORK TIME:{" "}
+            <span className="font-bold text-yellow-400">{networkTime}</span>
           </div>
-          <div className="mt-1 text-[10px] tracking-widest text-blue-300 uppercase">
-            AUSTIN CABLE BROADCAST
-          </div>
+          <div className="text-[10px] text-slate-500">AUSTIN CABLE BROADCAST</div>
         </div>
       </div>
 
-      <div className="grid grid-cols-12 border-b-2 border-black bg-yellow-500 px-2 py-1.5 text-xs font-bold tracking-wider text-black uppercase">
-        <div className="col-span-1 border-r border-black/30 text-center">CH</div>
-        <div className="col-span-3 border-r border-black/30 pl-2">NETWORK</div>
-        <div className="col-span-4 border-r border-black/30 pl-2">ON NOW</div>
-        <div className="col-span-4 pl-2">COMING UP NEXT</div>
+      <div className="overflow-x-auto rounded-xl border border-blue-900/60 bg-slate-900/40">
+        <table className="w-full border-collapse text-left text-xs">
+          <thead>
+            <tr className="border-b border-blue-900/80 bg-blue-950/80 text-yellow-400">
+              <th className="w-24 border-r border-blue-900/60 p-3">CH #</th>
+              <th className="w-48 border-r border-blue-900/60 p-3">STATION</th>
+              <th className="border-r border-blue-900/60 p-3">NOW PLAYING</th>
+              <th className="p-3">UP NEXT</th>
+            </tr>
+          </thead>
+          <tbody>
+            {networks.map((net) => {
+              const playhead = engine.getCurrentPlayhead(net.channelId);
+              const currentShow = playhead.segment || {
+                title: "Worfi Standby",
+                creatorName: "Network",
+              };
+              const nextShow = playhead.nextSegment || {
+                title: "Worfi Interstitial",
+                creatorName: "Network",
+              };
+
+              return (
+                <tr
+                  key={net.channelId}
+                  onClick={() => onSelectChannel?.(net.channelId)}
+                  className="cursor-pointer border-b border-blue-900/40 transition hover:bg-blue-950/40"
+                >
+                  <td className="border-r border-blue-900/60 bg-slate-950/60 p-3 font-bold text-yellow-400">
+                    {String(net.channelNumber).padStart(2, "0")}
+                  </td>
+                  <td className="border-r border-blue-900/60 p-3 font-extrabold text-white">
+                    {net.channelName}
+                  </td>
+                  <td className="border-r border-blue-900/60 p-3">
+                    <div className="font-bold text-slate-200">
+                      {currentShow.title}
+                    </div>
+                    <div className="text-[10px] text-blue-300/70">
+                      BY {currentShow.creatorName ?? "Network"}
+                    </div>
+                  </td>
+                  <td className="p-3">
+                    <div className="font-bold text-slate-400">{nextShow.title}</div>
+                    <div className="text-[10px] text-slate-500">
+                      BY {"creatorName" in nextShow ? nextShow.creatorName : "Network"}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
-      <div className="divide-y-2 divide-blue-900/80 bg-blue-950">
-        {channels.map((ch) => {
-          let currentShow = "LIVE BROADCAST";
-          let nextShow = "STATION INTERLUDE";
-
-          try {
-            const playout = engine.resolveCurrentPlayout(ch.id);
-            if (playout.activeSegment) currentShow = playout.activeSegment.title;
-            if (playout.nextSegment) nextShow = playout.nextSegment.title;
-          } catch {
-            // Fallback if segment resolution is pending
-          }
-
-          return (
-            <div
-              key={ch.id}
-              onClick={() => onSelectChannel?.(ch.id)}
-              className="group grid cursor-pointer grid-cols-12 items-center px-2 py-3 text-sm text-white transition hover:bg-blue-800/60"
-            >
-              <div className="col-span-1 text-center font-bold text-yellow-400 group-hover:text-yellow-300">
-                {String(ch.number).padStart(2, "0")}
-              </div>
-              <div className="col-span-3 truncate border-l-2 border-blue-800 pl-2 font-bold text-yellow-100">
-                {ch.name}
-                <div className="truncate text-[10px] font-normal text-blue-300">
-                  {ch.category}
-                </div>
-              </div>
-              <div className="col-span-4 truncate border-l-2 border-blue-800 pl-2 font-semibold text-white">
-                <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500" />
-                {currentShow}
-              </div>
-              <div className="col-span-4 truncate border-l-2 border-blue-800 pl-2 text-xs text-blue-200">
-                {nextShow}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="overflow-hidden border-t-2 border-black bg-yellow-500 px-4 py-1 text-xs font-bold whitespace-nowrap text-black">
+      <div className="mt-6 flex items-center overflow-hidden rounded-lg border border-blue-900/60 bg-slate-900/90 p-3">
+        <span className="mr-3 rounded bg-yellow-500 px-2 py-0.5 text-[10px] font-black text-black uppercase">
+          WORFI TICKER
+        </span>
         <div
-          className="inline-block tracking-wide"
-          style={{
-            animation: "atx-marquee 22s linear infinite",
-          }}
+          className="whitespace-nowrap text-xs text-blue-200"
+          style={{ animation: "atx-marquee 22s linear infinite" }}
         >
-          *** WELCOME TO THE NETWORK *** TUNING IN LIVE FROM AUSTIN, TX ***
-          EXCLUSIVE SELECTED ARTISTS & SPECIAL FEATURES *** PRESS &apos;G&apos; ON
-          PLAYER TO TOGGLE DIRECT OVERLAY ***
+          WELCOME TO WORFI (&quot;WER-FEE&quot;) BROADCAST NETWORK • TUNE IN TO
+          CHANNEL 01 FOR LIVE ATX CREATOR FEATURES • SUBMIT YOUR CONTENT VIA THE
+          CREATOR PORTAL
         </div>
       </div>
     </div>

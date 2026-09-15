@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { CableSoundFX } from "../audio/cableSoundFx";
-import { CableGraphicsEngine, type CableOverlayState } from "../graphics/cableGraphicsEngine";
 import { OverTheAirGraphicsEngine } from "../graphics/overTheAirGraphicsEngine";
 import { WorfiScreenSaver } from "../graphics/WorfiScreenSaver";
-import type { MultiChannelEngine, ProgramSegment } from "../playout/multiChannelEngine";
-import { StreamHealthMonitor } from "../playout/streamHealthMonitor";
+import type {
+  CurrentPlayheadState,
+  MultiChannelEngine,
+} from "../playout/multiChannelEngine";
+import { WorfiLiveChat } from "./WorfiLiveChat";
 
-interface RetroCablePlayerProps {
+interface PlayerProps {
   engine: MultiChannelEngine;
   initialChannelId?: string;
 }
@@ -17,88 +19,52 @@ function youtubeEmbedUrl(url: string): string | null {
   const watch = url.match(
     /(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]{6,})/,
   );
-  return watch ? `https://www.youtube-nocookie.com/embed/${watch[1]}?autoplay=1&mute=1` : null;
+  return watch
+    ? `https://www.youtube-nocookie.com/embed/${watch[1]}?autoplay=1&controls=0&mute=1`
+    : null;
 }
 
-export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
+function channelIndex(engine: MultiChannelEngine, channelId?: string): number {
+  if (!channelId) return 0;
+  const idx = engine.getNetworks().findIndex((ch) => ch.channelId === channelId);
+  return idx >= 0 ? idx : 0;
+}
+
+export const RetroCablePlayer: React.FC<PlayerProps> = ({
   engine,
-  initialChannelId = "ch-haven",
+  initialChannelId,
 }) => {
-  const channels = engine.getChannelList();
-  const initialIndex = Math.max(
-    0,
-    channels.findIndex((ch) => ch.id === initialChannelId),
+  const [playhead, setPlayhead] = useState<CurrentPlayheadState | null>(null);
+  const [currentChannelIndex, setCurrentChannelIndex] = useState(() =>
+    channelIndex(engine, initialChannelId),
   );
-  const [currentChannelIndex, setCurrentChannelIndex] = useState(
-    initialIndex === -1 ? 0 : initialIndex,
-  );
-  const [showOSD, setShowOSD] = useState(true);
-  const [showGuide, setShowGuide] = useState(false);
   const [isFlipping, setIsFlipping] = useState(false);
-  const [overlayState, setOverlayState] = useState<CableOverlayState | null>(
-    null,
-  );
-  const [currentSegment, setCurrentSegment] = useState<ProgramSegment | null>(
-    null,
-  );
-  const [nextShowTitle, setNextShowTitle] = useState<string | undefined>();
-  const [offsetSeconds, setOffsetSeconds] = useState(0);
-  const [failedSegmentId, setFailedSegmentId] = useState<string | null>(null);
-  const triedFallback = useRef(false);
+  const [showOSD, setShowOSD] = useState(true);
+  const [showMobileChat, setShowMobileChat] = useState(false);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const activeChannel = channels[currentChannelIndex];
+  const channels = engine.getNetworks();
+  const currentChannel = channels[currentChannelIndex] || {
+    channelId: "ch-worfi",
+    channelNumber: 1,
+    channelName: "WORFI MAIN",
+  };
 
   useEffect(() => {
-    if (!activeChannel) return;
-
-    const updatePlayout = () => {
-      try {
-        const playout = engine.resolveCurrentPlayout(activeChannel.id);
-        setCurrentSegment(playout.activeSegment);
-        setNextShowTitle(playout.nextSegment.title);
-        setOffsetSeconds(playout.offsetSeconds);
-
-        const graphics = CableGraphicsEngine.evaluateCableGraphics(
-          playout.channel,
-          playout.activeSegment,
-          playout.nextSegment,
-          playout.offsetSeconds,
-        );
-        setOverlayState(graphics);
-      } catch (err) {
-        console.error("Playout error:", err);
+    const updatePlayhead = () => {
+      const list = engine.getNetworks();
+      const activeChannel = list[currentChannelIndex];
+      if (activeChannel) {
+        setPlayhead(engine.getCurrentPlayhead(activeChannel.channelId));
       }
     };
 
-    updatePlayout();
-    const interval = setInterval(updatePlayout, 1000);
+    updatePlayhead();
+    const interval = setInterval(updatePlayhead, 1000);
     return () => clearInterval(interval);
-  }, [activeChannel, currentChannelIndex, engine]);
-
-  useEffect(() => {
-    triedFallback.current = false;
-  }, [currentSegment?.id]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video || !currentSegment) return;
-    const sync = () => {
-      if (Math.abs(video.currentTime - offsetSeconds) > 2) {
-        video.currentTime = offsetSeconds;
-      }
-    };
-    if (video.readyState >= 1) {
-      sync();
-    } else {
-      video.addEventListener("loadedmetadata", sync, { once: true });
-    }
-  }, [currentSegment, offsetSeconds, currentChannelIndex]);
+  }, [engine, currentChannelIndex]);
 
   const changeChannel = (direction: "UP" | "DOWN") => {
     if (channels.length === 0) return;
-
-    // Trigger tactile clicks and CRT noise bursts
     CableSoundFX.playChannelClick();
     CableSoundFX.playStaticBurst(250);
 
@@ -106,206 +72,116 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
     setShowOSD(true);
 
     setTimeout(() => {
+      const count = engine.getNetworks().length || 1;
       if (direction === "UP") {
-        setCurrentChannelIndex((prev) => (prev + 1) % channels.length);
+        setCurrentChannelIndex((prev) => (prev + 1) % count);
       } else {
-        setCurrentChannelIndex(
-          (prev) => (prev - 1 + channels.length) % channels.length,
-        );
+        setCurrentChannelIndex((prev) => (prev - 1 + count) % count);
       }
       setIsFlipping(false);
     }, 250);
   };
 
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "ArrowUp") changeChannel("UP");
-      if (e.key === "ArrowDown") changeChannel("DOWN");
-      if (e.key === "g" || e.key === "G") setShowGuide((prev) => !prev);
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  });
-
-  if (!activeChannel) {
-    return (
-      <div className="flex aspect-video w-full max-w-5xl items-center justify-center rounded-lg border-8 border-gray-900 bg-black font-mono text-green-400">
-        No channels registered
-      </div>
-    );
-  }
-
-  const youtube = currentSegment ? youtubeEmbedUrl(currentSegment.videoUrl) : null;
-  const standby =
-    currentSegment?.type === "STATION_ID" ||
-    failedSegmentId === currentSegment?.id;
+  const youtube = playhead?.segment
+    ? youtubeEmbedUrl(playhead.segment.streamUrl)
+    : null;
 
   return (
-    <div className="relative aspect-video w-full max-w-5xl select-none overflow-hidden rounded-lg border-8 border-gray-900 bg-black font-mono shadow-2xl">
-      {youtube && !isFlipping ? (
-        <iframe
-          title={currentSegment?.title ?? "Live broadcast"}
-          src={youtube}
-          className="h-full w-full"
-          allow="autoplay; encrypted-media"
-        />
-      ) : (
-        <video
-          ref={videoRef}
-          src={currentSegment?.videoUrl}
-          autoPlay
-          muted
-          playsInline
-          onError={() => {
-            const video = videoRef.current;
-            if (video && !triedFallback.current) {
-              triedFallback.current = true;
-              video.src = StreamHealthMonitor.getEmergencyFallbackUrl();
-              void video.play();
-              return;
-            }
-            setFailedSegmentId(currentSegment?.id ?? "failed");
-          }}
-          className={`h-full w-full object-cover transition-opacity duration-150 ${
-            isFlipping ? "opacity-10 blur-sm" : "opacity-100"
-          }`}
-        />
-      )}
+    <div className="flex h-screen w-full select-none flex-col overflow-hidden bg-black font-mono text-slate-100 md:flex-row">
+      <div className="relative flex h-full flex-1 items-center justify-center overflow-hidden bg-slate-950">
+        <div className="pointer-events-none absolute inset-0 z-30 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.25)_50%)] bg-[length:100%_4px]" />
+        <div className="pointer-events-none absolute inset-0 z-30 shadow-[inset_0_0_100px_rgba(2,6,23,0.9)]" />
+
+        {isFlipping && (
+          <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-900 opacity-90">
+            <div className="text-sm font-bold tracking-widest text-yellow-400">
+              WORFI SWITCHING...
+            </div>
+          </div>
+        )}
+
+        {playhead?.segment ? (
+          <div className="relative flex h-full w-full items-center justify-center bg-black">
+            {youtube ? (
+              <iframe
+                src={youtube}
+                title={playhead.segment.title}
+                className="h-full w-full border-0 object-cover"
+                allow="autoplay; fullscreen"
+              />
+            ) : (
+              <video
+                src={playhead.segment.streamUrl}
+                autoPlay
+                muted
+                playsInline
+                className="h-full w-full border-0 object-cover"
+              />
+            )}
+
+            <OverTheAirGraphicsEngine
+              channelNumber={currentChannel.channelNumber}
+              channelName={currentChannel.channelName}
+              showTitle={playhead.segment.title}
+              creatorName={playhead.segment.creatorName || "Worfi Creator"}
+              nextShowTitle={playhead.nextSegment?.title}
+              playbackPositionSeconds={playhead.segment.positionSeconds}
+              totalDurationSeconds={playhead.segment.durationSeconds}
+            />
+          </div>
+        ) : (
+          <WorfiScreenSaver
+            channelNumber={currentChannel.channelNumber}
+            channelName={currentChannel.channelName}
+          />
+        )}
+
+        {showOSD && (
+          <div className="absolute top-6 left-6 z-40 rounded-r-xl border-y border-r border-l-4 border-blue-800/40 border-l-yellow-400 bg-gradient-to-r from-blue-950/90 via-slate-900/90 to-blue-900/80 px-5 py-3 shadow-2xl backdrop-blur-md">
+            <div className="text-[10px] font-black tracking-widest text-yellow-400 uppercase">
+              WORFI CABLE BROADCAST
+            </div>
+            <div className="text-xl font-extrabold text-white">
+              CH {String(currentChannel.channelNumber).padStart(2, "0")} •{" "}
+              {currentChannel.channelName}
+            </div>
+          </div>
+        )}
+
+        <div className="absolute bottom-6 left-1/2 z-40 flex -translate-x-1/2 items-center gap-3 rounded-full border border-blue-900/60 bg-slate-900/80 px-6 py-3 shadow-[0_0_20px_rgba(30,58,138,0.4)] backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => changeChannel("DOWN")}
+            className="rounded-full border border-blue-700/60 bg-blue-950 px-4 py-2 font-bold text-yellow-400 transition hover:bg-blue-900 active:scale-95"
+          >
+            ▼ CH -
+          </button>
+          <div className="px-2 text-xs font-bold text-slate-300">
+            WORFI NETWORK
+          </div>
+          <button
+            type="button"
+            onClick={() => changeChannel("UP")}
+            className="rounded-full border border-blue-700/60 bg-blue-950 px-4 py-2 font-bold text-yellow-400 transition hover:bg-blue-900 active:scale-95"
+          >
+            ▲ CH +
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowMobileChat(!showMobileChat)}
+            className="ml-2 rounded-full border border-yellow-500/40 bg-yellow-500/20 px-3 py-2 text-xs font-bold text-yellow-400 md:hidden"
+          >
+            💬
+          </button>
+        </div>
+      </div>
 
       <div
-        className="pointer-events-none absolute inset-0 opacity-20"
-        style={{
-          background:
-            "linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%)",
-          backgroundSize: "100% 4px",
-        }}
-      />
-
-      {isFlipping && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-800 opacity-80">
-          <div className="animate-pulse text-3xl font-bold tracking-widest text-white">
-            {"/// STATIC NOISE ///"}
-          </div>
-        </div>
-      )}
-
-      {standby && !isFlipping ? (
-        <WorfiScreenSaver
-          channelNumber={activeChannel.number}
-          channelName={activeChannel.name}
-        />
-      ) : null}
-
-      {showOSD && !isFlipping && (
-        <div className="absolute top-6 left-6 rounded border border-green-500/50 bg-black/70 px-4 py-2 font-mono text-lg text-green-400 shadow-lg">
-          <span className="font-bold">
-            CH {String(activeChannel.number).padStart(2, "0")}
-          </span>{" "}
-          - {activeChannel.name}
-          <div className="text-xs text-green-300/80">
-            {currentSegment?.title || "LIVE BROADCAST"}
-          </div>
-        </div>
-      )}
-
-      {!isFlipping && currentSegment && !standby ? (
-        <OverTheAirGraphicsEngine
-          channelNumber={activeChannel.number}
-          channelName={activeChannel.name}
-          showTitle={currentSegment.title}
-          creatorName={currentSegment.creatorName}
-          socialHandle={currentSegment.metadata?.socialHandle}
-          nextShowTitle={nextShowTitle}
-          playbackPositionSeconds={offsetSeconds}
-          totalDurationSeconds={currentSegment.durationSeconds}
-        />
-      ) : null}
-
-      {overlayState?.interludePromo.visible &&
-        overlayState.interludePromo.promoType !== "UP_NEXT" &&
-        !isFlipping && (
-        <div className="absolute right-6 bottom-10 left-6 flex items-center gap-4 rounded border-l-4 border-yellow-400 bg-gradient-to-r from-purple-900/90 to-indigo-900/90 p-4 text-white shadow-2xl">
-          {overlayState.interludePromo.creatorAvatarUrl ? (
-            <img
-              src={overlayState.interludePromo.creatorAvatarUrl}
-              alt=""
-              className="h-14 w-14 rounded-full border-2 border-yellow-400 object-cover"
-            />
-          ) : null}
-          <div className="flex-1">
-            <div className="text-xs font-bold tracking-wider text-yellow-300 uppercase">
-              {overlayState.interludePromo.promoType === "STATION_ID"
-                ? "STATION IDENTIFICATION"
-                : "SPOTLIGHT CREATOR"}
-            </div>
-            <div className="text-lg font-bold">
-              {overlayState.interludePromo.creatorName}
-            </div>
-            <div className="text-xs text-gray-200">
-              {overlayState.interludePromo.showTitle}
-            </div>
-          </div>
-          {overlayState.interludePromo.socialHandle && (
-            <div className="rounded bg-yellow-400 px-3 py-1 text-xs font-bold text-black">
-              {overlayState.interludePromo.socialHandle}
-            </div>
-          )}
-        </div>
-      )}
-
-      {showGuide && (
-        <div className="absolute inset-0 overflow-y-auto border-4 border-yellow-500 bg-blue-950/95 p-8 font-mono text-yellow-300">
-          <div className="mb-4 flex justify-between border-b-2 border-yellow-500 pb-2 text-2xl font-bold">
-            <span>NETWORK PROGRAM GUIDE</span>
-            <span className="text-xs text-white">PRESS &apos;G&apos; TO CLOSE</span>
-          </div>
-          <div className="space-y-3">
-            {channels.map((ch, idx) => (
-              <div
-                key={ch.id}
-                onClick={() => {
-                  setCurrentChannelIndex(idx);
-                  setShowGuide(false);
-                }}
-                className={`cursor-pointer rounded border p-3 ${
-                  idx === currentChannelIndex
-                    ? "border-yellow-300 bg-yellow-500 font-bold text-black"
-                    : "border-blue-700 bg-blue-900/50 text-white hover:bg-blue-800"
-                }`}
-              >
-                <span className="mr-4">
-                  CH {String(ch.number).padStart(2, "0")}
-                </span>
-                <span className="font-bold">{ch.name}</span>
-                <span className="ml-4 text-xs opacity-75">({ch.category})</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="absolute right-4 bottom-2 flex gap-2">
-        <button
-          type="button"
-          onClick={() => changeChannel("DOWN")}
-          className="rounded border border-gray-600 bg-gray-800 px-3 py-1 text-xs text-white hover:bg-gray-700"
-        >
-          CH -
-        </button>
-        <button
-          type="button"
-          onClick={() => changeChannel("UP")}
-          className="rounded border border-gray-600 bg-gray-800 px-3 py-1 text-xs text-white hover:bg-gray-700"
-        >
-          CH +
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowGuide((prev) => !prev)}
-          className="rounded border border-yellow-400 bg-yellow-600 px-3 py-1 text-xs font-bold text-black hover:bg-yellow-500"
-        >
-          GUIDE
-        </button>
+        className={`fixed inset-y-0 right-0 z-50 transform transition-transform duration-300 md:relative ${
+          showMobileChat ? "translate-x-0" : "translate-x-full md:translate-x-0"
+        }`}
+      >
+        <WorfiLiveChat channelId={currentChannel.channelId ?? currentChannel.channelName} />
       </div>
     </div>
   );

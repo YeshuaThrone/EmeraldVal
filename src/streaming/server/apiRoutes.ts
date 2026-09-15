@@ -25,14 +25,13 @@ export function createStreamingHandlers(engine: MultiChannelEngine) {
     },
 
     live(channelId: string): NextResponse {
-      try {
-        const playout = engine.resolveCurrentPlayout(channelId);
-        return NextResponse.json({ success: true, playout });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Channel not found";
-        const status = message.includes("not found") ? 404 : 400;
-        return NextResponse.json({ success: false, error: message }, { status });
+      if (!engine.getChannel(channelId)) {
+        return NextResponse.json(
+          { success: false, error: `Channel ${channelId} not found` },
+          { status: 404 },
+        );
       }
+      return NextResponse.json(engine.getCurrentPlayhead(channelId));
     },
 
     async ingest(channelId: string, body: unknown): Promise<NextResponse> {

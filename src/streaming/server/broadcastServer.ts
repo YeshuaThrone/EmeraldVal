@@ -1,8 +1,9 @@
 import express, { type NextFunction, type Request, type Response } from "express";
 import { createServer } from "node:http";
 import { Server as SocketIOServer } from "socket.io";
-import { createCreatorInvite, findValidInvite } from "./creatorInvites";
 import { isAdminAuthorized } from "./adminAuth";
+import { WorfiChatServer } from "./chatWebSocketServer";
+import { createCreatorInvite, findValidInvite } from "./creatorInvites";
 
 const app = express();
 app.use(express.json());
@@ -11,6 +12,8 @@ const httpServer = createServer(app);
 const io = new SocketIOServer(httpServer, {
   cors: { origin: "*", methods: ["GET", "POST"] },
 });
+
+export const worfiChatServer = new WorfiChatServer(httpServer);
 
 // --- ADMIN AUTH MIDDLEWARE ---
 export const requireAdminAuth = (

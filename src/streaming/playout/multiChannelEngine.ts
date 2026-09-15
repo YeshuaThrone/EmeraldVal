@@ -36,6 +36,29 @@ export interface CurrentPlayout {
   nextSegment: ProgramSegment;
 }
 
+/** Live playhead wire contract for players and GET /api/streaming/channels/:id/live */
+export interface CurrentPlayheadSegment {
+  videoId: string;
+  title: string;
+  streamUrl: string;
+  durationSeconds: number;
+  positionSeconds: number;
+  creatorName: string;
+}
+
+export interface CurrentPlayheadNextSegment {
+  videoId: string;
+  title: string;
+  startTime: string;
+}
+
+export interface CurrentPlayheadState {
+  channelId: string;
+  serverTimeMs: number;
+  segment: CurrentPlayheadSegment | null;
+  nextSegment: CurrentPlayheadNextSegment | null;
+}
+
 export class MultiChannelEngine {
   private networks: Map<string, ChannelNetworkConfig> = new Map();
 
@@ -54,12 +77,18 @@ export class MultiChannelEngine {
   }
 
   public getChannelList(): ChannelListItem[] {
-    return Array.from(this.networks.values()).map((net) => ({
+    return this.getNetworks().map((net) => ({
       id: net.channelId,
       number: net.channelNumber,
       name: net.channelName,
       category: net.category,
     }));
+  }
+
+  public getNetworks(): ChannelNetworkConfig[] {
+    return Array.from(this.networks.values()).sort(
+      (a, b) => a.channelNumber - b.channelNumber,
+    );
   }
 
   public appendSegment(channelId: string, segment: ProgramSegment): ChannelNetworkConfig {
@@ -135,5 +164,41 @@ export class MultiChannelEngine {
       offsetSeconds: 0,
       nextSegment: second,
     };
+  }
+
+  public getCurrentPlayhead(
+    channelId: string,
+    now: Date = new Date(),
+  ): CurrentPlayheadState {
+    try {
+      const playout = this.resolveCurrentPlayout(channelId, now);
+      const remaining =
+        playout.activeSegment.durationSeconds - playout.offsetSeconds;
+      const nextStart = new Date(now.getTime() + Math.max(0, remaining) * 1000);
+      return {
+        channelId,
+        serverTimeMs: now.getTime(),
+        segment: {
+          videoId: playout.activeSegment.id,
+          title: playout.activeSegment.title,
+          streamUrl: playout.activeSegment.videoUrl,
+          durationSeconds: playout.activeSegment.durationSeconds,
+          positionSeconds: playout.offsetSeconds,
+          creatorName: playout.activeSegment.creatorName,
+        },
+        nextSegment: {
+          videoId: playout.nextSegment.id,
+          title: playout.nextSegment.title,
+          startTime: nextStart.toISOString(),
+        },
+      };
+    } catch {
+      return {
+        channelId,
+        serverTimeMs: now.getTime(),
+        segment: null,
+        nextSegment: null,
+      };
+    }
   }
 }

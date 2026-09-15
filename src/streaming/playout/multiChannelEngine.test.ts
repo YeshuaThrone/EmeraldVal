@@ -13,8 +13,12 @@ function seededEngine() {
 describe("MultiChannelEngine", () => {
   it("lists registered channels by number", () => {
     const list = seededEngine().getChannelList();
-    expect(list.map((ch) => ch.id)).toEqual(["ch-haven", "ch-block"]);
-    expect(list[0]?.name).toBe("HAVEN TV");
+    expect(list.map((ch) => ch.id)).toEqual([
+      "ch-atx-01",
+      "ch-haven",
+      "ch-block",
+    ]);
+    expect(list[0]?.name).toBe("WORFI MAIN");
   });
 
   it("resolves the active segment from the looping grid", () => {
@@ -60,5 +64,25 @@ describe("MultiChannelEngine", () => {
     expect(engine.getChannel("ch-haven")?.programmingGrid.at(-1)?.id).toBe(
       "new-seg",
     );
+  });
+
+  it("emits the live playhead wire contract", () => {
+    const engine = seededEngine();
+    const now = new Date(1_726_350_000_000);
+    const playhead = engine.getCurrentPlayhead("ch-atx-01", now);
+    expect(playhead.channelId).toBe("ch-atx-01");
+    expect(playhead.serverTimeMs).toBe(now.getTime());
+    expect(playhead.segment).toMatchObject({
+      videoId: "vid-8829",
+      title: "ATX Live Sessions: Ep 4",
+      creatorName: "Yeshua Throne",
+      durationSeconds: 1800,
+    });
+    expect(playhead.segment?.streamUrl).toContain("http");
+    expect(playhead.nextSegment).toMatchObject({
+      videoId: "vid-8830",
+      title: "Midnight Modular Modular",
+    });
+    expect(playhead.nextSegment?.startTime).toEqual(expect.any(String));
   });
 });

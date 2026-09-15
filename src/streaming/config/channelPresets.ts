@@ -15,6 +15,31 @@ const SAMPLE = {
 
 export const CHANNEL_PRESETS: ChannelNetworkConfig[] = [
   {
+    channelId: "ch-atx-01",
+    channelNumber: 1,
+    channelName: "WORFI MAIN",
+    category: "ATX Live Sessions",
+    stationBugLogoUrl: "",
+    programmingGrid: [
+      {
+        id: "vid-8829",
+        title: "ATX Live Sessions: Ep 4",
+        creatorName: "Yeshua Throne",
+        type: "SHOW",
+        videoUrl: SAMPLE.bunny,
+        durationSeconds: 1800,
+      },
+      {
+        id: "vid-8830",
+        title: "Midnight Modular Modular",
+        creatorName: "Worfi Network",
+        type: "SHOW",
+        videoUrl: SAMPLE.elephants,
+        durationSeconds: 1200,
+      },
+    ],
+  },
+  {
     channelId: "ch-haven",
     channelNumber: 2,
     channelName: "HAVEN TV",
