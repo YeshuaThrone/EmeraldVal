@@ -4,6 +4,10 @@ import {
   listLineupChannels,
   provisionCustomChannel,
 } from "../admin/channelProvisioning";
+import {
+  listSponsorCampaigns,
+  provisionSponsorCampaign,
+} from "../ads/sponsorCampaigns";
 import { HlsIngestionPipeline } from "../ingest/hlsIngestionService";
 
 export const adminRouter = Router();
@@ -16,6 +20,40 @@ adminRouter.get("/channels", async (_req: Request, res: Response): Promise<void>
     res.status(500).json({ success: false, error: "Failed to list channels" });
   }
 });
+
+adminRouter.get(
+  "/sponsors/campaigns",
+  async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const campaigns = await listSponsorCampaigns();
+      res.json({ success: true, campaigns });
+    } catch {
+      res.status(500).json({ success: false, error: "Failed to list campaigns" });
+    }
+  },
+);
+
+adminRouter.post(
+  "/sponsors/campaigns",
+  async (req: Request, res: Response): Promise<void> => {
+    try {
+      const campaign = await provisionSponsorCampaign(req.body);
+      res.json({
+        success: true,
+        message: `Campaign ${campaign.campaignName} booked.`,
+        campaign,
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to create sponsor campaign";
+      const status = message.includes("required") ? 400 : 500;
+      res.status(status).json({
+        success: false,
+        error: status === 500 ? "Failed to create sponsor campaign" : message,
+      });
+    }
+  },
+);
 
 function readAdminKey(header: string | string[] | undefined): string | undefined {
   return Array.isArray(header) ? header[0] : header;

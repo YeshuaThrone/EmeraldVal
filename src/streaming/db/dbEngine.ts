@@ -257,4 +257,31 @@ export class CableDatabaseEngine {
       client.release();
     }
   }
+
+  public static async loadAdCampaigns(): Promise<
+    Array<{
+      id: string;
+      advertiserName: string;
+      campaignName: string;
+      cpmRate: number;
+      totalBudget: number;
+      spentBudget: number;
+      isActive: boolean;
+    }>
+  > {
+    const res = await dbPool.query(
+      `SELECT id, advertiser_name, campaign_name, cpm_rate, total_budget, spent_budget, is_active
+       FROM ad_campaigns
+       ORDER BY campaign_name ASC`,
+    );
+    return res.rows.map((row) => ({
+      id: String(row.id),
+      advertiserName: String(row.advertiser_name),
+      campaignName: String(row.campaign_name),
+      cpmRate: Number(row.cpm_rate ?? 0),
+      totalBudget: Number(row.total_budget ?? 0),
+      spentBudget: Number(row.spent_budget ?? 0),
+      isActive: Boolean(row.is_active),
+    }));
+  }
 }
