@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { cloneChannelPresets } from "../config/channelPresets";
 import { VideoIngestionEngine } from "../ingest/ingestionEngine";
 import { MultiChannelEngine } from "../playout/multiChannelEngine";
+import {
+  assertCreatorInviteToken,
+  readInviteToken,
+} from "./creatorInvites";
 
 let sharedEngine: MultiChannelEngine | undefined;
 
@@ -40,6 +44,23 @@ export function createStreamingHandlers(engine: MultiChannelEngine) {
           return NextResponse.json(
             { success: false, error: "Channel not found" },
             { status: 404 },
+          );
+        }
+        const inviteToken = readInviteToken(body);
+        if (!inviteToken) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Creator onboarding requires an invite link",
+            },
+            { status: 403 },
+          );
+        }
+        const invite = await assertCreatorInviteToken(inviteToken);
+        if (!invite.ok) {
+          return NextResponse.json(
+            { success: false, error: invite.error },
+            { status: 403 },
           );
         }
         const request = VideoIngestionEngine.parseRequest(body);

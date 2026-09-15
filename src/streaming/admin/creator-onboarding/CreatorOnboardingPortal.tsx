@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { STREAMING_ROUTE } from "@/lib/routes";
+import { hasCreatorInviteToken } from "./creatorInviteAccess";
 
 interface CreatorOnboardingProps {
   inviteToken?: string;
@@ -55,6 +57,32 @@ export const CreatorOnboardingPortal: React.FC<CreatorOnboardingProps> = ({
     }
   };
 
+  if (!hasCreatorInviteToken(inviteToken)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 font-sans text-slate-100">
+        <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center shadow-2xl">
+          <p className="mb-1 text-xs font-bold tracking-widest text-indigo-400 uppercase">
+            Invite only
+          </p>
+          <h1 className="text-3xl font-extrabold text-white">
+            Creator signup is closed
+          </h1>
+          <p className="mt-3 text-sm text-slate-400">
+            This app is for viewership. Creators cannot register from the
+            sign-in page — they join only after receiving a private invite
+            link.
+          </p>
+          <a
+            href={STREAMING_ROUTE}
+            className="mt-6 inline-block rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-lg transition hover:bg-indigo-500"
+          >
+            Watch the lineup
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 p-6 font-sans text-slate-100">
       <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl">
@@ -69,11 +97,7 @@ export const CreatorOnboardingPortal: React.FC<CreatorOnboardingProps> = ({
             Welcome to the network. Use this private portal to upload your
             master assets and promo media for programming placement.
           </p>
-          {inviteToken ? (
-            <p className="mt-2 text-xs text-indigo-300">
-              Invite token accepted.
-            </p>
-          ) : null}
+          <p className="mt-2 text-xs text-indigo-300">Invite token accepted.</p>
         </div>
 
         {submitted ? (

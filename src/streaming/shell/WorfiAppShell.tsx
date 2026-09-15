@@ -2,15 +2,12 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { AtxNewsService, type NewsHeadline } from "../news/atxNewsService";
-import { AdminLineupManager } from "../admin/AdminLineupManager";
-import { WorfiAdIntelligenceDashboard } from "../analytics/WorfiAdIntelligenceDashboard";
-import { WorfiSponsorPortal } from "../ads/WorfiSponsorPortal";
-
-export type ActiveTab =
-  | "PLAYER"
-  | "ADMIN"
-  | "ANALYTICS"
-  | "SPONSOR_ONBOARDING";
+import { ViewerSignIn } from "./ViewerSignIn";
+import {
+  clearViewerSession,
+  readViewerSession,
+  type ViewerSession,
+} from "./viewerSession";
 
 interface ProgramItem {
   chNumber: string;
@@ -78,7 +75,25 @@ function formatAustinClock(now: Date): string {
 }
 
 export const WorfiAppShell: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<ActiveTab>("PLAYER");
+  const [hydrated, setHydrated] = useState(false);
+  const [viewer, setViewer] = useState<ViewerSession | null>(null);
+
+  useEffect(() => {
+    setViewer(readViewerSession());
+    setHydrated(true);
+  }, []);
+
+  if (!hydrated) {
+    return (
+      <div className="font-epg flex min-h-screen items-center justify-center bg-[#050814] text-yellow-400">
+        <p className="text-sm font-black tracking-widest">WORFI NETWORK</p>
+      </div>
+    );
+  }
+
+  if (!viewer) {
+    return <ViewerSignIn onSignedIn={setViewer} />;
+  }
 
   return (
     <div className="font-epg flex min-h-screen select-none flex-col items-center bg-[#050814] p-4 text-slate-100 sm:p-8">
@@ -92,36 +107,23 @@ export const WorfiAppShell: React.FC = () => {
           </h1>
         </div>
 
-        <nav className="mt-4 flex flex-wrap items-center gap-2 text-xs font-black tracking-wider uppercase sm:mt-0">
-          {(
-            [
-              "PLAYER",
-              "ADMIN",
-              "ANALYTICS",
-              "SPONSOR_ONBOARDING",
-            ] as ActiveTab[]
-          ).map((tab) => (
-            <button
-              type="button"
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`rounded border-2 px-4 py-1.5 transition ${
-                activeTab === tab
-                  ? "border-yellow-300 bg-yellow-400 text-blue-950 shadow-[2px_2px_0px_#000]"
-                  : "border-blue-600 bg-blue-900/60 text-blue-100 hover:bg-blue-800"
-              }`}
-            >
-              {tab.replace("_", " ")}
-            </button>
-          ))}
-        </nav>
+        <div className="mt-4 flex items-center gap-3 text-xs font-black tracking-wider uppercase sm:mt-0">
+          <span className="text-blue-100">Watching as {viewer.displayName}</span>
+          <button
+            type="button"
+            onClick={() => {
+              clearViewerSession();
+              setViewer(null);
+            }}
+            className="rounded border-2 border-blue-600 bg-blue-900/60 px-4 py-1.5 text-blue-100 transition hover:bg-blue-800"
+          >
+            Sign out
+          </button>
+        </div>
       </header>
 
       <main className="flex w-full justify-center">
-        {activeTab === "PLAYER" && <WorfiGuidePlayerView />}
-        {activeTab === "ADMIN" && <AdminLineupManager />}
-        {activeTab === "ANALYTICS" && <WorfiAdIntelligenceDashboard />}
-        {activeTab === "SPONSOR_ONBOARDING" && <WorfiSponsorPortal />}
+        <WorfiGuidePlayerView />
       </main>
     </div>
   );

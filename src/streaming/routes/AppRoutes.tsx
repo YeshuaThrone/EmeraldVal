@@ -20,7 +20,10 @@ import { WorfiAppShell } from "../shell/WorfiAppShell";
 
 const OnboardWrapper = () => {
   const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") || undefined;
+  const token = searchParams.get("token")?.trim() || undefined;
+  if (!token) {
+    return <Navigate to="/" replace />;
+  }
   return <CreatorOnboardingPortal inviteToken={token} />;
 };
 
@@ -60,7 +63,7 @@ export const AppRoutes: React.FC = () => {
         />
         <Route path="/admin/analytics" element={<NetworkAnalyticsDashboard />} />
         <Route path="/onboard" element={<OnboardWrapper />} />
-        <Route path="*" element={<Navigate to="/player" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

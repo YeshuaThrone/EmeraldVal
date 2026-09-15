@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { STREAMING_ONBOARD_ROUTE } from "@/lib/routes";
+import { STREAMING_ONBOARD_ROUTE, STREAMING_ROUTE } from "@/lib/routes";
 
 export default async function OnboardRedirectPage({
   searchParams,
@@ -7,8 +7,9 @@ export default async function OnboardRedirectPage({
   searchParams: Promise<{ token?: string }>;
 }) {
   const { token } = await searchParams;
-  const target = token
-    ? `${STREAMING_ONBOARD_ROUTE}?token=${encodeURIComponent(token)}`
-    : STREAMING_ONBOARD_ROUTE;
-  redirect(target);
+  const invite = token?.trim();
+  if (!invite) {
+    redirect(STREAMING_ROUTE);
+  }
+  redirect(`${STREAMING_ONBOARD_ROUTE}?token=${encodeURIComponent(invite)}`);
 }

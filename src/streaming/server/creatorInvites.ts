@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { dbPool } from "../db/dbEngine";
+import { dbPool, isUnavailableDb } from "../db/dbEngine";
 
 export interface CreatorInviteRow {
   id: string;
@@ -38,4 +38,31 @@ export async function findValidInvite(
     [token],
   );
   return (result.rows[0] as CreatorInviteRow | undefined) ?? null;
+}
+
+export function readInviteToken(body: unknown): string | null {
+  if (typeof body !== "object" || body === null) return null;
+  const token = (body as { inviteToken?: unknown }).inviteToken;
+  return typeof token === "string" && token.trim() ? token.trim() : null;
+}
+
+/**
+ * Public creator ingest is invite-only. When Postgres is down the token
+ * still has to be present; a live row check runs when the DB is reachable.
+ */
+export async function assertCreatorInviteToken(
+  token: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const invite = await findValidInvite(token);
+    if (!invite) {
+      return { ok: false, error: "Invalid or expired invite token" };
+    }
+    return { ok: true };
+  } catch (err) {
+    if (isUnavailableDb(err)) {
+      return { ok: true };
+    }
+    throw err;
+  }
 }

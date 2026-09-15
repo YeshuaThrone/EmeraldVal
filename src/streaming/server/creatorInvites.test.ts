@@ -36,4 +36,20 @@ describe("creatorInvites", () => {
     const { findValidInvite } = await import("../server/creatorInvites");
     await expect(findValidInvite("missing")).resolves.toBeNull();
   });
+
+  it("reads invite tokens from ingest bodies and rejects blank ones", async () => {
+    const { readInviteToken } = await import("../server/creatorInvites");
+    expect(readInviteToken({ inviteToken: " abc " })).toBe("abc");
+    expect(readInviteToken({ inviteToken: "" })).toBeNull();
+    expect(readInviteToken({})).toBeNull();
+  });
+
+  it("rejects unknown invites when Postgres answers empty", async () => {
+    query.mockResolvedValue({ rows: [] });
+    const { assertCreatorInviteToken } = await import("../server/creatorInvites");
+    await expect(assertCreatorInviteToken("missing")).resolves.toEqual({
+      ok: false,
+      error: "Invalid or expired invite token",
+    });
+  });
 });
