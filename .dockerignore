@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.gitignore
+data
+coverage
+*.md
+.vercel
+.cursor
+*.tsbuildinfo
+npm-debug.log*
+.env*

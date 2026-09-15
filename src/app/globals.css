@@ -16,6 +16,8 @@
   --color-atx-line: #e7e5e4;
   --font-sans: var(--font-dm-sans);
   --font-display: var(--font-outfit);
+  --font-epg: var(--font-worfi-epg);
+  --font-osd: var(--font-worfi-osd);
 }
 
 html,
@@ -31,6 +33,14 @@ body {
 
 .font-display {
   font-family: var(--font-outfit), var(--font-dm-sans), system-ui, sans-serif;
+}
+
+.font-epg {
+  font-family: var(--font-worfi-epg), ui-sans-serif, sans-serif;
+}
+
+.font-osd {
+  font-family: var(--font-worfi-osd), ui-monospace, monospace;
 }
 
 .leaflet-container {
@@ -187,5 +197,14 @@ body {
     box-shadow:
       0 0 0 8px rgba(0, 168, 232, 0.15),
       0 0 26px 10px rgba(0, 168, 232, 0.85);
+  }
+}
+
+@keyframes atx-marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
   }
 }
