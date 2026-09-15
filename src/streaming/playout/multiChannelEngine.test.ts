@@ -14,9 +14,11 @@ describe("MultiChannelEngine", () => {
   it("lists registered channels by number", () => {
     const list = seededEngine().getChannelList();
     expect(list.map((ch) => ch.id)).toEqual([
+      "ch-01",
+      "ch-02",
+      "ch-block",
       "ch-atx-01",
       "ch-haven",
-      "ch-block",
     ]);
     expect(list[0]?.name).toBe("WORFI MAIN");
   });

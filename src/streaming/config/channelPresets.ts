@@ -15,8 +15,52 @@ const SAMPLE = {
 
 export const CHANNEL_PRESETS: ChannelNetworkConfig[] = [
   {
-    channelId: "ch-atx-01",
+    channelId: "ch-01",
     channelNumber: 1,
+    channelName: "WORFI MAIN",
+    category: "ATX Live Sessions",
+    stationBugLogoUrl: "",
+    programmingGrid: [
+      {
+        id: "prog-tears",
+        title: "Tears of Steel (4K Sci-Fi)",
+        creatorName: "Blender Studio",
+        type: "SHOW",
+        videoUrl:
+          "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+        durationSeconds: 734,
+      },
+      {
+        id: "prog-bunny",
+        title: "Big Buck Bunny",
+        creatorName: "Blender Studio",
+        type: "SHOW",
+        videoUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+        durationSeconds: 596,
+      },
+    ],
+  },
+  {
+    channelId: "ch-02",
+    channelNumber: 2,
+    channelName: "NASA TV",
+    category: "Public Domain",
+    stationBugLogoUrl: "",
+    programmingGrid: [
+      {
+        id: "prog-nasa",
+        title: "NASA Live HD Feed",
+        creatorName: "NASA / Public Domain",
+        type: "SHOW",
+        videoUrl:
+          "https://nasa-vh.akamaihd.net/i/NASA_TV@47068/master.m3u8",
+        durationSeconds: 86400,
+      },
+    ],
+  },
+  {
+    channelId: "ch-atx-01",
+    channelNumber: 11,
     channelName: "WORFI MAIN",
     category: "ATX Live Sessions",
     stationBugLogoUrl: "",
@@ -41,7 +85,7 @@ export const CHANNEL_PRESETS: ChannelNetworkConfig[] = [
   },
   {
     channelId: "ch-haven",
-    channelNumber: 2,
+    channelNumber: 12,
     channelName: "HAVEN TV",
     category: "Real Estate & Spaces",
     stationBugLogoUrl: "",

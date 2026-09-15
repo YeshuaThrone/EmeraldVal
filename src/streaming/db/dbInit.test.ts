@@ -39,7 +39,10 @@ describe("initializeDatabase", () => {
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes("ad_impressions"))).toBe(
       true,
     );
-    expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes("is_active"))).toBe(
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes("channel_programs"))).toBe(
+      true,
+    );
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes("Tears of Steel"))).toBe(
       true,
     );
     expect(clientQuery).toHaveBeenCalledWith("COMMIT");

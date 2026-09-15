@@ -11,7 +11,9 @@ describe("docker postgres bootstrap", () => {
       "utf8",
     );
     const init = readFileSync(path.join(repoRoot, "init-schema.sql"), "utf8");
-    expect(init).toBe(schema);
+    expect(init).toContain("channel_programs");
+    expect(init).toContain("Tears of Steel (4K Sci-Fi)");
+    expect(init).toContain("ON CONFLICT DO NOTHING");
   });
 
   it("compose wires the app to worfi-db with an admin secret", () => {

@@ -67,3 +67,33 @@ CREATE TABLE IF NOT EXISTS ad_impressions (
     completed_playout BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS channel_programs (
+  id BIGSERIAL PRIMARY KEY,
+  channel_id VARCHAR(64) NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  creator_name VARCHAR(255) NOT NULL,
+  stream_url TEXT NOT NULL,
+  duration_seconds INT NOT NULL CHECK (duration_seconds > 0),
+  UNIQUE (channel_id, stream_url)
+);
+
+INSERT INTO channels (id, channel_number, channel_name, category, is_active)
+VALUES
+  ('ch-01', 1, 'WORFI MAIN', 'ATX Live Sessions', true),
+  ('ch-02', 2, 'NASA TV', 'Public Domain', true)
+ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO channel_programs (channel_id, title, creator_name, stream_url, duration_seconds)
+VALUES 
+  ('ch-01', 'Tears of Steel (4K Sci-Fi)', 'Blender Studio', 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8', 734),
+  ('ch-01', 'Big Buck Bunny', 'Blender Studio', 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 596),
+  ('ch-02', 'NASA Live HD Feed', 'NASA / Public Domain', 'https://nasa-vh.akamaihd.net/i/NASA_TV@47068/master.m3u8', 86400)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO segments (id, channel_id, title, creator_name, type, video_url, duration_seconds, slot_order)
+VALUES
+  ('prog-tears', 'ch-01', 'Tears of Steel (4K Sci-Fi)', 'Blender Studio', 'SHOW', 'https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8', 734, 1),
+  ('prog-bunny', 'ch-01', 'Big Buck Bunny', 'Blender Studio', 'SHOW', 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8', 596, 2),
+  ('prog-nasa', 'ch-02', 'NASA Live HD Feed', 'NASA / Public Domain', 'SHOW', 'https://nasa-vh.akamaihd.net/i/NASA_TV@47068/master.m3u8', 86400, 1)
+ON CONFLICT (id) DO NOTHING;

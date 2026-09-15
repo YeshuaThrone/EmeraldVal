@@ -11,7 +11,7 @@ export const WorfiPlayerView: React.FC = () => {
     () => new MultiChannelEngine(cloneChannelPresets()),
     [],
   );
-  const [channelId, setChannelId] = useState("ch-haven");
+  const [channelId, setChannelId] = useState("ch-01");
 
   return (
     <div className="flex w-full max-w-5xl flex-col items-center gap-8">
