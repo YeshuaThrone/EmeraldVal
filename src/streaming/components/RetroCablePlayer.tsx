@@ -160,7 +160,7 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
       {isFlipping && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-800 opacity-80">
           <div className="animate-pulse text-3xl font-bold tracking-widest text-white">
-            /// STATIC NOISE ///
+            {"/// STATIC NOISE ///"}
           </div>
         </div>
       )}
@@ -185,15 +185,13 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
 
       {overlayState?.interludePromo.visible && !isFlipping && (
         <div className="absolute right-6 bottom-10 left-6 flex items-center gap-4 rounded border-l-4 border-yellow-400 bg-gradient-to-r from-purple-900/90 to-indigo-900/90 p-4 text-white shadow-2xl">
-          {overlayState.interludePromo.creatorAvatarUrl && (
-            // External creator avatars are arbitrary ingest URLs.
-            // eslint-disable-next-line @next/next/no-img-element
+          {overlayState.interludePromo.creatorAvatarUrl ? (
             <img
               src={overlayState.interludePromo.creatorAvatarUrl}
-              alt="Creator"
+              alt=""
               className="h-14 w-14 rounded-full border-2 border-yellow-400 object-cover"
             />
-          )}
+          ) : null}
           <div className="flex-1">
             <div className="text-xs font-bold tracking-wider text-yellow-300 uppercase">
               {overlayState.interludePromo.promoType === "UP_NEXT"

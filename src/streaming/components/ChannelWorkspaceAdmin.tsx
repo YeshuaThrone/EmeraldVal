@@ -24,7 +24,7 @@ export const ChannelWorkspaceAdmin: React.FC<WorkspaceProps> = ({
   const activeChannel = channels.find((c) => c.channelId === selectedChannelId);
 
   const handleAddChannel = () => {
-    const newId = `ch-${Date.now()}`;
+    const newId = `ch-${crypto.randomUUID()}`;
     const newChannel: ChannelNetworkConfig = {
       channelId: newId,
       channelNumber: channels.length + 1,
@@ -56,7 +56,7 @@ export const ChannelWorkspaceAdmin: React.FC<WorkspaceProps> = ({
   ) => {
     if (!activeChannel) return;
     const newSegment: ProgramSegment = {
-      id: `seg-${Date.now()}`,
+      id: `seg-${crypto.randomUUID()}`,
       title: type === "SHOW" ? "Untitled Show" : "Creator Spotlight Interlude",
       creatorName: "Creator Name",
       type,
