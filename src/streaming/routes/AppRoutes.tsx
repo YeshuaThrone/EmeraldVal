@@ -17,7 +17,6 @@ import { RetroTVGuide } from "../components/RetroTVGuide";
 import { cloneChannelPresets } from "../config/channelPresets";
 import { MultiChannelEngine } from "../playout/multiChannelEngine";
 import { WorfiAppShell } from "../shell/WorfiAppShell";
-import { WerfieAppShell } from "../shell/WerfieAppShell";
 
 const OnboardWrapper = () => {
   const [searchParams] = useSearchParams();
@@ -34,8 +33,7 @@ export const AppRoutes: React.FC = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<WerfieAppShell />} />
-        <Route path="/worfi" element={<WorfiAppShell />} />
+        <Route path="/" element={<WorfiAppShell />} />
         <Route
           path="/player"
           element={<RetroPlayerContainer engine={engine} />}

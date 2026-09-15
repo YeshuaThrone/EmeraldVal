@@ -1,7 +1,7 @@
 "use client";
 
-import { WerfieAppShell } from "@/streaming/shell/WerfieAppShell";
+import { WorfiAppShell } from "@/streaming/shell/WorfiAppShell";
 
 export default function StreamingPage() {
-  return <WerfieAppShell />;
+  return <WorfiAppShell />;
 }
