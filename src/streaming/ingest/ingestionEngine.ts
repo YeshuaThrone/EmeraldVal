@@ -1,4 +1,5 @@
 import type { ProgramSegment } from "../playout/multiChannelEngine";
+import { VideoMetadataExtractor } from "./videoMetadataExtractor";
 
 export interface IngestRequest {
   sourceUrl: string; // YouTube link or directly hosted MP4
@@ -68,31 +69,32 @@ export class VideoIngestionEngine {
     request: IngestRequest | unknown,
   ): Promise<ProgramSegment> {
     const normalized = VideoIngestionEngine.parseRequest(request);
+    const meta = await VideoMetadataExtractor.parseVideoUrl(
+      normalized.sourceUrl,
+      normalized.creatorName,
+    );
 
     const isYouTube =
       normalized.sourceUrl.includes("youtube.com") ||
       normalized.sourceUrl.includes("youtu.be");
 
-    let videoStreamUrl = normalized.sourceUrl;
-    let extractedTitle = normalized.titleOverride || "Ingested Content";
-
+    let videoStreamUrl = meta.cleanStreamUrl;
     if (isYouTube) {
       const videoId = this.extractYouTubeId(normalized.sourceUrl);
       videoStreamUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&mute=1`;
-      extractedTitle =
-        normalized.titleOverride || `YouTube Asset (${videoId})`;
     }
 
     return {
       id: `asset-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
-      title: extractedTitle,
-      creatorName: normalized.creatorName,
+      title: normalized.titleOverride || meta.title,
+      creatorName: normalized.creatorName || meta.creatorName,
       creatorAvatarUrl:
         normalized.creatorAvatarUrl ||
+        meta.thumbnailUrl ||
         "https://cdn.yourdomain.com/defaults/avatar.png",
       type: normalized.type || "SHOW",
       videoUrl: videoStreamUrl,
-      durationSeconds: normalized.customDurationSeconds || 300,
+      durationSeconds: normalized.customDurationSeconds || meta.durationSeconds,
       metadata: {
         socialHandle: normalized.socialHandle,
       },

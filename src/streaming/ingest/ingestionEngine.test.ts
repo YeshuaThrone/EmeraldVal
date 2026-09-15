@@ -1,7 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { VideoIngestionEngine } from "./ingestionEngine";
 
 describe("VideoIngestionEngine", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("passes through hosted MP4 URLs", async () => {
     const segment = await VideoIngestionEngine.processIngest({
       creatorName: "Ada",
@@ -21,6 +25,13 @@ describe("VideoIngestionEngine", () => {
   });
 
   it("normalizes YouTube watch URLs to embed endpoints", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ title: "Night Market Set", author_name: "Jordan" }),
+      }),
+    );
     const segment = await VideoIngestionEngine.processIngest({
       creatorName: "Jordan",
       sourceUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -29,12 +40,19 @@ describe("VideoIngestionEngine", () => {
     expect(segment.videoUrl).toBe(
       "https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&controls=0&mute=1",
     );
-    expect(segment.title).toBe("YouTube Asset (dQw4w9WgXcQ)");
-    expect(segment.durationSeconds).toBe(300);
+    expect(segment.title).toBe("Night Market Set");
+    expect(segment.durationSeconds).toBe(600);
     expect(segment.type).toBe("SHOW");
   });
 
   it("accepts onboarding aliases (videoUrl / title / durationSeconds)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ title: "Ignored oEmbed Title" }),
+      }),
+    );
     const segment = await VideoIngestionEngine.processIngest({
       creatorName: "Maya",
       videoUrl: "https://youtu.be/dQw4w9WgXcQ",

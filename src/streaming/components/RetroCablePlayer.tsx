@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { CableSoundFX } from "../audio/cableSoundFx";
 import { CableGraphicsEngine, type CableOverlayState } from "../graphics/cableGraphicsEngine";
+import { OverTheAirGraphicsEngine } from "../graphics/overTheAirGraphicsEngine";
 import type { MultiChannelEngine, ProgramSegment } from "../playout/multiChannelEngine";
 
 interface RetroCablePlayerProps {
@@ -38,6 +39,7 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
   const [currentSegment, setCurrentSegment] = useState<ProgramSegment | null>(
     null,
   );
+  const [nextShowTitle, setNextShowTitle] = useState<string | undefined>();
   const [offsetSeconds, setOffsetSeconds] = useState(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -50,6 +52,7 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
       try {
         const playout = engine.resolveCurrentPlayout(activeChannel.id);
         setCurrentSegment(playout.activeSegment);
+        setNextShowTitle(playout.nextSegment.title);
         setOffsetSeconds(playout.offsetSeconds);
 
         const graphics = CableGraphicsEngine.evaluateCableGraphics(
@@ -177,13 +180,22 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
         </div>
       )}
 
-      {overlayState?.channelBug.visible && !isFlipping && (
-        <div className="absolute top-6 right-6 rounded border border-white/20 bg-black/40 px-3 py-1 text-xs font-bold tracking-wider text-white uppercase opacity-80">
-          {overlayState.channelBug.channelName}
-        </div>
-      )}
+      {!isFlipping && currentSegment ? (
+        <OverTheAirGraphicsEngine
+          channelNumber={activeChannel.number}
+          channelName={activeChannel.name}
+          showTitle={currentSegment.title}
+          creatorName={currentSegment.creatorName}
+          socialHandle={currentSegment.metadata?.socialHandle}
+          nextShowTitle={nextShowTitle}
+          playbackPositionSeconds={offsetSeconds}
+          totalDurationSeconds={currentSegment.durationSeconds}
+        />
+      ) : null}
 
-      {overlayState?.interludePromo.visible && !isFlipping && (
+      {overlayState?.interludePromo.visible &&
+        overlayState.interludePromo.promoType !== "UP_NEXT" &&
+        !isFlipping && (
         <div className="absolute right-6 bottom-10 left-6 flex items-center gap-4 rounded border-l-4 border-yellow-400 bg-gradient-to-r from-purple-900/90 to-indigo-900/90 p-4 text-white shadow-2xl">
           {overlayState.interludePromo.creatorAvatarUrl ? (
             <img
@@ -194,11 +206,9 @@ export const RetroCablePlayer: React.FC<RetroCablePlayerProps> = ({
           ) : null}
           <div className="flex-1">
             <div className="text-xs font-bold tracking-wider text-yellow-300 uppercase">
-              {overlayState.interludePromo.promoType === "UP_NEXT"
-                ? "UP NEXT ON NETWORK"
-                : overlayState.interludePromo.promoType === "STATION_ID"
-                  ? "STATION IDENTIFICATION"
-                  : "SPOTLIGHT CREATOR"}
+              {overlayState.interludePromo.promoType === "STATION_ID"
+                ? "STATION IDENTIFICATION"
+                : "SPOTLIGHT CREATOR"}
             </div>
             <div className="text-lg font-bold">
               {overlayState.interludePromo.creatorName}
