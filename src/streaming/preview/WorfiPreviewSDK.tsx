@@ -49,7 +49,7 @@ export const WorfiPreviewSDK: React.FC = () => {
   const [activeChannel, setActiveChannel] =
     useState<RoyaltyFreeChannel>(DEFAULT_CHANNEL);
   const [headlines, setHeadlines] = useState<NewsHeadline[]>([]);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -103,6 +103,7 @@ export const WorfiPreviewSDK: React.FC = () => {
             ref={videoRef}
             controls
             autoPlay
+            muted
             playsInline
             className="h-full w-full object-cover"
           />
@@ -148,7 +149,7 @@ export const WorfiPreviewSDK: React.FC = () => {
             key={ch.chNumber}
             onClick={() => {
               setActiveChannel(ch);
-              setIsPlaying(false);
+              setIsPlaying(true);
             }}
             className={`rounded-lg border p-3 text-left transition ${
               activeChannel.chNumber === ch.chNumber

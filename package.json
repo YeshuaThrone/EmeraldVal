@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "broadcast": "tsx src/streaming/server/server.ts"
+    "broadcast": "tsx src/streaming/server/server.ts",
+    "push:vercel": "tsx src/scripts/pushToVercel.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
