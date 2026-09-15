@@ -51,10 +51,7 @@ export class AtxNewsService {
       return "CH 04 ATX NEWS • STAND BY FOR MUNICIPAL, TRAFFIC, AND WEATHER UPDATES";
     }
     return headlines
-      .map(
-        (h) =>
-          `[${h.category}] ${h.title} — ${h.source} ${h.timestamp}`,
-      )
+      .map((h) => `[${h.category}] ${h.title} — ${h.source} ${h.timestamp}`)
       .join("  •  ");
   }
 }

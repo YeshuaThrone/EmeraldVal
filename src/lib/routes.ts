@@ -13,3 +13,5 @@ export const STREAMING_ADMIN_ROUTE = "/streaming/admin";
 export const STREAMING_ONBOARD_ROUTE = "/streaming/onboard";
 export const STREAMING_ANALYTICS_ROUTE = "/streaming/analytics";
 export const STREAMING_EMBED_ROUTE = "/streaming/embed";
+export const STREAMING_PREVIEW_ROUTE = "/streaming/preview";
+export const PREVIEW_ROUTE = "/preview";
