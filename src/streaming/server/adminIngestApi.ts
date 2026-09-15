@@ -1,7 +1,21 @@
 import { Router, type Request, type Response } from "express";
+import {
+  bridgeActiveChannelGaps,
+  listLineupChannels,
+  provisionCustomChannel,
+} from "../admin/channelProvisioning";
 import { HlsIngestionPipeline } from "../ingest/hlsIngestionService";
 
 export const adminRouter = Router();
+
+adminRouter.get("/channels", async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const channels = await listLineupChannels();
+    res.json({ success: true, channels });
+  } catch {
+    res.status(500).json({ success: false, error: "Failed to list channels" });
+  }
+});
 
 function readAdminKey(header: string | string[] | undefined): string | undefined {
   return Array.isArray(header) ? header[0] : header;
@@ -51,6 +65,79 @@ adminRouter.post(
         err instanceof Error ? err.message : "Failed to schedule programming";
       const status = message.includes("not found") ? 404 : 500;
       res.status(status).json({ success: false, error: message });
+    }
+  },
+);
+
+/**
+ * POST /api/v1/admin/channels/create
+ * INTERNAL ONLY: Provision a new custom channel (News, Sports, Indie, etc.)
+ */
+adminRouter.post(
+  "/admin/channels/create",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!isWorfiAdminKey(req.headers["x-worfi-admin-key"])) {
+      res.status(403).json({ success: false, error: "Unauthorized network access" });
+      return;
+    }
+
+    const { channelNumber, channelName, category } = req.body as {
+      channelNumber?: unknown;
+      channelName?: unknown;
+      category?: unknown;
+    };
+
+    try {
+      const created = await provisionCustomChannel({
+        channelNumber,
+        channelName,
+        category,
+      });
+      res.json({
+        success: true,
+        message: `Channel CH ${created.channelNumber} (${created.channelName}) provisioned successfully.`,
+        channelId: created.channelId,
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Failed to create custom channel";
+      const status = message.includes("required") ? 400 : 500;
+      res.status(status).json({
+        success: false,
+        error:
+          status === 500 ? "Failed to create custom channel" : message,
+      });
+    }
+  },
+);
+
+/**
+ * POST /api/v1/admin/bridge-gaps
+ * INTERNAL ONLY: Fill 30-minute block remainders with station bumpers
+ */
+adminRouter.post(
+  "/admin/bridge-gaps",
+  async (req: Request, res: Response): Promise<void> => {
+    if (!isWorfiAdminKey(req.headers["x-worfi-admin-key"])) {
+      res.status(403).json({ success: false, error: "Unauthorized network access" });
+      return;
+    }
+
+    const channelId =
+      typeof req.body?.channelId === "string" ? req.body.channelId : undefined;
+
+    try {
+      const result = await bridgeActiveChannelGaps(channelId);
+      res.json({
+        success: true,
+        message:
+          result.inserted > 0
+            ? `Bridged ${result.inserted} gap(s) across ${result.processed} channel(s).`
+            : "No schedule gaps needed bridging.",
+        inserted: result.inserted,
+      });
+    } catch {
+      res.status(500).json({ success: false, error: "Failed." });
     }
   },
 );

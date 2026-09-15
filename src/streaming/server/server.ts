@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 import { app, httpServer } from "./broadcastServer";
 import { initializeDatabase } from "../db/dbInit";
 import { CableDatabaseEngine } from "../db/dbEngine";
+import { startScheduleGapWorker } from "../workers/scheduleGapWorker";
 
 const PORT = Number(process.env.BROADCAST_PORT || process.env.PORT || 4000);
 
@@ -15,6 +16,8 @@ export async function bootstrapServer() {
     console.log(
       `[Server] Loaded ${networks.length} active networks from database.`,
     );
+
+    startScheduleGapWorker();
 
     httpServer.listen(PORT, () => {
       console.log(

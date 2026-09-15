@@ -187,4 +187,74 @@ export class CableDatabaseEngine {
       })),
     };
   }
+
+  public static async insertAdCampaign(campaign: {
+    id: string;
+    advertiserName: string;
+    campaignName: string;
+    cpmRate: number;
+    totalBudget: number;
+    startTime?: Date | null;
+    endTime?: Date | null;
+  }): Promise<void> {
+    await dbPool.query(
+      `INSERT INTO ad_campaigns (
+         id, advertiser_name, campaign_name, cpm_rate, total_budget, spent_budget,
+         start_time, end_time, is_active
+       ) VALUES ($1, $2, $3, $4, $5, 0.00, $6, $7, true)`,
+      [
+        campaign.id,
+        campaign.advertiserName,
+        campaign.campaignName,
+        campaign.cpmRate,
+        campaign.totalBudget,
+        campaign.startTime ?? null,
+        campaign.endTime ?? null,
+      ],
+    );
+  }
+
+  /**
+   * Records a completed ad playout and increments campaign spend by CPM / 1000.
+   */
+  public static async recordAdImpression(input: {
+    campaignId: string;
+    channelId: string;
+    viewerId?: string;
+    adDurationSeconds: number;
+    cpmRate: number;
+    completedPlayout?: boolean;
+  }): Promise<{ cpmEarned: number }> {
+    const cpmEarned = Number((input.cpmRate / 1000).toFixed(4));
+    const client = await dbPool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        `INSERT INTO ad_impressions (
+           campaign_id, channel_id, viewer_id, ad_duration_seconds, cpm_earned, completed_playout
+         ) VALUES ($1, $2, $3, $4, $5, $6)`,
+        [
+          input.campaignId,
+          input.channelId,
+          input.viewerId ?? null,
+          input.adDurationSeconds,
+          cpmEarned,
+          input.completedPlayout ?? true,
+        ],
+      );
+      await client.query(
+        `UPDATE ad_campaigns
+         SET spent_budget = spent_budget + $1
+         WHERE id = $2`,
+        [cpmEarned, input.campaignId],
+      );
+      await client.query("COMMIT");
+      return { cpmEarned };
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
 }

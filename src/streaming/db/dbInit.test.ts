@@ -33,6 +33,15 @@ describe("initializeDatabase", () => {
     expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes("viewer_analytics"))).toBe(
       true,
     );
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes("ad_campaigns"))).toBe(
+      true,
+    );
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes("ad_impressions"))).toBe(
+      true,
+    );
+    expect(clientQuery.mock.calls.some(([sql]) => String(sql).includes("is_active"))).toBe(
+      true,
+    );
     expect(clientQuery).toHaveBeenCalledWith("COMMIT");
     expect(release).toHaveBeenCalled();
   });

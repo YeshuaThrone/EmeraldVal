@@ -8,6 +8,7 @@ import {
   Routes,
   useSearchParams,
 } from "react-router-dom";
+import { AdminLineupManager } from "../admin/AdminLineupManager";
 import { ChannelWorkspaceAdmin } from "../admin/ChannelWorkspaceAdmin";
 import { NetworkAnalyticsDashboard } from "../admin/NetworkAnalyticsDashboard";
 import { CreatorOnboardingPortal } from "../admin/creator-onboarding/CreatorOnboardingPortal";
@@ -47,10 +48,13 @@ export const AppRoutes: React.FC = () => {
         <Route
           path="/admin"
           element={
-            <ChannelWorkspaceAdmin
-              initialChannels={cloneChannelPresets()}
-              onSaveNetworks={() => {}}
-            />
+            <div className="space-y-8 p-6">
+              <AdminLineupManager />
+              <ChannelWorkspaceAdmin
+                initialChannels={cloneChannelPresets()}
+                onSaveNetworks={() => {}}
+              />
+            </div>
           }
         />
         <Route path="/admin/analytics" element={<NetworkAnalyticsDashboard />} />
