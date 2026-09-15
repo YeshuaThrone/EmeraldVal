@@ -46,6 +46,26 @@ export function readInviteToken(body: unknown): string | null {
   return typeof token === "string" && token.trim() ? token.trim() : null;
 }
 
+const INVITE_LOOKUP_MS = 2500;
+
+function withInviteTimeout<T>(promise: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(Object.assign(new Error("timeout"), { code: "ETIMEDOUT" }));
+    }, INVITE_LOOKUP_MS);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 /**
  * Creator ingest is operator-invite only. A missing, expired, or
  * unverifiable token never opens an upload path.
@@ -54,7 +74,7 @@ export async function assertCreatorInviteToken(
   token: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const invite = await findValidInvite(token);
+    const invite = await withInviteTimeout(findValidInvite(token));
     if (!invite) {
       return { ok: false, error: "Invalid or expired invite token" };
     }

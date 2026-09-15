@@ -32,6 +32,7 @@ export function getDbPool(): Pool {
       connectionString:
         process.env.DATABASE_URL ||
         "postgres://worfi_admin:worfi_dev_password@localhost:5432/worfi_db",
+      connectionTimeoutMillis: 2500,
     });
   }
   return pool;
