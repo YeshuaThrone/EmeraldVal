@@ -18,8 +18,9 @@ describe("WerfieAppShell", () => {
       'WERFIE_DEMO_LINEUP.find((p) => p.chNumber === "04")',
     );
     expect(src).toContain("Night of the Living Dead (1968)");
-    expect(src).toContain("night_of_the_living_dead_512kb.mp4");
+    expect(src).toContain("night-of-the-living-dead_1968");
     expect(src).toContain("tears-of-steel.ism/.m3u8");
+    expect(src).toContain('import("hls.js")');
   });
 
   it("gates video behind POWER and rotates the ATX news ticker", () => {

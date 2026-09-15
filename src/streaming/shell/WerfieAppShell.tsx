@@ -31,7 +31,7 @@ export const WERFIE_DEMO_LINEUP: ProgramItem[] = [
     upNext: "Tears of Steel (4K Sci-Fi)",
     nextCreator: "Blender Studio",
     streamUrl:
-      "https://archive.org/download/night_of_the_living_dead/night_of_the_living_dead_512kb.mp4",
+      "https://archive.org/download/night-of-the-living-dead_1968/Night%20of%20the%20Living%20Dead%20-%20%281968%29.mp4",
   },
   {
     chNumber: "02",
@@ -159,6 +159,43 @@ export const WerfiePlayerView: React.FC = () => {
     return () => window.clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const url = selectedChannel.streamUrl;
+    let cancelled = false;
+    let hls: { destroy: () => void } | null = null;
+
+    const bind = async () => {
+      if (url.includes(".m3u8")) {
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = url;
+          return;
+        }
+        const { default: Hls } = await import("hls.js");
+        if (cancelled || !videoRef.current) return;
+        if (!Hls.isSupported()) {
+          video.src = url;
+          return;
+        }
+        const instance = new Hls({ enableWorker: false });
+        instance.loadSource(url);
+        instance.attachMedia(video);
+        hls = instance;
+        return;
+      }
+      video.src = url;
+    };
+
+    void bind();
+    return () => {
+      cancelled = true;
+      hls?.destroy();
+      video.removeAttribute("src");
+      video.load();
+    };
+  }, [selectedChannel]);
+
   const togglePower = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -167,10 +204,21 @@ export const WerfiePlayerView: React.FC = () => {
       setIsPlaying(false);
       return;
     }
-    void video
-      .play()
-      .then(() => setIsPlaying(true))
-      .catch(() => setIsPlaying(false));
+    const start = () =>
+      video
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setIsPlaying(false));
+    if (video.readyState >= 2) {
+      void start();
+      return;
+    }
+    const onReady = () => {
+      video.removeEventListener("canplay", onReady);
+      void start();
+    };
+    video.addEventListener("canplay", onReady);
+    void start();
   };
 
   const currentHeadline = headlines[currentNewsIdx];
@@ -188,11 +236,9 @@ export const WerfiePlayerView: React.FC = () => {
 
       <div className="relative flex aspect-video w-full flex-col items-center justify-center overflow-hidden rounded-b-xl border-2 border-t-0 border-blue-600/80 bg-black shadow-[0_0_30px_rgba(0,50,150,0.3)]">
         <video
-          key={selectedChannel.chNumber}
           ref={videoRef}
-          src={selectedChannel.streamUrl}
           playsInline
-          className={`h-full w-full object-cover ${isPlaying ? "block" : "hidden"}`}
+          className="h-full w-full object-cover"
         />
 
         {!isPlaying && (
