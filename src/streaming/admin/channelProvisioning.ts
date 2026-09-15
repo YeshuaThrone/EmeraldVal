@@ -82,6 +82,13 @@ export async function provisionCustomChannel(input: {
 
   const channelId = buildCustomChannelId(channelNumber, channelName);
 
+  const taken = getStreamingEngine()
+    .getChannelList()
+    .some((ch) => ch.number === channelNumber || ch.id === channelId);
+  if (taken) {
+    throw new Error("Failed to create custom channel");
+  }
+
   try {
     await dbPool.query(
       `INSERT INTO channels (id, channel_number, channel_name, category, is_active)

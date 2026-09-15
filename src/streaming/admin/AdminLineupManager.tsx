@@ -27,6 +27,16 @@ export const AdminLineupManager: React.FC = () => {
       .then((data: { success?: boolean; channels?: Channel[] }) => {
         if (!cancelled && data.success && data.channels) {
           setChannels(data.channels);
+          const maxNum = data.channels.reduce(
+            (max, ch) => Math.max(max, Number(ch.channel_number) || 0),
+            0,
+          );
+          if (maxNum > 0) setNewChanNum(maxNum + 1);
+          setSelectedChannel((current) =>
+            current === "ch-01" && data.channels?.[0]
+              ? data.channels[0].id
+              : current,
+          );
         }
       })
       .catch(() => {

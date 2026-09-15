@@ -47,6 +47,16 @@ describe("provisionCustomChannel", () => {
     );
   });
 
+  it("rejects a duplicate channel number", async () => {
+    await expect(
+      provisionCustomChannel({
+        channelNumber: 1,
+        channelName: "Duplicate Main",
+        category: "CUSTOM",
+      }),
+    ).rejects.toThrow("Failed to create custom channel");
+  });
+
   it("falls back to in-memory when Postgres is unreachable", async () => {
     query.mockRejectedValueOnce(
       Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }),

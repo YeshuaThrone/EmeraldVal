@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import GlassCard from "../components/GlassCard";
 
 export interface NetworkAnalyticsSummary {
   totalWatchSeconds: number;
@@ -81,6 +82,13 @@ export const NetworkAnalyticsDashboard: React.FC = () => {
           {error}. Showing empty totals until the broadcast database is online.
         </p>
       ) : null}
+
+      <div className="mb-10">
+        <GlassCard
+          title="System Active"
+          subtitle="Real-time ledger pipeline"
+        />
+      </div>
 
       <div className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
         <StatCard
