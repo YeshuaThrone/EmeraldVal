@@ -139,4 +139,52 @@ export class CableDatabaseEngine {
       ],
     );
   }
+
+  public static async loadViewerAnalytics(): Promise<{
+    totalWatchSeconds: number;
+    uniqueViewers: number;
+    channelSwitches: number;
+    byChannel: Array<{ channelId: string; watchSeconds: number; views: number }>;
+    bySegment: Array<{ segmentId: string; watchSeconds: number; views: number }>;
+  }> {
+    const totals = await dbPool.query(
+      `SELECT
+         COALESCE(SUM(watch_time_seconds), 0)::int AS watch_seconds,
+         COUNT(DISTINCT viewer_id)::int AS unique_viewers,
+         COUNT(*) FILTER (WHERE switched_from_channel_id IS NOT NULL)::int AS switches
+       FROM viewer_analytics`,
+    );
+    const byChannel = await dbPool.query(
+      `SELECT channel_id AS id,
+              COALESCE(SUM(watch_time_seconds), 0)::int AS watch_seconds,
+              COUNT(*)::int AS views
+       FROM viewer_analytics
+       GROUP BY channel_id
+       ORDER BY watch_seconds DESC`,
+    );
+    const bySegment = await dbPool.query(
+      `SELECT segment_id AS id,
+              COALESCE(SUM(watch_time_seconds), 0)::int AS watch_seconds,
+              COUNT(*)::int AS views
+       FROM viewer_analytics
+       GROUP BY segment_id
+       ORDER BY watch_seconds DESC`,
+    );
+    const row = totals.rows[0] ?? {};
+    return {
+      totalWatchSeconds: Number(row.watch_seconds ?? 0),
+      uniqueViewers: Number(row.unique_viewers ?? 0),
+      channelSwitches: Number(row.switches ?? 0),
+      byChannel: byChannel.rows.map((r) => ({
+        channelId: String(r.id ?? "unknown"),
+        watchSeconds: Number(r.watch_seconds ?? 0),
+        views: Number(r.views ?? 0),
+      })),
+      bySegment: bySegment.rows.map((r) => ({
+        segmentId: String(r.id ?? "unknown"),
+        watchSeconds: Number(r.watch_seconds ?? 0),
+        views: Number(r.views ?? 0),
+      })),
+    };
+  }
 }

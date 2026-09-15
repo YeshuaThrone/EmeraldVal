@@ -11,3 +11,4 @@ export const VENUE_ROUTE = "/venue";
 export const STREAMING_ROUTE = "/streaming";
 export const STREAMING_ADMIN_ROUTE = "/streaming/admin";
 export const STREAMING_ONBOARD_ROUTE = "/streaming/onboard";
+export const STREAMING_ANALYTICS_ROUTE = "/streaming/analytics";

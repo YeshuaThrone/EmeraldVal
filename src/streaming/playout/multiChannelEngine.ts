@@ -39,6 +39,12 @@ export interface CurrentPlayout {
 export class MultiChannelEngine {
   private networks: Map<string, ChannelNetworkConfig> = new Map();
 
+  constructor(initialChannels: ChannelNetworkConfig[] = []) {
+    for (const channel of initialChannels) {
+      this.registerChannel(channel);
+    }
+  }
+
   public registerChannel(config: ChannelNetworkConfig): void {
     this.networks.set(config.channelId, structuredClone(config));
   }

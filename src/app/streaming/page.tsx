@@ -2,23 +2,21 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { RetroCablePlayer } from "@/streaming/components/RetroCablePlayer";
+import { RetroPlayerContainer } from "@/streaming/components/RetroPlayerContainer";
 import { RetroTVGuide } from "@/streaming/components/RetroTVGuide";
 import { cloneChannelPresets } from "@/streaming/config/channelPresets";
 import { MultiChannelEngine } from "@/streaming/playout/multiChannelEngine";
 import {
   STREAMING_ADMIN_ROUTE,
+  STREAMING_ANALYTICS_ROUTE,
   STREAMING_ONBOARD_ROUTE,
 } from "@/lib/routes";
 
 export default function StreamingPage() {
-  const engine = useMemo(() => {
-    const next = new MultiChannelEngine();
-    for (const channel of cloneChannelPresets()) {
-      next.registerChannel(channel);
-    }
-    return next;
-  }, []);
+  const engine = useMemo(
+    () => new MultiChannelEngine(cloneChannelPresets()),
+    [],
+  );
   const [channelId, setChannelId] = useState("ch-haven");
 
   return (
@@ -38,6 +36,12 @@ export default function StreamingPage() {
             Control Workspace
           </Link>
           <Link
+            href={STREAMING_ANALYTICS_ROUTE}
+            className="rounded border border-slate-600 bg-slate-800 px-3 py-1.5 text-slate-100"
+          >
+            Analytics
+          </Link>
+          <Link
             href={STREAMING_ONBOARD_ROUTE}
             className="rounded border border-yellow-500 bg-yellow-600/80 px-3 py-1.5 text-black"
           >
@@ -45,7 +49,7 @@ export default function StreamingPage() {
           </Link>
         </nav>
       </header>
-      <RetroCablePlayer
+      <RetroPlayerContainer
         key={channelId}
         engine={engine}
         initialChannelId={channelId}

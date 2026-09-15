@@ -21,6 +21,16 @@ export class CableSoundFX {
     return this.audioCtx;
   }
 
+  /** Resume the AudioContext from a user gesture (power-on). */
+  public static unlockAudio() {
+    try {
+      this.getContext();
+      this.playChannelClick();
+    } catch (e) {
+      console.warn("Audio FX blocked by browser policy:", e);
+    }
+  }
+
   /**
    * Synthesizes an authentic mechanical channel switch click sound
    */

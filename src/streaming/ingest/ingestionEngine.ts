@@ -10,12 +10,6 @@ export interface IngestRequest {
   socialHandle?: string;
 }
 
-const INGEST_TYPES: NonNullable<IngestRequest["type"]>[] = [
-  "SHOW",
-  "CREATOR_PROMO",
-  "STATION_ID",
-];
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -47,9 +41,12 @@ export class VideoIngestionEngine {
     }
 
     const rawType = asString(body.type);
-    const type = INGEST_TYPES.includes(rawType as IngestRequest["type"])
-      ? (rawType as IngestRequest["type"])
-      : "SHOW";
+    const type: IngestRequest["type"] =
+      rawType === "SHOW" ||
+      rawType === "CREATOR_PROMO" ||
+      rawType === "STATION_ID"
+        ? rawType
+        : "SHOW";
 
     return {
       sourceUrl,

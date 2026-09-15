@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "broadcast": "tsx src/streaming/server/server.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
@@ -21,6 +22,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.9.1",
     "stripe": "^22.6.0"
   },
   "devDependencies": {
@@ -35,6 +37,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",
+    "tsx": "^4.20.5",
     "typescript": "^5",
     "vitest": "^4.1.11"
   }
