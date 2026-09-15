@@ -1,4 +1,4 @@
-import { CableDatabaseEngine } from "../db/dbEngine";
+import { CableDatabaseEngine, isUnavailableDb } from "../db/dbEngine";
 
 export interface SponsorCampaign {
   id: string;
@@ -70,8 +70,7 @@ export async function provisionSponsorCampaign(input: {
       totalBudget,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (!/ECONNREFUSED|ENOTFOUND|connect ECONNREFUSED|timeout/i.test(message)) {
+    if (!isUnavailableDb(err)) {
       throw new Error("Failed to create sponsor campaign");
     }
   }

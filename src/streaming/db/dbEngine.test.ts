@@ -94,4 +94,15 @@ describe("CableDatabaseEngine", () => {
     expect(clientQuery).toHaveBeenCalledWith("COMMIT");
     expect(release).toHaveBeenCalled();
   });
+
+  it("treats missing tables as an unavailable database", async () => {
+    const { isUnavailableDb } = await import("./dbEngine");
+    expect(
+      isUnavailableDb(
+        Object.assign(new Error("relation ad_campaigns does not exist"), {
+          code: "42P01",
+        }),
+      ),
+    ).toBe(true);
+  });
 });

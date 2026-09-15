@@ -1,14 +1,24 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { provisionSponsorCampaign } from "./sponsorCampaigns";
 
-vi.mock("../db/dbEngine", () => ({
-  CableDatabaseEngine: {
-    insertAdCampaign: vi.fn().mockRejectedValue(
-      Object.assign(new Error("connect ECONNREFUSED"), { code: "ECONNREFUSED" }),
-    ),
-    loadAdCampaigns: vi.fn().mockRejectedValue(new Error("connect ECONNREFUSED")),
-  },
-}));
+vi.mock("../db/dbEngine", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../db/dbEngine")>();
+  return {
+    ...actual,
+    CableDatabaseEngine: {
+      insertAdCampaign: vi.fn().mockRejectedValue(
+        Object.assign(new Error("relation ad_campaigns does not exist"), {
+          code: "42P01",
+        }),
+      ),
+      loadAdCampaigns: vi.fn().mockRejectedValue(
+        Object.assign(new Error("relation ad_campaigns does not exist"), {
+          code: "42P01",
+        }),
+      ),
+    },
+  };
+});
 
 describe("provisionSponsorCampaign", () => {
   afterEach(() => {

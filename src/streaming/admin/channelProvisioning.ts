@@ -1,4 +1,4 @@
-import { dbPool } from "../db/dbEngine";
+import { dbPool, isUnavailableDb } from "../db/dbEngine";
 import {
   bumperTypeToSegmentType,
   InterstitialGenerator,
@@ -173,23 +173,4 @@ function bridgeInMemory(channel: LineupChannelRow): number {
     durationSeconds: bumper.durationSeconds,
   });
   return 1;
-}
-
-function isUnavailableDb(err: unknown): boolean {
-  const code =
-    typeof err === "object" && err && "code" in err
-      ? String((err as { code: unknown }).code)
-      : "";
-  if (
-    code === "ECONNREFUSED" ||
-    code === "ENOTFOUND" ||
-    code === "ETIMEDOUT" ||
-    code === "ECONNRESET"
-  ) {
-    return true;
-  }
-  const message = err instanceof Error ? err.message : String(err);
-  return /ECONNREFUSED|ENOTFOUND|connect ECONNREFUSED|timeout|the database system is starting/i.test(
-    message,
-  );
 }

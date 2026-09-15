@@ -9,12 +9,16 @@ import { getStreamingEngine } from "../server/apiRoutes";
 const query = vi.fn();
 const connect = vi.fn();
 
-vi.mock("../db/dbEngine", () => ({
-  dbPool: {
-    query: (...args: unknown[]) => query(...args),
-    connect: (...args: unknown[]) => connect(...args),
-  },
-}));
+vi.mock("../db/dbEngine", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../db/dbEngine")>();
+  return {
+    ...actual,
+    dbPool: {
+      query: (...args: unknown[]) => query(...args),
+      connect: (...args: unknown[]) => connect(...args),
+    },
+  };
+});
 
 describe("buildCustomChannelId", () => {
   it("slugs the channel number and name", () => {

@@ -1,6 +1,29 @@
 import { Pool } from "pg";
 import type { ChannelNetworkConfig } from "../playout/multiChannelEngine";
 
+/** True when Postgres is missing, unreachable, or missing WORFI tables. */
+export function isUnavailableDb(err: unknown): boolean {
+  const code =
+    typeof err === "object" && err && "code" in err
+      ? String((err as { code: unknown }).code)
+      : "";
+  if (
+    code === "ECONNREFUSED" ||
+    code === "ENOTFOUND" ||
+    code === "ETIMEDOUT" ||
+    code === "ECONNRESET" ||
+    code === "28P01" ||
+    code === "3D000" ||
+    code === "42P01"
+  ) {
+    return true;
+  }
+  const message = err instanceof Error ? err.message : String(err);
+  return /ECONNREFUSED|ENOTFOUND|connect ECONNREFUSED|timeout|does not exist|password authentication|the database system is starting/i.test(
+    message,
+  );
+}
+
 let pool: Pool | undefined;
 
 export function getDbPool(): Pool {
