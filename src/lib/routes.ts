@@ -8,3 +8,6 @@ export const ADMIN_ROUTE = "/admin";
 export const FESTIVAL_ROUTE = "/festival";
 export const ARTIST_ROUTE = "/artist";
 export const VENUE_ROUTE = "/venue";
+export const STREAMING_ROUTE = "/streaming";
+export const STREAMING_ADMIN_ROUTE = "/streaming/admin";
+export const STREAMING_ONBOARD_ROUTE = "/streaming/onboard";

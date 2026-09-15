@@ -189,3 +189,12 @@ body {
       0 0 26px 10px rgba(0, 168, 232, 0.85);
   }
 }
+
+@keyframes atx-marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
