@@ -16,6 +16,8 @@
   --color-atx-line: #e7e5e4;
   --font-sans: var(--font-dm-sans);
   --font-display: var(--font-outfit);
+  --font-epg: var(--font-worfi-epg), ui-sans-serif, sans-serif;
+  --font-osd: var(--font-worfi-osd), ui-monospace, monospace;
 }
 
 html,
