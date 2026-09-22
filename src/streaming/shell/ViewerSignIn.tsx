@@ -24,7 +24,7 @@ export const ViewerSignIn: React.FC<{
     <div className="font-epg flex min-h-screen select-none flex-col items-center justify-center bg-[#050814] p-4 text-slate-100 sm:p-8">
       <div className="w-full max-w-md rounded-xl border-t border-r border-l border-blue-500/50 border-b-2 border-b-blue-600/80 bg-gradient-to-b from-blue-950 via-slate-900 to-[#050814] p-8 shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
         <h1 className="text-center text-3xl font-black tracking-widest text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.9)]">
-          Wurfi <span className="text-yellow-400">Network</span>
+          WURFI <span className="text-yellow-400">NETWORK</span>
         </h1>
         <p className="mt-3 text-center text-xs tracking-wider text-blue-200/80 uppercase">
           Viewer sign-in

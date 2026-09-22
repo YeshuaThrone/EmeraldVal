@@ -44,7 +44,7 @@ export const WURFI_DEMO_LINEUP: ProgramItem[] = [
     chNumber: "04",
     station: "ATX LOCAL NEWS",
     nowPlaying: "Live Feed",
-    nowCreator: "Wurfi Network",
+    nowCreator: "WURFI NETWORK",
     upNext: "Travis County Traffic & Weather",
     nextCreator: "ATX Weather Network",
     streamUrl:
@@ -74,7 +74,9 @@ function formatAustinClock(now: Date): string {
   }).format(now);
 }
 
-export const WorfiAppShell: React.FC = () => {
+export const WorfiAppShell: React.FC<{ livePreview?: boolean }> = ({
+  livePreview = false,
+}) => {
   const [hydrated, setHydrated] = useState(false);
   const [viewer, setViewer] = useState<ViewerSession | null>(null);
 
@@ -83,15 +85,15 @@ export const WorfiAppShell: React.FC = () => {
     setHydrated(true);
   }, []);
 
-  if (!hydrated) {
+  if (!livePreview && !hydrated) {
     return (
       <div className="font-epg flex min-h-screen items-center justify-center bg-[#050814] text-yellow-400">
-        <p className="text-sm font-black tracking-widest">Wurfi</p>
+        <p className="text-sm font-black tracking-widest">WURFI</p>
       </div>
     );
   }
 
-  if (!viewer) {
+  if (!livePreview && !viewer) {
     return <ViewerSignIn onSignedIn={setViewer} />;
   }
 
@@ -100,38 +102,48 @@ export const WorfiAppShell: React.FC = () => {
       <header className="mb-6 flex w-full max-w-6xl flex-col items-center justify-between rounded-t-xl border-t border-r border-l border-blue-500/50 border-b-2 border-b-blue-600/80 bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 p-4 shadow-[0_4px_20px_rgba(0,0,0,0.6)] sm:flex-row">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-black tracking-widest text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.9)]">
-            Wurfi <span className="text-yellow-400">Network</span>
+            WURFI <span className="text-yellow-400">NETWORK</span>
           </h1>
         </div>
 
-        <div className="mt-4 flex items-center gap-3 text-xs font-black tracking-wider uppercase sm:mt-0">
-          <span className="text-blue-100">Watching as {viewer.displayName}</span>
-          <button
-            type="button"
-            onClick={() => {
-              clearViewerSession();
-              setViewer(null);
-            }}
-            className="rounded border-2 border-blue-600 bg-blue-900/60 px-4 py-1.5 text-blue-100 transition hover:bg-blue-800"
-          >
-            Sign out
-          </button>
-        </div>
+        {livePreview ? (
+          <span className="mt-4 text-xs font-black tracking-wider text-yellow-400 uppercase sm:mt-0">
+            LIVE PREVIEW
+          </span>
+        ) : (
+          <div className="mt-4 flex items-center gap-3 text-xs font-black tracking-wider uppercase sm:mt-0">
+            <span className="text-blue-100">
+              Watching as {viewer?.displayName}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                clearViewerSession();
+                setViewer(null);
+              }}
+              className="rounded border-2 border-blue-600 bg-blue-900/60 px-4 py-1.5 text-blue-100 transition hover:bg-blue-800"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </header>
 
       <main className="flex w-full justify-center">
-        <WorfiGuidePlayerView />
+        <WorfiGuidePlayerView autoPlay={livePreview} />
       </main>
     </div>
   );
 };
 
-export const WorfiGuidePlayerView: React.FC = () => {
+export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
+  autoPlay = false,
+}) => {
   const [selectedChannel, setSelectedChannel] =
     useState<ProgramItem>(DEFAULT_CHANNEL);
   const [headlines, setHeadlines] = useState<NewsHeadline[]>([]);
   const [currentNewsIdx, setCurrentNewsIdx] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(autoPlay);
   const [clock, setClock] = useState("09:13 PM CDT");
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -166,24 +178,39 @@ export const WorfiGuidePlayerView: React.FC = () => {
     let hls: { destroy: () => void } | null = null;
 
     const bind = async () => {
+      const tryPlay = () => {
+        if (!autoPlay) return;
+        video.muted = true;
+        void video
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false));
+      };
+
       if (url.includes(".m3u8")) {
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = url;
+          tryPlay();
           return;
         }
         const { default: Hls } = await import("hls.js");
         if (cancelled || !videoRef.current) return;
         if (!Hls.isSupported()) {
           video.src = url;
+          tryPlay();
           return;
         }
         const instance = new Hls({ enableWorker: false });
         instance.loadSource(url);
         instance.attachMedia(video);
+        instance.on(Hls.Events.MANIFEST_PARSED, () => {
+          tryPlay();
+        });
         hls = instance;
         return;
       }
       video.src = url;
+      tryPlay();
     };
 
     void bind();
@@ -193,7 +220,7 @@ export const WorfiGuidePlayerView: React.FC = () => {
       video.removeAttribute("src");
       video.load();
     };
-  }, [selectedChannel]);
+  }, [selectedChannel, autoPlay]);
 
   const togglePower = () => {
     const video = videoRef.current;
@@ -237,6 +264,8 @@ export const WorfiGuidePlayerView: React.FC = () => {
         <video
           ref={videoRef}
           playsInline
+          muted={autoPlay}
+          autoPlay={autoPlay}
           className="h-full w-full object-cover"
         />
 
@@ -303,7 +332,7 @@ export const WorfiGuidePlayerView: React.FC = () => {
                     key={prog.chNumber}
                     onClick={() => {
                       setSelectedChannel(prog);
-                      setIsPlaying(false);
+                      if (!autoPlay) setIsPlaying(false);
                     }}
                     className={`cursor-pointer transition ${
                       isSelected

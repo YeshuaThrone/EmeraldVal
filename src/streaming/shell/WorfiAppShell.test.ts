@@ -13,11 +13,13 @@ const signInSrc = readFileSync(
 );
 
 describe("WorfiAppShell", () => {
-  it("ships the four-channel Wurfi demo lineup defaulting to CH 04 news", () => {
-    expect(src).toContain("Wurfi");
+  it("ships the four-channel WURFI demo lineup defaulting to CH 04 news", () => {
+    expect(src).toContain("WURFI");
+    expect(src).toContain("WURFI NETWORK");
     expect(src).toContain("WURFI MAIN");
     expect(src).not.toContain("WERFIE");
     expect(src).not.toContain("WORFI NETWORK");
+    expect(src).not.toContain("Wurfi Network");
     expect(src).not.toContain('station: "WORFI MAIN"');
     expect(src).toContain('station: "WURFI MAIN"');
     expect(src).toContain('station: "CLASSIC CARTOONS"');
@@ -43,7 +45,8 @@ describe("WorfiAppShell", () => {
 
   it("is viewership-only: sign-in then player, no creator or sponsor signup", () => {
     expect(src).toContain("ViewerSignIn");
-    expect(src).toContain("WorfiGuidePlayerView");
+    expect(src).toContain("livePreview");
+    expect(src).toContain("autoPlay={livePreview}");
     expect(src).not.toContain("SPONSOR_ONBOARDING");
     expect(src).not.toContain("WorfiSponsorPortal");
     expect(src).not.toContain("AdminLineupManager");
@@ -52,7 +55,9 @@ describe("WorfiAppShell", () => {
     expect(src).not.toContain("AUSTIN CABLE BROADCAST");
     expect(src).not.toContain("Austin Evening News Broadcast");
     expect(src).not.toContain("Austin News Broadcast");
-    expect(signInSrc).toContain("Wurfi");
+    expect(signInSrc).toContain("WURFI");
+    expect(signInSrc).toContain("NETWORK");
+    expect(signInSrc).not.toContain("Wurfi Network");
     expect(signInSrc).not.toContain("WORFI");
     expect(signInSrc).toContain("Viewer sign-in");
     expect(signInSrc).toContain("Watch the lineup");

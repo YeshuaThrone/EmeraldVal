@@ -1,12 +1,7 @@
 "use client";
 
-import React from "react";
-import { WorfiPreviewSDK } from "@/streaming/preview/WorfiPreviewSDK";
+import { WorfiAppShell } from "@/streaming/shell/WorfiAppShell";
 
 export default function PreviewPage() {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
-      <WorfiPreviewSDK />
-    </div>
-  );
+  return <WorfiAppShell livePreview />;
 }

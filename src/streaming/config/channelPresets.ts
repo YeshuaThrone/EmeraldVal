@@ -96,7 +96,7 @@ export const CHANNEL_PRESETS: ChannelNetworkConfig[] = [
       {
         id: "vid-8830",
         title: "Midnight Modular Modular",
-        creatorName: "Wurfi Network",
+        creatorName: "WURFI NETWORK",
         type: "SHOW",
         videoUrl: SAMPLE.elephants,
         durationSeconds: 1200,

@@ -78,11 +78,11 @@ export const RetroTVGuide: React.FC<GuideProps> = ({
             {networks.map((net) => {
               const playhead = engine.getCurrentPlayhead(net.channelId);
               const currentShow = playhead.segment || {
-                title: "Wurfi Standby",
+                title: "WURFI STANDBY",
                 creatorName: "Network",
               };
               const nextShow = playhead.nextSegment || {
-                title: "Wurfi Interstitial",
+                title: "WURFI INTERSTITIAL",
                 creatorName: "Network",
               };
 

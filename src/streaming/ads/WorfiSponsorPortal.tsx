@@ -49,7 +49,7 @@ export const WorfiSponsorPortal: React.FC = () => {
         <p className="text-[10px] font-bold tracking-widest text-yellow-400 uppercase">
           Sponsor Onboarding
         </p>
-        <h2 className="text-2xl font-black text-white">Book a Wurfi Buy</h2>
+        <h2 className="text-2xl font-black text-white">Book a WURFI Buy</h2>
         <p className="mt-1 text-xs text-slate-400">
           Local advertisers provision CPM campaigns onto the linear grid.
         </p>
