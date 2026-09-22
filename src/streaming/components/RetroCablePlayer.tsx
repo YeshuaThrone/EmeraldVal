@@ -46,7 +46,7 @@ export const RetroCablePlayer: React.FC<PlayerProps> = ({
   const currentChannel = channels[currentChannelIndex] || {
     channelId: "ch-worfi",
     channelNumber: 1,
-    channelName: "WORFI MAIN",
+    channelName: "WURFI MAIN",
   };
 
   useEffect(() => {
@@ -95,7 +95,7 @@ export const RetroCablePlayer: React.FC<PlayerProps> = ({
         {isFlipping && (
           <div className="absolute inset-0 z-40 flex items-center justify-center bg-slate-900 opacity-90">
             <div className="text-sm font-bold tracking-widest text-yellow-400">
-              WORFI SWITCHING...
+              WURFI SWITCHING...
             </div>
           </div>
         )}
@@ -123,7 +123,7 @@ export const RetroCablePlayer: React.FC<PlayerProps> = ({
               channelNumber={currentChannel.channelNumber}
               channelName={currentChannel.channelName}
               showTitle={playhead.segment.title}
-              creatorName={playhead.segment.creatorName || "Worfi Creator"}
+              creatorName={playhead.segment.creatorName || "Wurfi Creator"}
               nextShowTitle={playhead.nextSegment?.title}
               playbackPositionSeconds={playhead.segment.positionSeconds}
               totalDurationSeconds={playhead.segment.durationSeconds}
@@ -139,7 +139,7 @@ export const RetroCablePlayer: React.FC<PlayerProps> = ({
         {showOSD && (
           <div className="absolute top-6 left-6 z-40 rounded-r-xl border-y border-r border-l-4 border-blue-800/40 border-l-yellow-400 bg-gradient-to-r from-blue-950/90 via-slate-900/90 to-blue-900/80 px-5 py-3 shadow-2xl backdrop-blur-md">
             <div className="text-[10px] font-black tracking-widest text-yellow-400 uppercase">
-              WORFI CABLE BROADCAST
+              WURFI CABLE BROADCAST
             </div>
             <div className="text-xl font-extrabold text-white">
               CH {String(currentChannel.channelNumber).padStart(2, "0")} •{" "}
@@ -157,7 +157,7 @@ export const RetroCablePlayer: React.FC<PlayerProps> = ({
             ▼ CH -
           </button>
           <div className="px-2 text-xs font-bold text-slate-300">
-            WORFI NETWORK
+            WURFI NETWORK
           </div>
           <button
             type="button"

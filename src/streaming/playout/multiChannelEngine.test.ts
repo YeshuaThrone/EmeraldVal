@@ -21,7 +21,7 @@ describe("MultiChannelEngine", () => {
       "ch-atx-01",
       "ch-haven",
     ]);
-    expect(list[0]?.name).toBe("WORFI MAIN");
+    expect(list[0]?.name).toBe("WURFI MAIN");
   });
 
   it("resolves the active segment from the looping grid", () => {

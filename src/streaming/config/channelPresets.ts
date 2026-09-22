@@ -17,7 +17,7 @@ export const CHANNEL_PRESETS: ChannelNetworkConfig[] = [
   {
     channelId: "ch-01",
     channelNumber: 1,
-    channelName: "WORFI MAIN",
+    channelName: "WURFI MAIN",
     category: "ATX Live Sessions",
     stationBugLogoUrl: "",
     programmingGrid: [
@@ -81,7 +81,7 @@ export const CHANNEL_PRESETS: ChannelNetworkConfig[] = [
   {
     channelId: "ch-atx-01",
     channelNumber: 11,
-    channelName: "WORFI MAIN",
+    channelName: "WURFI MAIN",
     category: "ATX Live Sessions",
     stationBugLogoUrl: "",
     programmingGrid: [
@@ -96,7 +96,7 @@ export const CHANNEL_PRESETS: ChannelNetworkConfig[] = [
       {
         id: "vid-8830",
         title: "Midnight Modular Modular",
-        creatorName: "Worfi Network",
+        creatorName: "Wurfi Network",
         type: "SHOW",
         videoUrl: SAMPLE.elephants,
         durationSeconds: 1200,

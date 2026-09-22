@@ -1,7 +1,7 @@
 import { Pool } from "pg";
 import type { ChannelNetworkConfig } from "../playout/multiChannelEngine";
 
-/** True when Postgres is missing, unreachable, or missing WORFI tables. */
+/** True when Postgres is missing, unreachable, or missing Wurfi tables. */
 export function isUnavailableDb(err: unknown): boolean {
   const code =
     typeof err === "object" && err && "code" in err

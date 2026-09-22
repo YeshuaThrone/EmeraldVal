@@ -15,10 +15,10 @@ export interface RoyaltyFreeChannel {
   streamUrl: string;
 }
 
-export const WORFI_FREE_LINEUP: RoyaltyFreeChannel[] = [
+export const WURFI_FREE_LINEUP: RoyaltyFreeChannel[] = [
   {
     chNumber: "01",
-    station: "WORFI MAIN",
+    station: "WURFI MAIN",
     title: "Night of the Living Dead (1968)",
     rights: "PUBLIC_DOMAIN",
     streamUrl:
@@ -42,8 +42,8 @@ export const WORFI_FREE_LINEUP: RoyaltyFreeChannel[] = [
   },
 ];
 
-const DEFAULT_CHANNEL: RoyaltyFreeChannel = WORFI_FREE_LINEUP[2] ??
-  WORFI_FREE_LINEUP[0]!;
+const DEFAULT_CHANNEL: RoyaltyFreeChannel = WURFI_FREE_LINEUP[2] ??
+  WURFI_FREE_LINEUP[0]!;
 
 export const WorfiPreviewSDK: React.FC = () => {
   const [activeChannel, setActiveChannel] =
@@ -90,7 +90,7 @@ export const WorfiPreviewSDK: React.FC = () => {
     <div className="mx-auto w-full max-w-4xl rounded-xl border-2 border-blue-600 bg-slate-950 p-6 font-sans text-white shadow-2xl">
       <div className="mb-4 flex items-center justify-between border-b border-blue-800 pb-3">
         <h2 className="text-xl font-black tracking-wider text-yellow-400">
-          WORFI PREVIEW SDK • LIVE NEWS & ROYALTY-FREE PLAYER
+          WURFI PREVIEW SDK • LIVE NEWS & ROYALTY-FREE PLAYER
         </h2>
         <span className="rounded border border-emerald-500/40 bg-emerald-500/20 px-2.5 py-1 font-mono text-xs text-emerald-400">
           PREVIEW READY
@@ -143,7 +143,7 @@ export const WorfiPreviewSDK: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        {WORFI_FREE_LINEUP.map((ch) => (
+        {WURFI_FREE_LINEUP.map((ch) => (
           <button
             type="button"
             key={ch.chNumber}

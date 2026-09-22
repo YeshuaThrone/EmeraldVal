@@ -81,7 +81,7 @@ export const WorfiLiveChat: React.FC<WorfiLiveChatProps> = ({ channelId }) => {
       <header className="flex items-center justify-between border-b border-blue-900/60 px-4 py-3">
         <div>
           <div className="text-[10px] font-black tracking-widest text-yellow-400 uppercase">
-            Worfi Live Chat
+            Wurfi Live Chat
           </div>
           <div className="truncate text-xs text-slate-400">{channelId}</div>
         </div>

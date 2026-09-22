@@ -1,4 +1,4 @@
-# WORFI Next.js app image used by docker-compose.yml (development).
+# Wurfi Next.js app image used by docker-compose.yml (development).
 # Binds 0.0.0.0 so published Compose ports work. Postgres is not opened at import time.
 FROM node:20-bookworm-slim
 

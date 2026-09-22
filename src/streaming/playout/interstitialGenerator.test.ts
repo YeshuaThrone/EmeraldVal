@@ -16,7 +16,7 @@ vi.mock("../db/dbEngine", () => ({
 
 describe("InterstitialGenerator.getPresetBumper", () => {
   it("uses a station ID for gaps of 15s or less", () => {
-    const bumper = InterstitialGenerator.getPresetBumper("WORFI MAIN", 1, 10);
+    const bumper = InterstitialGenerator.getPresetBumper("WURFI MAIN", 1, 10);
     expect(bumper.type).toBe("STATION_ID");
     expect(bumper.title).toContain("CH 01");
     expect(bumper.durationSeconds).toBe(10);
@@ -29,7 +29,7 @@ describe("InterstitialGenerator.getPresetBumper", () => {
   });
 
   it("uses a network promo for longer gaps", () => {
-    const bumper = InterstitialGenerator.getPresetBumper("WORFI MAIN", 1, 240);
+    const bumper = InterstitialGenerator.getPresetBumper("WURFI MAIN", 1, 240);
     expect(bumper.type).toBe("PROMO");
     expect(bumperTypeToSegmentType(bumper.type)).toBe("CREATOR_PROMO");
   });
@@ -55,7 +55,7 @@ describe("InterstitialGenerator.autoBridgeScheduleGaps", () => {
 
     const inserted = await InterstitialGenerator.autoBridgeScheduleGaps(
       "ch-atx-01",
-      "WORFI MAIN",
+      "WURFI MAIN",
       1,
     );
 
@@ -77,7 +77,7 @@ describe("InterstitialGenerator.autoBridgeScheduleGaps", () => {
     connect.mockResolvedValue({ query: clientQuery, release: vi.fn() });
 
     await expect(
-      InterstitialGenerator.autoBridgeScheduleGaps("ch-empty", "WORFI", 1),
+      InterstitialGenerator.autoBridgeScheduleGaps("ch-empty", "WURFI", 1),
     ).resolves.toBe(0);
   });
 });

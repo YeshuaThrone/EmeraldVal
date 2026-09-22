@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS channel_programs (
 
 INSERT INTO channels (id, channel_number, channel_name, category, is_active)
 VALUES
-  ('ch-01', 1, 'WORFI MAIN', 'ATX Live Sessions', true),
+  ('ch-01', 1, 'WURFI MAIN', 'ATX Live Sessions', true),
   ('ch-02', 2, 'NASA TV', 'Public Domain', true)
 ON CONFLICT (id) DO NOTHING;
 

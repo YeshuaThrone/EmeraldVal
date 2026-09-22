@@ -28,7 +28,7 @@ describe("runScheduleGapPass", () => {
   it("bridges active channels only", async () => {
     query.mockResolvedValueOnce({
       rows: [
-        { id: "ch-atx-01", channel_name: "WORFI MAIN", channel_number: 1 },
+        { id: "ch-atx-01", channel_name: "WURFI MAIN", channel_number: 1 },
         { id: "ch-haven", channel_name: "HAVEN TV", channel_number: 2 },
       ],
     });

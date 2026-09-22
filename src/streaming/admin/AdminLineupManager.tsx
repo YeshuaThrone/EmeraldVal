@@ -112,7 +112,7 @@ export const AdminLineupManager: React.FC = () => {
       <div className="mb-6 flex items-center justify-between border-b border-blue-900/60 pb-4">
         <div>
           <h1 className="text-2xl font-black text-yellow-400">
-            WORFI NETWORK CONTROL CENTER
+            WURFI NETWORK CONTROL CENTER
           </h1>
           <p className="text-xs text-blue-300/80">
             Internal Operator Portal • EPG Grid & Channel Orchestration

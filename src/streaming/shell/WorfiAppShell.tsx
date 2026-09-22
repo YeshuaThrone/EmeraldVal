@@ -19,10 +19,10 @@ interface ProgramItem {
   streamUrl: string;
 }
 
-export const WORFI_DEMO_LINEUP: ProgramItem[] = [
+export const WURFI_DEMO_LINEUP: ProgramItem[] = [
   {
     chNumber: "01",
-    station: "WORFI MAIN",
+    station: "WURFI MAIN",
     nowPlaying: "Night of the Living Dead (1968)",
     nowCreator: "Public Domain Feature",
     upNext: "Tears of Steel (4K Sci-Fi)",
@@ -44,7 +44,7 @@ export const WORFI_DEMO_LINEUP: ProgramItem[] = [
     chNumber: "04",
     station: "ATX LOCAL NEWS",
     nowPlaying: "Live Feed",
-    nowCreator: "WORFI Network",
+    nowCreator: "Wurfi Network",
     upNext: "Travis County Traffic & Weather",
     nextCreator: "ATX Weather Network",
     streamUrl:
@@ -62,7 +62,7 @@ export const WORFI_DEMO_LINEUP: ProgramItem[] = [
 ];
 
 const DEFAULT_CHANNEL =
-  WORFI_DEMO_LINEUP.find((p) => p.chNumber === "04") ?? WORFI_DEMO_LINEUP[0]!;
+  WURFI_DEMO_LINEUP.find((p) => p.chNumber === "04") ?? WURFI_DEMO_LINEUP[0]!;
 
 function formatAustinClock(now: Date): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -86,7 +86,7 @@ export const WorfiAppShell: React.FC = () => {
   if (!hydrated) {
     return (
       <div className="font-epg flex min-h-screen items-center justify-center bg-[#050814] text-yellow-400">
-        <p className="text-sm font-black tracking-widest">WORFI NETWORK</p>
+        <p className="text-sm font-black tracking-widest">Wurfi</p>
       </div>
     );
   }
@@ -100,7 +100,7 @@ export const WorfiAppShell: React.FC = () => {
       <header className="mb-6 flex w-full max-w-6xl flex-col items-center justify-between rounded-t-xl border-t border-r border-l border-blue-500/50 border-b-2 border-b-blue-600/80 bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 p-4 shadow-[0_4px_20px_rgba(0,0,0,0.6)] sm:flex-row">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-black tracking-widest text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.9)]">
-            WORFI <span className="text-yellow-400">NETWORK</span>
+            Wurfi <span className="text-yellow-400">Network</span>
           </h1>
         </div>
 
@@ -267,7 +267,7 @@ export const WorfiGuidePlayerView: React.FC = () => {
             <div className="flex items-center gap-2">
               <span className="inline-block h-3 w-3 rounded-full bg-yellow-400 shadow-[0_0_8px_#facc15]" />
               <h2 className="text-2xl font-black tracking-wider text-yellow-400">
-                WORFI PROGRAM GUIDE
+                WURFI PROGRAM GUIDE
               </h2>
             </div>
             <p className="mt-0.5 text-xs text-blue-200/80">
@@ -296,7 +296,7 @@ export const WorfiGuidePlayerView: React.FC = () => {
               </tr>
             </thead>
             <tbody className="font-epg divide-y divide-blue-900/60">
-              {WORFI_DEMO_LINEUP.map((prog) => {
+              {WURFI_DEMO_LINEUP.map((prog) => {
                 const isSelected = selectedChannel.chNumber === prog.chNumber;
                 return (
                   <tr

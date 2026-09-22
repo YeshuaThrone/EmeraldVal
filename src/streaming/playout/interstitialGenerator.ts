@@ -35,7 +35,7 @@ export class InterstitialGenerator {
       return {
         id: bumperId,
         title: `STATION IDENT • CH ${String(channelNumber).padStart(2, "0")}`,
-        creatorName: "WORFI NETWORK",
+        creatorName: "WURFI NETWORK",
         type: "STATION_ID",
         videoUrl: "https://cdn.worfi.tv/bumpers/short_station_id_10s.mp4",
         durationSeconds,
@@ -46,7 +46,7 @@ export class InterstitialGenerator {
       return {
         id: bumperId,
         title: `STAY TUNED TO ${channelName.toUpperCase()}`,
-        creatorName: "WORFI NETWORK",
+        creatorName: "WURFI NETWORK",
         type: "UP_NEXT_BUMPER",
         videoUrl: "https://cdn.worfi.tv/bumpers/up_next_promo_30s.mp4",
         durationSeconds,
@@ -55,8 +55,8 @@ export class InterstitialGenerator {
 
     return {
       id: bumperId,
-      title: "WORFI BROADCAST INTERSTITIAL",
-      creatorName: "WORFI NETWORK",
+      title: "WURFI BROADCAST INTERSTITIAL",
+      creatorName: "WURFI NETWORK",
       type: "PROMO",
       videoUrl: "https://cdn.worfi.tv/bumpers/network_promo_60s.mp4",
       durationSeconds,

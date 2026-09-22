@@ -48,11 +48,11 @@ export const RetroTVGuide: React.FC<GuideProps> = ({
           <div className="flex items-center gap-2">
             <span className="h-3 w-3 animate-pulse rounded-full bg-yellow-400" />
             <h1 className="text-2xl font-black tracking-widest text-yellow-400">
-              WORFI PROGRAM GUIDE
+              WURFI PROGRAM GUIDE
             </h1>
           </div>
           <p className="mt-1 text-xs text-blue-300/80">
-            Pronounced &quot;Wer-Fee&quot; • Synchronized 24/7 Cable Grid
+            Pronounced &quot;Wur-fee&quot; • Synchronized 24/7 Cable Grid
           </p>
         </div>
         <div className="rounded-lg border border-blue-900/50 bg-slate-900/80 px-4 py-2 text-right text-xs text-slate-400">
@@ -60,7 +60,7 @@ export const RetroTVGuide: React.FC<GuideProps> = ({
             NETWORK TIME:{" "}
             <span className="font-bold text-yellow-400">{networkTime}</span>
           </div>
-          <div className="text-[10px] text-slate-500">WORFI NETWORK</div>
+          <div className="text-[10px] text-slate-500">WURFI NETWORK</div>
         </div>
       </div>
 
@@ -78,11 +78,11 @@ export const RetroTVGuide: React.FC<GuideProps> = ({
             {networks.map((net) => {
               const playhead = engine.getCurrentPlayhead(net.channelId);
               const currentShow = playhead.segment || {
-                title: "Worfi Standby",
+                title: "Wurfi Standby",
                 creatorName: "Network",
               };
               const nextShow = playhead.nextSegment || {
-                title: "Worfi Interstitial",
+                title: "Wurfi Interstitial",
                 creatorName: "Network",
               };
 
