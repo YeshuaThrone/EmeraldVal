@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { AtxNewsService, type NewsHeadline } from "../news/atxNewsService";
+import {
+  FALLBACK_AUSTIN_HEADLINES,
+  loadAustinHeadlines,
+  AtxNewsService,
+  type NewsHeadline,
+} from "../news/atxNewsService";
 import { ViewerSignIn } from "./ViewerSignIn";
 import {
   clearViewerSession,
@@ -43,7 +48,7 @@ export const WURFI_DEMO_LINEUP: ProgramItem[] = [
   {
     chNumber: "04",
     station: "ATX LOCAL NEWS",
-    nowPlaying: "Live Feed",
+    nowPlaying: "Austin Local Headlines",
     nowCreator: "WURFI NETWORK",
     upNext: "Travis County Traffic & Weather",
     nextCreator: "ATX Weather Network",
@@ -141,18 +146,27 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
 }) => {
   const [selectedChannel, setSelectedChannel] =
     useState<ProgramItem>(DEFAULT_CHANNEL);
-  const [headlines, setHeadlines] = useState<NewsHeadline[]>([]);
+  const [headlines, setHeadlines] = useState<NewsHeadline[]>(
+    FALLBACK_AUSTIN_HEADLINES,
+  );
   const [currentNewsIdx, setCurrentNewsIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoPlay);
   const [clock, setClock] = useState("09:13 PM CDT");
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
-    void AtxNewsService.getLiveAustinHeadlines().then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        setHeadlines(data);
-      }
-    });
+    let cancelled = false;
+    const load = () => {
+      void loadAustinHeadlines().then((data) => {
+        if (!cancelled && data.length > 0) setHeadlines(data);
+      });
+    };
+    load();
+    const refresh = window.setInterval(load, 5 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(refresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -248,6 +262,8 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
   };
 
   const currentHeadline = headlines[currentNewsIdx];
+  const isNewsChannel = selectedChannel.chNumber === "04";
+  const tickerText = AtxNewsService.formatTicker(headlines);
 
   return (
     <div className="w-full max-w-6xl space-y-6">
@@ -269,7 +285,34 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
           className="h-full w-full object-cover"
         />
 
-        {!isPlaying && (
+        {isNewsChannel && currentHeadline && (
+          <div className="pointer-events-none absolute inset-0">
+            <span className="absolute top-3 left-3 rounded bg-red-600 px-2 py-1 text-[10px] font-black tracking-widest text-white">
+              ATX LOCAL NEWS • LIVE
+            </span>
+            <div className="absolute right-0 bottom-7 left-0 bg-gradient-to-t from-black/90 via-black/75 to-transparent px-4 pt-10 pb-3">
+              <div className="mb-1 inline-block bg-yellow-400 px-2 py-0.5 text-[10px] font-black tracking-widest text-blue-950">
+                {currentHeadline.category}
+              </div>
+              <p className="text-lg font-black leading-tight text-white drop-shadow-[1px_1px_0_#000] sm:text-2xl">
+                {currentHeadline.title}
+              </p>
+              <p className="mt-1 text-[10px] font-bold tracking-wider text-blue-200 uppercase">
+                {currentHeadline.source} • {currentHeadline.timestamp}
+              </p>
+            </div>
+            <div className="absolute right-0 bottom-0 left-0 overflow-hidden bg-yellow-400 py-1">
+              <div
+                className="font-epg whitespace-nowrap text-xs font-bold text-blue-950"
+                style={{ animation: "atx-marquee 22s linear infinite" }}
+              >
+                {tickerText} • {tickerText}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isPlaying && !isNewsChannel && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black p-4 text-center">
             <div className="font-osd mb-4 animate-pulse text-2xl tracking-widest text-emerald-400">
               {selectedChannel.station} • READY FOR PLAYOUT
@@ -288,6 +331,20 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
             </span>
           </div>
         )}
+      </div>
+
+      <div className="flex items-center gap-3 overflow-hidden rounded-xl border-2 border-yellow-400 bg-blue-950 p-2">
+        <span className="shrink-0 rounded bg-yellow-400 px-2.5 py-1 text-xs font-black text-blue-950 shadow-[1px_1px_0px_#000]">
+          ATX NEWS TICKER
+        </span>
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <div
+            className="font-epg whitespace-nowrap text-xs text-slate-200"
+            style={{ animation: "atx-marquee 22s linear infinite" }}
+          >
+            {tickerText} • {tickerText}
+          </div>
+        </div>
       </div>
 
       <div className="space-y-4 rounded-xl border-2 border-blue-600 bg-[#091026] p-5 shadow-2xl">
@@ -369,27 +426,6 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
               })}
             </tbody>
           </table>
-        </div>
-
-        <div className="flex items-center gap-3 rounded border border-blue-800 bg-blue-950 p-2 pt-2">
-          <span className="shrink-0 rounded bg-yellow-400 px-2.5 py-1 text-xs font-black text-blue-950 shadow-[1px_1px_0px_#000]">
-            ATX NEWS TICKER
-          </span>
-          <div className="font-epg truncate overflow-hidden text-xs whitespace-nowrap text-slate-200">
-            {currentHeadline ? (
-              <span>
-                <strong className="text-yellow-400">
-                  [{currentHeadline.category}]
-                </strong>{" "}
-                {currentHeadline.title} —{" "}
-                <span className="text-blue-400">
-                  {currentHeadline.timestamp}
-                </span>
-              </span>
-            ) : (
-              "Loading Austin municipal headlines..."
-            )}
-          </div>
         </div>
       </div>
     </div>

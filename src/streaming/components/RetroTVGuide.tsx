@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import type { MultiChannelEngine } from "../playout/multiChannelEngine";
-import { AtxNewsService } from "../news/atxNewsService";
+import { loadAustinHeadlines, AtxNewsService } from "../news/atxNewsService";
 
 interface GuideProps {
   engine: MultiChannelEngine;
@@ -26,7 +26,7 @@ export const RetroTVGuide: React.FC<GuideProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    void AtxNewsService.getLiveAustinHeadlines().then((headlines) => {
+    void loadAustinHeadlines().then((headlines) => {
       if (!cancelled) setTicker(AtxNewsService.formatTicker(headlines));
     });
     return () => {

@@ -35,11 +35,14 @@ describe("WorfiAppShell", () => {
     expect(src).toContain('import("hls.js")');
   });
 
-  it("gates video behind POWER and rotates the ATX news ticker", () => {
+  it("gates video behind POWER and puts ATX news on CH 04", () => {
     expect(src).toContain("PRESS TO UNLOCK BROADCAST AUDIO & VIDEO");
     expect(src).toContain("POWER");
     expect(src).toContain("ATX NEWS TICKER");
-    expect(src).toContain("AtxNewsService.getLiveAustinHeadlines()");
+    expect(src).toContain('loadAustinHeadlines()');
+    expect(src).toContain("ATX LOCAL NEWS • LIVE");
+    expect(src).toContain("Austin Local Headlines");
+    expect(src).toContain("FALLBACK_AUSTIN_HEADLINES");
     expect(src).toContain("6000");
   });
 
