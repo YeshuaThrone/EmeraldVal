@@ -1,12 +1,16 @@
 import { CovenantMasterEngineFacade } from "./facade";
 import { CovenantMcpRegistry } from "./mcp-registry";
 import { parseWorkRegistration } from "./manifest-parse";
+import { CovenantDistributionEngine } from "./distribution";
+import { CovenantExternalDataIngestionEngine } from "./external-data-connectors";
+import type { LuminateConsumptionPayload } from "./external-data-connectors";
+import { asRecord } from "./routes/result";
 
 export const COVENANT_MCP_TOOLS = [
   {
     name: "register_work_manifest",
     description:
-      "Register a sandbox work manifest (replaces Prisma workManifest). Required before a sweep can match.",
+      "POST /api/v1/works — register a sandbox work manifest. Required before a sweep can match.",
     inputSchema: {
       type: "object",
       properties: {
@@ -16,21 +20,56 @@ export const COVENANT_MCP_TOOLS = [
     },
   },
   {
+    name: "list_work_manifests",
+    description: "GET /api/v1/works — list registered sandbox work manifests.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+    },
+  },
+  {
     name: "trigger_blackbox_sweep",
     description:
-      "Run the universal cross-channel black box sweeper engine against raw CWR or DSR feeds.",
+      "POST /api/v1/sweeper — run the black-box sweeper against raw CWR or DSR feeds.",
     inputSchema: {
       type: "object",
       properties: {
         cwrRawFeed: { type: "string", description: "Raw CWR file string" },
         dsrRawFeed: { type: "string", description: "Raw DDEX DSR file string" },
+        jobId: { type: "string" },
       },
+    },
+  },
+  {
+    name: "trigger_blackbox_sweep_async",
+    description:
+      "POST /api/v1/sweeper/async — enqueue then drain a sandbox CWR/DSR sweep.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        cwrRawFeed: { type: "string" },
+        dsrRawFeed: { type: "string" },
+        jobId: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "trigger_luminate_sweep",
+    description:
+      "POST /api/v1/sweeper/luminate — normalize Luminate payloads and sweep. No live Luminate HTTP.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        payloads: { type: "array" },
+        estimatedPerStreamRateMicros: { type: "number" },
+      },
+      required: ["payloads"],
     },
   },
   {
     name: "query_audit_proof",
     description:
-      "Retrieve an immutable audit proof package by work ID or proof signature.",
+      "Retrieve an immutable audit proof package by work ID (stored after a sweep).",
     inputSchema: {
       type: "object",
       properties: {
@@ -64,6 +103,33 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
+function isLuminatePayload(value: unknown): value is LuminateConsumptionPayload {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  const row = value as Record<string, unknown>;
+  return typeof row.luminateId === "string" && typeof row.songTitle === "string";
+}
+
+function sweepSummary(
+  recoveredRevenueCents: number,
+  matchesFound: number,
+  disputes: number,
+  extra: Record<string, unknown> = {},
+): CovenantMcpToolResult {
+  return {
+    isError: false,
+    payload: {
+      ok: true,
+      status: "SUCCESS",
+      recoveredRevenueCents,
+      matchesFound,
+      disputes,
+      ...extra,
+    },
+  };
+}
+
 export class CovenantMcpToolHost {
   constructor(
     private readonly registry: CovenantMcpRegistry,
@@ -93,34 +159,131 @@ export class CovenantMcpToolHost {
           },
         };
       }
+      const registered = await new CovenantDistributionEngine().registerWork(
+        parsed.manifest,
+      );
+      if (!registered.ok) {
+        return {
+          isError: true,
+          payload: {
+            ok: false,
+            code: registered.code,
+            message: registered.message,
+          },
+        };
+      }
       this.registry.registerWork(parsed.manifest);
       return {
         isError: false,
-        payload: { ok: true, workId: parsed.manifest.workId },
+        payload: {
+          ok: true,
+          workId: parsed.manifest.workId,
+          codeCount: registered.codeCount,
+        },
       };
     }
 
-    if (name === "trigger_blackbox_sweep") {
+    if (name === "list_work_manifests") {
+      return {
+        isError: false,
+        payload: { ok: true, works: this.registry.listWorks() },
+      };
+    }
+
+    if (
+      name === "trigger_blackbox_sweep" ||
+      name === "trigger_blackbox_sweep_async"
+    ) {
       const cwrRawFeed = asString(args?.cwrRawFeed) ?? "";
       const dsrRawFeed = asString(args?.dsrRawFeed) ?? "";
+      if (cwrRawFeed.trim() === "" && dsrRawFeed.trim() === "") {
+        return {
+          isError: true,
+          payload: {
+            ok: false,
+            code: "missing_feed",
+            message: "Provide cwrRawFeed and/or dsrRawFeed.",
+          },
+        };
+      }
       const results = await this.engine.executeSystemSweep(
         cwrRawFeed,
         dsrRawFeed,
         this.registry.listWorks(),
       );
       this.registry.recordSweep(results);
-      return {
-        isError: false,
-        payload: {
-          ok: true,
-          status: "SUCCESS",
-          recoveredRevenueCents:
-            results.sweeperSummary.totalRecoveredRevenueCents,
-          matchesFound: results.sweeperSummary.matches.length,
-          disputes: results.disputesEncountered.length,
-          channelBreakdownCents: results.sweeperSummary.channelBreakdownCents,
+      const jobId =
+        asString(args?.jobId) ??
+        (name === "trigger_blackbox_sweep_async" ? "sweep_async" : "sweep_direct");
+      return sweepSummary(
+        results.sweeperSummary.totalRecoveredRevenueCents,
+        results.sweeperSummary.matches.length,
+        results.disputesEncountered.length,
+        {
+          jobId,
+          ...(name === "trigger_blackbox_sweep_async"
+            ? { status: "drained" }
+            : { channelBreakdownCents: results.sweeperSummary.channelBreakdownCents }),
         },
-      };
+      );
+    }
+
+    if (name === "trigger_luminate_sweep") {
+      const row = asRecord(args);
+      if (!row || !Array.isArray(row.payloads)) {
+        return {
+          isError: true,
+          payload: {
+            ok: false,
+            code: "malformed_body",
+            message: "payloads must be an array.",
+          },
+        };
+      }
+      const payloads = row.payloads.filter(isLuminatePayload);
+      if (payloads.length === 0) {
+        return {
+          isError: true,
+          payload: {
+            ok: false,
+            code: "malformed_body",
+            message: "payloads must include luminateId and songTitle.",
+          },
+        };
+      }
+      const rate = row.estimatedPerStreamRateMicros;
+      if (
+        rate !== undefined &&
+        (typeof rate !== "number" || !Number.isSafeInteger(rate) || rate < 0)
+      ) {
+        return {
+          isError: true,
+          payload: {
+            ok: false,
+            code: "invalid_rate",
+            message:
+              "estimatedPerStreamRateMicros must be a whole number of USD micros.",
+          },
+        };
+      }
+      const records =
+        new CovenantExternalDataIngestionEngine().parseLuminateConsumptionData(
+          payloads,
+          typeof rate === "number" ? rate : undefined,
+        );
+      const results = await this.engine.executeSystemSweep(
+        "",
+        "",
+        this.registry.listWorks(),
+        records,
+      );
+      this.registry.recordSweep(results);
+      return sweepSummary(
+        results.sweeperSummary.totalRecoveredRevenueCents,
+        results.sweeperSummary.matches.length,
+        results.disputesEncountered.length,
+        { recordsIngested: records.length },
+      );
     }
 
     if (name === "query_audit_proof") {

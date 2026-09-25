@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "mcp": "npx tsx src/mcp/covenant-mcp-server.ts",
     "covenant-mcp": "npx tsx src/mcp/covenant-mcp-server.ts"
   },
   "dependencies": {

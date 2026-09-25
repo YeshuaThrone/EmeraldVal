@@ -112,7 +112,7 @@ describe("CovenantMasterEngineFacade + MCP tools", () => {
     });
     expect(registered).toEqual({
       isError: false,
-      payload: { ok: true, workId: "work_audio_1" },
+      payload: { ok: true, workId: "work_audio_1", codeCount: 2 },
     });
 
     const dsr = [

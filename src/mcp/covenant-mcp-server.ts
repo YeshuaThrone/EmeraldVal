@@ -1,22 +1,24 @@
+/**
+ * Stdio MCP server for every Don Engine + Covenant `/api/v1` route.
+ * Run: `npm run mcp` (alias: `npm run covenant-mcp`).
+ *
+ * Does not call live Plaid, Column, Unit, DSP, or PRO HTTP.
+ */
+
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { CovenantMasterEngineFacade } from "@/covenant-sdk/covenant-master-production-sdk";
-import { CovenantMcpToolHost } from "@/covenant-sdk/mcp-tools";
-import { getCovenantRegistry } from "@/lib/server/covenantRegistry";
+import { EmeraldValMcpToolHost } from "./host";
 
-const tools = new CovenantMcpToolHost(
-  getCovenantRegistry(),
-  new CovenantMasterEngineFacade(),
-);
+const tools = new EmeraldValMcpToolHost();
 
 const server = new Server(
   {
-    name: "covenant-royalty-mcp-server",
-    version: "1.0.0",
+    name: "emeraldval-api-mcp-server",
+    version: "2.0.0",
   },
   {
     capabilities: {
@@ -56,9 +58,14 @@ export async function startCovenantMcpServer(): Promise<void> {
   await server.connect(transport);
 }
 
+export { startCovenantMcpServer as startEmeraldValMcpServer };
+
 function isDirectRun(): boolean {
   const invoked = process.argv[1];
-  return typeof invoked === "string" && invoked.includes("covenant-mcp-server");
+  return (
+    typeof invoked === "string" &&
+    (invoked.includes("covenant-mcp-server") || invoked.includes("mcp/server"))
+  );
 }
 
 if (isDirectRun()) {
