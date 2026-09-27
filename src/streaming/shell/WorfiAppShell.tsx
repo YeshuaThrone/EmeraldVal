@@ -15,7 +15,6 @@ import {
 } from "../sdk/wurfi-sdk";
 import { NewsTicker } from "../sdk/NewsTicker";
 import { ViewerSignIn } from "./ViewerSignIn";
-import { PREVIEW_ROUTE, WATCH_ROUTE } from "@/lib/routes";
 import {
   clearViewerSession,
   readViewerSession,
@@ -142,26 +141,19 @@ export const WorfiAppShell: React.FC<{ livePreview?: boolean }> = ({
   }
 
   return (
-    <div className="font-epg flex min-h-screen select-none flex-col items-center bg-wurfi-void p-4 text-slate-100 sm:p-6">
-      <header className="mb-4 flex w-full max-w-6xl flex-col items-center justify-between rounded-t-xl border border-wurfi-jade/40 bg-black p-4 sm:flex-row">
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-black tracking-widest text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.9)]">
-            WURFI <span className="text-wurfi-jade">NETWORK</span>
-          </h1>
-        </div>
+    <div className="font-epg flex min-h-screen select-none flex-col items-center bg-wurfi-void p-3 text-slate-100 sm:p-4">
+      <header className="mb-3 flex w-full max-w-6xl items-center justify-between rounded-xl border border-wurfi-jade/40 bg-black px-3 py-2">
+        <h1 className="text-xl font-black tracking-widest text-white sm:text-2xl">
+          WURFI <span className="text-wurfi-jade">NETWORK</span>
+        </h1>
 
         {livePreview ? (
-          <nav className="mt-4 flex items-center gap-4 text-xs font-black tracking-wider text-wurfi-jade uppercase sm:mt-0">
-            <a href={PREVIEW_ROUTE} className="hover:text-wurfi-jade-deep">
-              /preview
-            </a>
-            <a href={WATCH_ROUTE} className="hover:text-wurfi-jade-deep">
-              /watch
-            </a>
-          </nav>
+          <span className="font-osd text-xs tracking-widest text-wurfi-jade">
+            LIVE
+          </span>
         ) : (
-          <div className="mt-4 flex items-center gap-3 text-xs font-black tracking-wider uppercase sm:mt-0">
-            <span className="text-zinc-300">
+          <div className="flex items-center gap-3 text-xs font-black tracking-wider uppercase">
+            <span className="hidden text-zinc-300 sm:inline">
               Watching as {viewer?.displayName}
             </span>
             <button
@@ -170,7 +162,7 @@ export const WorfiAppShell: React.FC<{ livePreview?: boolean }> = ({
                 clearViewerSession();
                 setViewer(null);
               }}
-              className="rounded border border-wurfi-jade/50 bg-black px-4 py-1.5 text-wurfi-jade transition hover:bg-zinc-950"
+              className="rounded border border-wurfi-jade/50 bg-black px-3 py-1 text-wurfi-jade transition hover:bg-zinc-950"
             >
               Sign out
             </button>
@@ -322,164 +314,108 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
   const tickerText = AtxNewsService.formatTicker(headlines);
 
   return (
-    <div className="w-full max-w-6xl space-y-4">
-      <div className="flex items-center justify-between rounded-t-xl border border-wurfi-jade/50 bg-black p-3 text-xs font-bold tracking-wider text-wurfi-jade">
-        <span className="font-osd text-lg tracking-widest text-wurfi-jade">
-          CH {selectedChannel.chNumber} • {selectedChannel.station}
-        </span>
-        <span className="font-osd rounded border border-wurfi-jade/40 bg-black px-3 py-1 text-base text-white">
-          LIVE BROADCAST
-        </span>
+    <div className="flex w-full max-w-6xl flex-col gap-3">
+      <div className="rounded-xl border border-wurfi-jade/40 bg-black p-2">
+        <div className="mb-2 flex items-center justify-between px-1">
+          <h2 className="text-sm font-black tracking-widest text-wurfi-jade">
+            CHANNELS
+          </h2>
+          <div className="font-osd text-sm tracking-widest text-wurfi-jade">
+            {clock}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {WURFI_DEMO_LINEUP.map((prog) => {
+            const isSelected = selectedChannel.chNumber === prog.chNumber;
+            return (
+              <button
+                type="button"
+                key={prog.chNumber}
+                onClick={() => {
+                  setSelectedChannel(prog);
+                  if (!autoPlay) setIsPlaying(false);
+                }}
+                className={`flex min-h-[72px] cursor-pointer flex-col items-start rounded-lg border px-3 py-2 text-left ${
+                  isSelected
+                    ? "border-wurfi-jade bg-zinc-950"
+                    : "border-zinc-800 hover:border-wurfi-jade/40"
+                }`}
+              >
+                <span className="font-osd text-lg font-black text-wurfi-jade">
+                  CH {prog.chNumber}
+                </span>
+                <span
+                  className={`truncate text-xs font-black ${isSelected ? "text-wurfi-jade" : "text-white"}`}
+                >
+                  {prog.station}
+                </span>
+                <span className="mt-0.5 line-clamp-1 text-[11px] text-zinc-400">
+                  {prog.nowPlaying}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="relative flex aspect-video max-h-[42vh] w-full flex-col items-center justify-center overflow-hidden rounded-b-xl border border-t-0 border-wurfi-jade/40 bg-black">
-        <video
-          ref={videoRef}
-          playsInline
-          muted={autoPlay}
-          autoPlay={autoPlay}
-          className="h-full w-full object-cover"
-        />
+      <div>
+        <div className="flex items-center justify-between rounded-t-xl border border-wurfi-jade/50 bg-black px-3 py-1.5 text-wurfi-jade">
+          <span className="font-osd text-sm tracking-widest sm:text-base">
+            CH {selectedChannel.chNumber} • {selectedChannel.station}
+          </span>
+          <span className="font-osd rounded border border-wurfi-jade/40 px-2 py-0.5 text-xs text-white">
+            LIVE
+          </span>
+        </div>
+        <div className="relative aspect-video max-h-[48vh] w-full overflow-hidden rounded-b-xl border border-t-0 border-wurfi-jade/40 bg-black">
+          <video
+            ref={videoRef}
+            playsInline
+            muted={autoPlay}
+            autoPlay={autoPlay}
+            className="h-full w-full object-cover"
+          />
 
-        {isNewsChannel && currentHeadline && (
-          <div className="pointer-events-none absolute inset-0">
-            <span className="absolute top-3 left-3 rounded bg-wurfi-jade px-2 py-1 text-[10px] font-black tracking-widest text-black">
-              ATX LOCAL NEWS • LIVE
-            </span>
-            <div className="absolute right-0 bottom-7 left-0 bg-gradient-to-t from-black via-black/80 to-transparent px-4 pt-10 pb-3">
-              <div className="mb-1 inline-block bg-wurfi-jade px-2 py-0.5 text-[10px] font-black tracking-widest text-black">
-                {currentHeadline.category}
-              </div>
-              <p className="text-lg font-black leading-tight text-white drop-shadow-[1px_1px_0_#000] sm:text-2xl">
+          {isNewsChannel && currentHeadline && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent px-3 pt-8 pb-2">
+              <span className="mb-1 inline-block bg-wurfi-jade px-1.5 py-0.5 text-[10px] font-black tracking-widest text-black">
+                {currentHeadline.category} • ATX LOCAL NEWS
+              </span>
+              <p className="text-sm font-black leading-tight text-white sm:text-base">
                 {currentHeadline.title}
               </p>
-              <p className="mt-1 text-[10px] font-bold tracking-wider text-wurfi-jade uppercase">
-                {currentHeadline.source} • {currentHeadline.timestamp}
-              </p>
             </div>
-            <div className="absolute right-0 bottom-0 left-0 overflow-hidden bg-wurfi-jade py-1">
-              <div
-                className="font-epg whitespace-nowrap text-xs font-bold text-black"
-                style={{ animation: "atx-marquee 22s linear infinite" }}
-              >
-                {tickerText} • {tickerText}
+          )}
+
+          {!isPlaying && !isNewsChannel && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black p-4 text-center">
+              <div className="font-osd mb-3 text-lg tracking-widest text-wurfi-jade">
+                {selectedChannel.station}
               </div>
+              <p className="mb-3 text-[10px] font-black tracking-widest text-zinc-400">
+                PRESS TO UNLOCK BROADCAST AUDIO & VIDEO
+              </p>
+              <button
+                type="button"
+                onClick={togglePower}
+                className="cursor-pointer rounded-full border border-wurfi-jade bg-black px-6 py-2 text-xs font-black tracking-wider text-wurfi-jade uppercase"
+              >
+                POWER
+              </button>
             </div>
-          </div>
-        )}
-
-        {!isPlaying && !isNewsChannel && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black p-4 text-center">
-            <div className="font-osd mb-4 animate-pulse text-2xl tracking-widest text-wurfi-jade">
-              {selectedChannel.station} • READY FOR PLAYOUT
-            </div>
-
-            <button
-              type="button"
-              onClick={togglePower}
-              className="cursor-pointer rounded-full border-2 border-wurfi-jade bg-black px-8 py-3 text-sm font-black tracking-wider text-wurfi-jade uppercase transition hover:bg-zinc-950 active:scale-95"
-            >
-              POWER
-            </button>
-
-            <span className="font-osd mt-4 text-sm tracking-wider text-zinc-500">
-              PRESS TO UNLOCK BROADCAST AUDIO & VIDEO
-            </span>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-wurfi-jade bg-black p-2">
-        <span className="shrink-0 rounded bg-wurfi-jade px-2.5 py-1 text-xs font-black text-black shadow-[1px_1px_0px_#000]">
-          ATX NEWS TICKER
+        <span className="shrink-0 rounded bg-wurfi-jade px-2.5 py-1 text-xs font-black text-black">
+          ATX NEWS
         </span>
         <div className="min-w-0 flex-1 overflow-hidden">
           <NewsTicker
             sseEndpoint="/api/v1/news/austin/stream"
             initialText={tickerText}
           />
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-xl border border-wurfi-jade/40 bg-black p-4">
-        <div className="flex items-center justify-between border-b border-wurfi-jade/30 pb-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-full bg-wurfi-jade shadow-[0_0_8px_#5ee9b5]" />
-              <h2 className="text-2xl font-black tracking-wider text-wurfi-jade">
-                WURFI PROGRAM GUIDE
-              </h2>
-            </div>
-            <p className="mt-0.5 text-xs text-zinc-400">
-              All channels • news on CH 04
-            </p>
-          </div>
-
-          <div className="rounded border border-wurfi-jade/30 bg-black px-3 py-1.5 text-right">
-            <div className="text-[10px] font-bold text-zinc-400">
-              NETWORK TIME
-            </div>
-            <div className="font-osd text-lg tracking-widest text-wurfi-jade">
-              {clock}
-            </div>
-          </div>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
-            <thead>
-              <tr className="border-b border-wurfi-jade/20 bg-black font-black text-wurfi-jade uppercase">
-                <th className="p-2">CH #</th>
-                <th className="p-2">STATION</th>
-                <th className="p-2">NOW PLAYING</th>
-                <th className="p-2">UP NEXT</th>
-              </tr>
-            </thead>
-            <tbody className="font-epg divide-y divide-zinc-900">
-              {WURFI_DEMO_LINEUP.map((prog) => {
-                const isSelected = selectedChannel.chNumber === prog.chNumber;
-                return (
-                  <tr
-                    key={prog.chNumber}
-                    onClick={() => {
-                      setSelectedChannel(prog);
-                      if (!autoPlay) setIsPlaying(false);
-                    }}
-                    className={`cursor-pointer transition ${
-                      isSelected
-                        ? "border-l-4 border-l-wurfi-jade bg-zinc-950"
-                        : "hover:bg-zinc-950"
-                    }`}
-                  >
-                    <td className="font-osd p-2 text-base font-black text-wurfi-jade">
-                      {prog.chNumber}
-                    </td>
-                    <td
-                      className={`p-2 font-bold ${isSelected ? "text-wurfi-jade" : "text-white"}`}
-                    >
-                      {prog.station}
-                    </td>
-                    <td className="p-2 text-zinc-300">
-                      <div className="font-bold text-white">
-                        {prog.nowPlaying}
-                      </div>
-                      <div className="text-[10px] text-wurfi-jade/80">
-                        {prog.nowCreator}
-                      </div>
-                    </td>
-                    <td className="p-2 text-zinc-400">
-                      <div className="font-bold text-slate-200">
-                        {prog.upNext}
-                      </div>
-                      <div className="text-[10px] text-zinc-500">
-                        {prog.nextCreator}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>
