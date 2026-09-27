@@ -7,6 +7,13 @@ import {
   AtxNewsService,
   type NewsHeadline,
 } from "../news/atxNewsService";
+import {
+  calculateLiveStreamOffset,
+  currentScheduledProgram,
+  generate24HourSchedule,
+  utcDayStart,
+} from "../sdk/wurfi-sdk";
+import { NewsTicker } from "../sdk/NewsTicker";
 import { ViewerSignIn } from "./ViewerSignIn";
 import {
   clearViewerSession,
@@ -22,6 +29,7 @@ interface ProgramItem {
   upNext: string;
   nextCreator: string;
   streamUrl: string;
+  durationSeconds: number;
 }
 
 export const WURFI_DEMO_LINEUP: ProgramItem[] = [
@@ -34,6 +42,7 @@ export const WURFI_DEMO_LINEUP: ProgramItem[] = [
     nextCreator: "Blender Studio",
     streamUrl:
       "https://archive.org/download/night-of-the-living-dead_1968/Night%20of%20the%20Living%20Dead%20-%20%281968%29.mp4",
+    durationSeconds: 5760,
   },
   {
     chNumber: "02",
@@ -44,6 +53,7 @@ export const WURFI_DEMO_LINEUP: ProgramItem[] = [
     nextCreator: "Classic Animation",
     streamUrl:
       "https://archive.org/download/superman_1941/superman_1941_512kb.mp4",
+    durationSeconds: 660,
   },
   {
     chNumber: "04",
@@ -54,6 +64,7 @@ export const WURFI_DEMO_LINEUP: ProgramItem[] = [
     nextCreator: "ATX Weather Network",
     streamUrl:
       "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel.ism/.m3u8",
+    durationSeconds: 734,
   },
   {
     chNumber: "07",
@@ -63,11 +74,38 @@ export const WURFI_DEMO_LINEUP: ProgramItem[] = [
     upNext: "Deep Space Operations",
     nextCreator: "NASA Broadcast",
     streamUrl: "https://nasa-vh.akamaihd.net/i/NASA_TV@47068/master.m3u8",
+    durationSeconds: 86400,
   },
 ];
 
 const DEFAULT_CHANNEL =
   WURFI_DEMO_LINEUP.find((p) => p.chNumber === "04") ?? WURFI_DEMO_LINEUP[0]!;
+
+function wallClockOffsetSeconds(item: ProgramItem, now: Date = new Date()): number {
+  if (item.streamUrl.includes(".m3u8") || item.durationSeconds <= 0) {
+    return 0;
+  }
+  const schedule = generate24HourSchedule(
+    [
+      {
+        id: item.chNumber,
+        title: item.nowPlaying,
+        durationSeconds: item.durationSeconds,
+      },
+    ],
+    utcDayStart(now),
+  );
+  const current = currentScheduledProgram(schedule, now);
+  if (!current) return 0;
+  const duration =
+    (Date.parse(current.end_time_utc) - Date.parse(current.start_time_utc)) /
+    1000;
+  return calculateLiveStreamOffset(
+    current.start_time_utc,
+    duration,
+    now.getTime(),
+  );
+}
 
 function formatAustinClock(now: Date): string {
   return new Intl.DateTimeFormat("en-US", {
@@ -201,6 +239,17 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
           .catch(() => setIsPlaying(false));
       };
 
+      const seekToWallClock = () => {
+        const offset = wallClockOffsetSeconds(selectedChannel);
+        if (!(offset > 1)) return;
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        if (duration > 1) {
+          video.currentTime = Math.min(offset, duration - 0.25);
+          return;
+        }
+        video.currentTime = offset;
+      };
+
       if (url.includes(".m3u8")) {
         if (video.canPlayType("application/vnd.apple.mpegurl")) {
           video.src = url;
@@ -224,6 +273,7 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
         return;
       }
       video.src = url;
+      video.addEventListener("loadedmetadata", seekToWallClock, { once: true });
       tryPlay();
     };
 
@@ -338,12 +388,10 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
           ATX NEWS TICKER
         </span>
         <div className="min-w-0 flex-1 overflow-hidden">
-          <div
-            className="font-epg whitespace-nowrap text-xs text-slate-200"
-            style={{ animation: "atx-marquee 22s linear infinite" }}
-          >
-            {tickerText} • {tickerText}
-          </div>
+          <NewsTicker
+            sseEndpoint="/api/v1/news/austin/stream"
+            initialText={tickerText}
+          />
         </div>
       </div>
 

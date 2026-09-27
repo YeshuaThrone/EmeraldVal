@@ -1,3 +1,5 @@
+import { injectScte35AdMarkers } from "../sdk/wurfi-sdk";
+
 export interface ScheduledAsset {
   id: string;
   title: string;
@@ -61,5 +63,17 @@ export class HLSMasterGenerator {
     }
 
     return m3u8;
+  }
+
+  public injectScte35(
+    manifest: string,
+    adIntervalSegments: number,
+    adDurationSec: number,
+  ): string {
+    return injectScte35AdMarkers(
+      manifest.split("\n"),
+      adIntervalSegments,
+      adDurationSec,
+    ).join("\n");
   }
 }

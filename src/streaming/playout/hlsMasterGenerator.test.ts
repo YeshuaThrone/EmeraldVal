@@ -94,4 +94,11 @@ describe("HLSMasterGenerator.generateLiveM3U8", () => {
     expect(m3u8).toContain("#EXT-X-MEDIA-SEQUENCE:2");
     expect(m3u8).toContain("#EXTINF:10.0,");
   });
+
+  it("injects interval SCTE-35 cues through the WURFI SDK", () => {
+    const m3u8 = generator.generateLiveM3U8(slot({ offsetSeconds: 0 }));
+    const marked = generator.injectScte35(m3u8, 2, 15);
+    expect(marked).toContain("#EXT-X-CUE-OUT:DURATION=15.000");
+    expect(marked).toContain("#EXT-X-CUE-IN");
+  });
 });

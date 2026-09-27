@@ -42,8 +42,12 @@ describe("WorfiAppShell", () => {
     expect(src).toContain('loadAustinHeadlines()');
     expect(src).toContain("ATX LOCAL NEWS • LIVE");
     expect(src).toContain("Austin Local Headlines");
-    expect(src).toContain("FALLBACK_AUSTIN_HEADLINES");
-    expect(src).toContain("6000");
+    expect(src).toContain("NewsTicker");
+    expect(src).toContain("/api/v1/news/austin/stream");
+    expect(src).toContain("initialText={tickerText}");
+    expect(src).toContain("generate24HourSchedule");
+    expect(src).toContain("calculateLiveStreamOffset");
+    expect(src).toContain("durationSeconds: 5760");
   });
 
   it("is viewership-only: sign-in then player, no creator or sponsor signup", () => {
