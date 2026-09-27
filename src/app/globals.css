@@ -14,6 +14,10 @@
   --color-atx-stage: #8b0000;
   --color-atx-stage-deep: #660000;
   --color-atx-line: #e7e5e4;
+  /* Covnant jade from "The Immutable Truth Engine" (94, 233, 181). */
+  --color-wurfi-jade: #5ee9b5;
+  --color-wurfi-jade-deep: #31bfb5;
+  --color-wurfi-void: #000000;
   --font-sans: var(--font-dm-sans);
   --font-display: var(--font-outfit);
   --font-epg: var(--font-worfi-epg);

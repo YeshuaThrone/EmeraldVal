@@ -47,7 +47,12 @@ describe("WorfiAppShell", () => {
     expect(src).toContain("initialText={tickerText}");
     expect(src).toContain("generate24HourSchedule");
     expect(src).toContain("calculateLiveStreamOffset");
-    expect(src).toContain("durationSeconds: 5760");
+    expect(src).toContain("text-wurfi-jade");
+    expect(src).toContain("bg-wurfi-void");
+    expect(src).not.toContain("text-yellow-400");
+    expect(src).not.toContain("bg-blue-950");
+    expect(src).toContain("PREVIEW_ROUTE");
+    expect(src).toContain("WATCH_ROUTE");
   });
 
   it("is viewership-only: sign-in then player, no creator or sponsor signup", () => {
@@ -62,8 +67,9 @@ describe("WorfiAppShell", () => {
     expect(src).not.toContain("AUSTIN CABLE BROADCAST");
     expect(src).not.toContain("Austin Evening News Broadcast");
     expect(src).not.toContain("Austin News Broadcast");
-    expect(signInSrc).toContain("WURFI");
-    expect(signInSrc).toContain("NETWORK");
+    expect(signInSrc).toContain("text-wurfi-jade");
+    expect(signInSrc).not.toContain("text-yellow-400");
+    expect(signInSrc).not.toContain("bg-yellow-400");
     expect(signInSrc).not.toContain("Wurfi Network");
     expect(signInSrc).not.toContain("WORFI");
     expect(signInSrc).toContain("Viewer sign-in");

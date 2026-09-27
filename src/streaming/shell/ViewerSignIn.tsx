@@ -21,21 +21,21 @@ export const ViewerSignIn: React.FC<{
   };
 
   return (
-    <div className="font-epg flex min-h-screen select-none flex-col items-center justify-center bg-[#050814] p-4 text-slate-100 sm:p-8">
-      <div className="w-full max-w-md rounded-xl border-t border-r border-l border-blue-500/50 border-b-2 border-b-blue-600/80 bg-gradient-to-b from-blue-950 via-slate-900 to-[#050814] p-8 shadow-[0_4px_20px_rgba(0,0,0,0.6)]">
+    <div className="font-epg flex min-h-screen select-none flex-col items-center justify-center bg-wurfi-void p-4 text-slate-100 sm:p-8">
+      <div className="w-full max-w-md rounded-xl border border-wurfi-jade/40 bg-black p-8">
         <h1 className="text-center text-3xl font-black tracking-widest text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.9)]">
-          WURFI <span className="text-yellow-400">NETWORK</span>
+          WURFI <span className="text-wurfi-jade">NETWORK</span>
         </h1>
-        <p className="mt-3 text-center text-xs tracking-wider text-blue-200/80 uppercase">
+        <p className="mt-3 text-center text-xs tracking-wider text-wurfi-jade uppercase">
           Viewer sign-in
         </p>
-        <p className="mt-2 text-center text-sm text-slate-400">
+        <p className="mt-2 text-center text-sm text-zinc-400">
           Sign in to watch the lineup.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">
           <label className="block">
-            <span className="mb-1 block text-[10px] font-bold tracking-wider text-blue-300 uppercase">
+            <span className="mb-1 block text-[10px] font-bold tracking-wider text-wurfi-jade uppercase">
               Display name
             </span>
             <input
@@ -44,12 +44,12 @@ export const ViewerSignIn: React.FC<{
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="How you appear as a viewer"
-              className="w-full rounded border-2 border-blue-700 bg-blue-950 px-3 py-2.5 text-sm text-white outline-none focus:border-yellow-400"
+              className="w-full rounded border border-wurfi-jade/40 bg-black px-3 py-2.5 text-sm text-white outline-none focus:border-wurfi-jade"
             />
           </label>
           <button
             type="submit"
-            className="w-full rounded border-2 border-yellow-300 bg-yellow-400 px-4 py-2.5 text-sm font-black tracking-wider text-blue-950 uppercase shadow-[2px_2px_0px_#000] transition hover:bg-yellow-300"
+            className="w-full rounded border border-wurfi-jade bg-wurfi-jade px-4 py-2.5 text-sm font-black tracking-wider text-black uppercase shadow-[2px_2px_0px_#000] transition hover:bg-wurfi-jade-deep"
           >
             Watch the lineup
           </button>

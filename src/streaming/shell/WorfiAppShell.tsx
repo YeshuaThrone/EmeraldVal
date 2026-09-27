@@ -15,6 +15,7 @@ import {
 } from "../sdk/wurfi-sdk";
 import { NewsTicker } from "../sdk/NewsTicker";
 import { ViewerSignIn } from "./ViewerSignIn";
+import { PREVIEW_ROUTE, WATCH_ROUTE } from "@/lib/routes";
 import {
   clearViewerSession,
   readViewerSession,
@@ -130,7 +131,7 @@ export const WorfiAppShell: React.FC<{ livePreview?: boolean }> = ({
 
   if (!livePreview && !hydrated) {
     return (
-      <div className="font-epg flex min-h-screen items-center justify-center bg-[#050814] text-yellow-400">
+      <div className="font-epg flex min-h-screen items-center justify-center bg-wurfi-void text-wurfi-jade">
         <p className="text-sm font-black tracking-widest">WURFI</p>
       </div>
     );
@@ -141,21 +142,26 @@ export const WorfiAppShell: React.FC<{ livePreview?: boolean }> = ({
   }
 
   return (
-    <div className="font-epg flex min-h-screen select-none flex-col items-center bg-[#050814] p-4 text-slate-100 sm:p-8">
-      <header className="mb-6 flex w-full max-w-6xl flex-col items-center justify-between rounded-t-xl border-t border-r border-l border-blue-500/50 border-b-2 border-b-blue-600/80 bg-gradient-to-r from-blue-950 via-slate-900 to-blue-950 p-4 shadow-[0_4px_20px_rgba(0,0,0,0.6)] sm:flex-row">
+    <div className="font-epg flex min-h-screen select-none flex-col items-center bg-wurfi-void p-4 text-slate-100 sm:p-6">
+      <header className="mb-4 flex w-full max-w-6xl flex-col items-center justify-between rounded-t-xl border border-wurfi-jade/40 bg-black p-4 sm:flex-row">
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-black tracking-widest text-white drop-shadow-[2px_2px_0px_rgba(0,0,0,0.9)]">
-            WURFI <span className="text-yellow-400">NETWORK</span>
+            WURFI <span className="text-wurfi-jade">NETWORK</span>
           </h1>
         </div>
 
         {livePreview ? (
-          <span className="mt-4 text-xs font-black tracking-wider text-yellow-400 uppercase sm:mt-0">
-            LIVE PREVIEW
-          </span>
+          <nav className="mt-4 flex items-center gap-4 text-xs font-black tracking-wider text-wurfi-jade uppercase sm:mt-0">
+            <a href={PREVIEW_ROUTE} className="hover:text-wurfi-jade-deep">
+              /preview
+            </a>
+            <a href={WATCH_ROUTE} className="hover:text-wurfi-jade-deep">
+              /watch
+            </a>
+          </nav>
         ) : (
           <div className="mt-4 flex items-center gap-3 text-xs font-black tracking-wider uppercase sm:mt-0">
-            <span className="text-blue-100">
+            <span className="text-zinc-300">
               Watching as {viewer?.displayName}
             </span>
             <button
@@ -164,7 +170,7 @@ export const WorfiAppShell: React.FC<{ livePreview?: boolean }> = ({
                 clearViewerSession();
                 setViewer(null);
               }}
-              className="rounded border-2 border-blue-600 bg-blue-900/60 px-4 py-1.5 text-blue-100 transition hover:bg-blue-800"
+              className="rounded border border-wurfi-jade/50 bg-black px-4 py-1.5 text-wurfi-jade transition hover:bg-zinc-950"
             >
               Sign out
             </button>
@@ -316,17 +322,17 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
   const tickerText = AtxNewsService.formatTicker(headlines);
 
   return (
-    <div className="w-full max-w-6xl space-y-6">
-      <div className="flex items-center justify-between rounded-t-xl border-2 border-blue-600 bg-blue-900/80 p-3 text-xs font-bold tracking-wider text-yellow-300">
-        <span className="font-osd text-lg tracking-widest text-yellow-400">
+    <div className="w-full max-w-6xl space-y-4">
+      <div className="flex items-center justify-between rounded-t-xl border border-wurfi-jade/50 bg-black p-3 text-xs font-bold tracking-wider text-wurfi-jade">
+        <span className="font-osd text-lg tracking-widest text-wurfi-jade">
           CH {selectedChannel.chNumber} • {selectedChannel.station}
         </span>
-        <span className="font-osd rounded border border-blue-700 bg-blue-950 px-3 py-1 text-base text-white">
+        <span className="font-osd rounded border border-wurfi-jade/40 bg-black px-3 py-1 text-base text-white">
           LIVE BROADCAST
         </span>
       </div>
 
-      <div className="relative flex aspect-video w-full flex-col items-center justify-center overflow-hidden rounded-b-xl border-2 border-t-0 border-blue-600/80 bg-black shadow-[0_0_30px_rgba(0,50,150,0.3)]">
+      <div className="relative flex aspect-video max-h-[42vh] w-full flex-col items-center justify-center overflow-hidden rounded-b-xl border border-t-0 border-wurfi-jade/40 bg-black">
         <video
           ref={videoRef}
           playsInline
@@ -337,23 +343,23 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
 
         {isNewsChannel && currentHeadline && (
           <div className="pointer-events-none absolute inset-0">
-            <span className="absolute top-3 left-3 rounded bg-red-600 px-2 py-1 text-[10px] font-black tracking-widest text-white">
+            <span className="absolute top-3 left-3 rounded bg-wurfi-jade px-2 py-1 text-[10px] font-black tracking-widest text-black">
               ATX LOCAL NEWS • LIVE
             </span>
-            <div className="absolute right-0 bottom-7 left-0 bg-gradient-to-t from-black/90 via-black/75 to-transparent px-4 pt-10 pb-3">
-              <div className="mb-1 inline-block bg-yellow-400 px-2 py-0.5 text-[10px] font-black tracking-widest text-blue-950">
+            <div className="absolute right-0 bottom-7 left-0 bg-gradient-to-t from-black via-black/80 to-transparent px-4 pt-10 pb-3">
+              <div className="mb-1 inline-block bg-wurfi-jade px-2 py-0.5 text-[10px] font-black tracking-widest text-black">
                 {currentHeadline.category}
               </div>
               <p className="text-lg font-black leading-tight text-white drop-shadow-[1px_1px_0_#000] sm:text-2xl">
                 {currentHeadline.title}
               </p>
-              <p className="mt-1 text-[10px] font-bold tracking-wider text-blue-200 uppercase">
+              <p className="mt-1 text-[10px] font-bold tracking-wider text-wurfi-jade uppercase">
                 {currentHeadline.source} • {currentHeadline.timestamp}
               </p>
             </div>
-            <div className="absolute right-0 bottom-0 left-0 overflow-hidden bg-yellow-400 py-1">
+            <div className="absolute right-0 bottom-0 left-0 overflow-hidden bg-wurfi-jade py-1">
               <div
-                className="font-epg whitespace-nowrap text-xs font-bold text-blue-950"
+                className="font-epg whitespace-nowrap text-xs font-bold text-black"
                 style={{ animation: "atx-marquee 22s linear infinite" }}
               >
                 {tickerText} • {tickerText}
@@ -364,27 +370,27 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
 
         {!isPlaying && !isNewsChannel && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black p-4 text-center">
-            <div className="font-osd mb-4 animate-pulse text-2xl tracking-widest text-emerald-400">
+            <div className="font-osd mb-4 animate-pulse text-2xl tracking-widest text-wurfi-jade">
               {selectedChannel.station} • READY FOR PLAYOUT
             </div>
 
             <button
               type="button"
               onClick={togglePower}
-              className="cursor-pointer rounded-full border-2 border-red-400 bg-red-600 px-8 py-3 text-sm font-black tracking-wider text-white uppercase shadow-[0_0_20px_rgba(220,38,38,0.6)] transition hover:bg-red-500 active:scale-95"
+              className="cursor-pointer rounded-full border-2 border-wurfi-jade bg-black px-8 py-3 text-sm font-black tracking-wider text-wurfi-jade uppercase transition hover:bg-zinc-950 active:scale-95"
             >
               POWER
             </button>
 
-            <span className="font-osd mt-4 text-sm tracking-wider text-slate-400">
+            <span className="font-osd mt-4 text-sm tracking-wider text-zinc-500">
               PRESS TO UNLOCK BROADCAST AUDIO & VIDEO
             </span>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-3 overflow-hidden rounded-xl border-2 border-yellow-400 bg-blue-950 p-2">
-        <span className="shrink-0 rounded bg-yellow-400 px-2.5 py-1 text-xs font-black text-blue-950 shadow-[1px_1px_0px_#000]">
+      <div className="flex items-center gap-3 overflow-hidden rounded-xl border border-wurfi-jade bg-black p-2">
+        <span className="shrink-0 rounded bg-wurfi-jade px-2.5 py-1 text-xs font-black text-black shadow-[1px_1px_0px_#000]">
           ATX NEWS TICKER
         </span>
         <div className="min-w-0 flex-1 overflow-hidden">
@@ -395,25 +401,25 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
         </div>
       </div>
 
-      <div className="space-y-4 rounded-xl border-2 border-blue-600 bg-[#091026] p-5 shadow-2xl">
-        <div className="flex items-center justify-between border-b-2 border-blue-800/80 pb-3">
+      <div className="space-y-3 rounded-xl border border-wurfi-jade/40 bg-black p-4">
+        <div className="flex items-center justify-between border-b border-wurfi-jade/30 pb-3">
           <div>
             <div className="flex items-center gap-2">
-              <span className="inline-block h-3 w-3 rounded-full bg-yellow-400 shadow-[0_0_8px_#facc15]" />
-              <h2 className="text-2xl font-black tracking-wider text-yellow-400">
+              <span className="inline-block h-3 w-3 rounded-full bg-wurfi-jade shadow-[0_0_8px_#5ee9b5]" />
+              <h2 className="text-2xl font-black tracking-wider text-wurfi-jade">
                 WURFI PROGRAM GUIDE
               </h2>
             </div>
-            <p className="mt-0.5 text-xs text-blue-200/80">
-              Synchronized 24/7 Cable Grid
+            <p className="mt-0.5 text-xs text-zinc-400">
+              All channels • news on CH 04
             </p>
           </div>
 
-          <div className="rounded border border-blue-700 bg-blue-950 px-3 py-1.5 text-right">
-            <div className="text-[10px] font-bold text-blue-300">
+          <div className="rounded border border-wurfi-jade/30 bg-black px-3 py-1.5 text-right">
+            <div className="text-[10px] font-bold text-zinc-400">
               NETWORK TIME
             </div>
-            <div className="font-osd text-lg tracking-widest text-yellow-400">
+            <div className="font-osd text-lg tracking-widest text-wurfi-jade">
               {clock}
             </div>
           </div>
@@ -422,14 +428,14 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-left text-xs">
             <thead>
-              <tr className="border-b border-blue-800 bg-blue-950/80 font-black text-blue-300 uppercase">
-                <th className="p-3">CH #</th>
-                <th className="p-3">STATION</th>
-                <th className="p-3">NOW PLAYING</th>
-                <th className="p-3">UP NEXT</th>
+              <tr className="border-b border-wurfi-jade/20 bg-black font-black text-wurfi-jade uppercase">
+                <th className="p-2">CH #</th>
+                <th className="p-2">STATION</th>
+                <th className="p-2">NOW PLAYING</th>
+                <th className="p-2">UP NEXT</th>
               </tr>
             </thead>
-            <tbody className="font-epg divide-y divide-blue-900/60">
+            <tbody className="font-epg divide-y divide-zinc-900">
               {WURFI_DEMO_LINEUP.map((prog) => {
                 const isSelected = selectedChannel.chNumber === prog.chNumber;
                 return (
@@ -441,31 +447,31 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
                     }}
                     className={`cursor-pointer transition ${
                       isSelected
-                        ? "border-l-4 border-l-yellow-400 bg-blue-950/90"
-                        : "hover:bg-blue-900/40"
+                        ? "border-l-4 border-l-wurfi-jade bg-zinc-950"
+                        : "hover:bg-zinc-950"
                     }`}
                   >
-                    <td className="font-osd p-3 text-base font-black text-yellow-400">
+                    <td className="font-osd p-2 text-base font-black text-wurfi-jade">
                       {prog.chNumber}
                     </td>
                     <td
-                      className={`p-3 font-bold ${isSelected ? "text-yellow-300" : "text-white"}`}
+                      className={`p-2 font-bold ${isSelected ? "text-wurfi-jade" : "text-white"}`}
                     >
                       {prog.station}
                     </td>
-                    <td className="p-3 text-blue-100">
+                    <td className="p-2 text-zinc-300">
                       <div className="font-bold text-white">
                         {prog.nowPlaying}
                       </div>
-                      <div className="text-[10px] text-blue-300">
+                      <div className="text-[10px] text-wurfi-jade/80">
                         {prog.nowCreator}
                       </div>
                     </td>
-                    <td className="p-3 text-blue-200/80">
+                    <td className="p-2 text-zinc-400">
                       <div className="font-bold text-slate-200">
                         {prog.upNext}
                       </div>
-                      <div className="text-[10px] text-blue-400">
+                      <div className="text-[10px] text-zinc-500">
                         {prog.nextCreator}
                       </div>
                     </td>

@@ -42,7 +42,7 @@ export const CreatorOnboardGate: React.FC<{ inviteToken: string }> = ({
 
   if (!allowed) {
     return (
-      <div className="font-epg flex min-h-screen items-center justify-center bg-[#050814] text-yellow-400">
+      <div className="font-epg flex min-h-screen items-center justify-center bg-wurfi-void text-wurfi-jade">
         <p className="text-sm font-black tracking-widest">WURFI</p>
       </div>
     );

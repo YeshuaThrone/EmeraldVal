@@ -47,7 +47,7 @@ export const NewsTicker: React.FC<TickerProps> = ({
         whiteSpace: "nowrap",
         width: "100%",
         backgroundColor: "transparent",
-        color: "#e2e8f0",
+        color: "#5ee9b5",
         padding: "0",
       }}
     >

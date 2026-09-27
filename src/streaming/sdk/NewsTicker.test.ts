@@ -9,6 +9,6 @@ describe("NewsTicker", () => {
     expect(src).toContain("EventSource");
     expect(src).toContain("tickerText");
     expect(src).toContain("wurfiMarquee");
-    expect(src).toContain("[WURFI NETWORK]");
+    expect(src).toContain("#5ee9b5");
   });
 });
