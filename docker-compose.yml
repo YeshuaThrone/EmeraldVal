@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  worfi-db:
+    image: postgres:16-alpine
+    container_name: worfi-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: worfi_db
+      POSTGRES_USER: worfi_admin
+      POSTGRES_PASSWORD: worfi_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init-schema.sql:/docker-entrypoint-initdb.d/init-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U worfi_admin -d worfi_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  worfi-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: worfi-app-server
+    restart: always
+    depends_on:
+      worfi-db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DATABASE_URL: postgres://worfi_admin:worfi_dev_password@worfi-db:5432/worfi_db
+      WORFI_ADMIN_SECRET: worfi-secret-key-2026
+
+volumes:
+  pgdata:

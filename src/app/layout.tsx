@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DM_Sans, Outfit } from "next/font/google";
+import { DM_Sans, Oswald, Outfit, Share_Tech_Mono } from "next/font/google";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -12,6 +12,18 @@ const dmSans = DM_Sans({
   subsets: ["latin"],
 });
 
+const worfiEpg = Oswald({
+  variable: "--font-worfi-epg",
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+});
+
+const worfiOsd = Share_Tech_Mono({
+  variable: "--font-worfi-osd",
+  subsets: ["latin"],
+  weight: "400",
+});
+
 export const metadata: Metadata = {
   title: "ATXLive — Austin Live Music Map",
   description:
@@ -22,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${outfit.variable} ${dmSans.variable} h-full antialiased`}
+      className={`${outfit.variable} ${dmSans.variable} ${worfiEpg.variable} ${worfiOsd.variable} h-full antialiased`}
     >
       <body className="h-dvh overflow-hidden bg-atx-paper font-sans text-atx-ink">
         {children}
