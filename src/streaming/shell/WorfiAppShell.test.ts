@@ -36,18 +36,17 @@ describe("WorfiAppShell", () => {
     expect(src).toContain('import("hls.js")');
     expect(src).toContain("Hls.isSupported()");
     expect(src).toContain("key={selectedChannel.chNumber}");
-    expect(src).toContain("data-channel={prog.chNumber}");
     expect(src).toContain("setSelectedChannel(prog)");
-    expect(src).toContain("TUNING");
+    expect(src).toContain("WURFI PROGRAM GUIDE");
   });
 
   it("gates video behind POWER and puts ATX news on CH 04", () => {
     expect(src).toContain("PRESS TO UNLOCK BROADCAST AUDIO & VIDEO");
     expect(src).toContain("POWER");
-    expect(src).toContain("CHANNELS");
-    expect(src).toContain("grid-cols-2 gap-2 sm:grid-cols-4");
-    expect(src).toContain("CH {prog.chNumber}");
-    expect(src).toContain("ATX NEWS");
+    expect(src).toContain("WURFI PROGRAM GUIDE");
+    expect(src).toContain("ATX NEWS TICKER");
+    expect(src).toContain("ATX LOCAL NEWS • LIVE");
+    expect(src).toContain("LIVE BROADCAST");
     expect(src).toContain("loadAustinHeadlines()");
     expect(src).toContain("ATX LOCAL NEWS");
     expect(src).toContain("Austin Local Headlines");
@@ -60,6 +59,8 @@ describe("WorfiAppShell", () => {
     expect(src).toContain("bg-wurfi-void");
     expect(src).not.toContain("text-yellow-400");
     expect(src).not.toContain("bg-blue-950");
+    expect(src).toContain("PREVIEW_ROUTE");
+    expect(src).toContain("WATCH_ROUTE");
   });
 
   it("is viewership-only: sign-in then player, no creator or sponsor signup", () => {
