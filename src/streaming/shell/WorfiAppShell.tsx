@@ -69,12 +69,12 @@ export const WURFI_DEMO_LINEUP: ProgramItem[] = [
   {
     chNumber: "07",
     station: "NASA TV LIVE",
-    nowPlaying: "ISS Live Earth Stream",
-    nowCreator: "NASA Public Feed",
+    nowPlaying: "Cosmic Dawn: JWST",
+    nowCreator: "NASA+",
     upNext: "Deep Space Operations",
     nextCreator: "NASA Broadcast",
-    streamUrl: "https://nasa-vh.akamaihd.net/i/NASA_TV@47068/master.m3u8",
-    durationSeconds: 86400,
+    streamUrl: "https://nasaplus.akamaized.net/output/16927.m3u8",
+    durationSeconds: 5400,
   },
 ];
 
@@ -116,6 +116,105 @@ function formatAustinClock(now: Date): string {
     timeZoneName: "short",
   }).format(now);
 }
+
+const WurfiChannelVideo: React.FC<{
+  channel: ProgramItem;
+  autoPlay: boolean;
+  onPlayingChange: (playing: boolean) => void;
+  videoRef: React.RefObject<HTMLVideoElement | null>;
+}> = ({ channel, autoPlay, onPlayingChange, videoRef }) => {
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    let cancelled = false;
+    let hls: {
+      stopLoad: () => void;
+      detachMedia: () => void;
+      destroy: () => void;
+    } | null = null;
+
+    const playMuted = () => {
+      if (cancelled) return;
+      if (!autoPlay) return;
+      video.muted = true;
+      void video
+        .play()
+        .then(() => {
+          if (!cancelled) onPlayingChange(true);
+        })
+        .catch(() => {
+          if (!cancelled) onPlayingChange(false);
+        });
+    };
+
+    const seekIfReady = () => {
+      const offset = wallClockOffsetSeconds(channel);
+      if (!(offset > 1) || video.seekable.length === 0) return;
+      const end = video.seekable.end(video.seekable.length - 1);
+      if (end >= offset) {
+        video.currentTime = Math.min(offset, Math.max(0, end - 0.25));
+      }
+    };
+
+    const attach = async () => {
+      const url = channel.streamUrl;
+      if (url.includes(".m3u8")) {
+        const { default: Hls } = await import("hls.js");
+        if (cancelled) return;
+        if (Hls.isSupported()) {
+          const instance = new Hls({ enableWorker: false });
+          hls = instance;
+          instance.loadSource(url);
+          instance.attachMedia(video);
+          instance.on(Hls.Events.MANIFEST_PARSED, () => {
+            playMuted();
+          });
+          instance.on(Hls.Events.ERROR, (_event, data) => {
+            if (data?.fatal && !cancelled) onPlayingChange(false);
+          });
+          return;
+        }
+        if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          video.src = url;
+          playMuted();
+          return;
+        }
+      }
+
+      video.src = url;
+      video.addEventListener("loadedmetadata", seekIfReady, { once: true });
+      video.addEventListener("canplay", playMuted, { once: true });
+      playMuted();
+    };
+
+    void attach();
+
+    return () => {
+      cancelled = true;
+      if (hls) {
+        hls.stopLoad();
+        hls.detachMedia();
+        hls.destroy();
+        hls = null;
+      }
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+    };
+  }, [channel, autoPlay, onPlayingChange, videoRef]);
+
+  return (
+    <video
+      ref={videoRef}
+      playsInline
+      muted={autoPlay}
+      autoPlay={autoPlay}
+      className="h-full w-full object-cover"
+    />
+  );
+};
 
 export const WorfiAppShell: React.FC<{ livePreview?: boolean }> = ({
   livePreview = false,
@@ -188,6 +287,7 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
   const [currentNewsIdx, setCurrentNewsIdx] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoPlay);
   const [clock, setClock] = useState("09:13 PM CDT");
+  const [tuning, setTuning] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
@@ -221,68 +321,11 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
   }, []);
 
   useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    const url = selectedChannel.streamUrl;
-    let cancelled = false;
-    let hls: { destroy: () => void } | null = null;
-
-    const bind = async () => {
-      const tryPlay = () => {
-        if (!autoPlay) return;
-        video.muted = true;
-        void video
-          .play()
-          .then(() => setIsPlaying(true))
-          .catch(() => setIsPlaying(false));
-      };
-
-      const seekToWallClock = () => {
-        const offset = wallClockOffsetSeconds(selectedChannel);
-        if (!(offset > 1)) return;
-        const duration = Number.isFinite(video.duration) ? video.duration : 0;
-        if (duration > 1) {
-          video.currentTime = Math.min(offset, duration - 0.25);
-          return;
-        }
-        video.currentTime = offset;
-      };
-
-      if (url.includes(".m3u8")) {
-        if (video.canPlayType("application/vnd.apple.mpegurl")) {
-          video.src = url;
-          tryPlay();
-          return;
-        }
-        const { default: Hls } = await import("hls.js");
-        if (cancelled || !videoRef.current) return;
-        if (!Hls.isSupported()) {
-          video.src = url;
-          tryPlay();
-          return;
-        }
-        const instance = new Hls({ enableWorker: false });
-        instance.loadSource(url);
-        instance.attachMedia(video);
-        instance.on(Hls.Events.MANIFEST_PARSED, () => {
-          tryPlay();
-        });
-        hls = instance;
-        return;
-      }
-      video.src = url;
-      video.addEventListener("loadedmetadata", seekToWallClock, { once: true });
-      tryPlay();
-    };
-
-    void bind();
-    return () => {
-      cancelled = true;
-      hls?.destroy();
-      video.removeAttribute("src");
-      video.load();
-    };
-  }, [selectedChannel, autoPlay]);
+    setTuning(true);
+    setIsPlaying(autoPlay);
+    const id = window.setTimeout(() => setTuning(false), 650);
+    return () => window.clearTimeout(id);
+  }, [selectedChannel.chNumber, autoPlay]);
 
   const togglePower = () => {
     const video = videoRef.current;
@@ -324,16 +367,20 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
             {clock}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="relative z-20 grid grid-cols-2 gap-2 sm:grid-cols-4">
           {WURFI_DEMO_LINEUP.map((prog) => {
             const isSelected = selectedChannel.chNumber === prog.chNumber;
             return (
               <button
                 type="button"
                 key={prog.chNumber}
-                onClick={() => {
+                aria-pressed={isSelected}
+                data-channel={prog.chNumber}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
                   setSelectedChannel(prog);
-                  if (!autoPlay) setIsPlaying(false);
+                  setIsPlaying(autoPlay);
                 }}
                 className={`flex min-h-[72px] cursor-pointer flex-col items-start rounded-lg border px-3 py-2 text-left ${
                   isSelected
@@ -368,15 +415,29 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
           </span>
         </div>
         <div className="relative aspect-video max-h-[48vh] w-full overflow-hidden rounded-b-xl border border-t-0 border-wurfi-jade/40 bg-black">
-          <video
-            ref={videoRef}
-            playsInline
-            muted={autoPlay}
+          <WurfiChannelVideo
+            key={selectedChannel.chNumber}
+            channel={selectedChannel}
             autoPlay={autoPlay}
-            className="h-full w-full object-cover"
+            onPlayingChange={setIsPlaying}
+            videoRef={videoRef}
           />
 
-          {isNewsChannel && currentHeadline && (
+          {(tuning || (!isPlaying && autoPlay)) && (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-black/85 p-4 text-center">
+              <span className="font-osd text-4xl tracking-widest text-wurfi-jade">
+                CH {selectedChannel.chNumber}
+              </span>
+              <span className="mt-2 text-sm font-black tracking-widest text-white">
+                {selectedChannel.station}
+              </span>
+              <span className="mt-3 text-[10px] font-black tracking-widest text-zinc-400">
+                TUNING
+              </span>
+            </div>
+          )}
+
+          {isNewsChannel && currentHeadline && !tuning && (
             <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent px-3 pt-8 pb-2">
               <span className="mb-1 inline-block bg-wurfi-jade px-1.5 py-0.5 text-[10px] font-black tracking-widest text-black">
                 {currentHeadline.category} • ATX LOCAL NEWS
@@ -387,7 +448,7 @@ export const WorfiGuidePlayerView: React.FC<{ autoPlay?: boolean }> = ({
             </div>
           )}
 
-          {!isPlaying && !isNewsChannel && (
+          {!isPlaying && !isNewsChannel && !autoPlay && !tuning && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black p-4 text-center">
               <div className="font-osd mb-3 text-lg tracking-widest text-wurfi-jade">
                 {selectedChannel.station}

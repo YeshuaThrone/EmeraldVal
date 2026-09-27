@@ -32,7 +32,13 @@ describe("WorfiAppShell", () => {
     expect(src).toContain("Night of the Living Dead (1968)");
     expect(src).toContain("night-of-the-living-dead_1968");
     expect(src).toContain("tears-of-steel.ism/.m3u8");
+    expect(src).toContain("nasaplus.akamaized.net/output/16927.m3u8");
     expect(src).toContain('import("hls.js")');
+    expect(src).toContain("Hls.isSupported()");
+    expect(src).toContain("key={selectedChannel.chNumber}");
+    expect(src).toContain("data-channel={prog.chNumber}");
+    expect(src).toContain("setSelectedChannel(prog)");
+    expect(src).toContain("TUNING");
   });
 
   it("gates video behind POWER and puts ATX news on CH 04", () => {
