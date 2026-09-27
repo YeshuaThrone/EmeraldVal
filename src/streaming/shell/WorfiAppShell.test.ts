@@ -32,7 +32,7 @@ describe("WorfiAppShell", () => {
     expect(src).toContain("Night of the Living Dead (1968)");
     expect(src).toContain("night-of-the-living-dead_1968");
     expect(src).toContain("tears-of-steel.ism/.m3u8");
-    expect(src).toContain("nasaplus.akamaized.net/output/16927.m3u8");
+    expect(src).toContain("test-streams.mux.dev/x36xhzz/x36xhzz.m3u8");
     expect(src).toContain('import("hls.js")');
     expect(src).toContain("Hls.isSupported()");
     expect(src).toContain("key={selectedChannel.chNumber}");

@@ -69,17 +69,20 @@ export const WURFI_DEMO_LINEUP: ProgramItem[] = [
   {
     chNumber: "07",
     station: "NASA TV LIVE",
-    nowPlaying: "Cosmic Dawn: JWST",
-    nowCreator: "NASA+",
-    upNext: "Deep Space Operations",
+    nowPlaying: "Deep Space Documentary",
+    nowCreator: "NASA Public Domain",
+    upNext: "Hubble Operations",
     nextCreator: "NASA Broadcast",
-    streamUrl: "https://nasaplus.akamaized.net/output/16927.m3u8",
-    durationSeconds: 5400,
+    streamUrl: "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
+    durationSeconds: 596,
   },
 ];
 
 const DEFAULT_CHANNEL =
   WURFI_DEMO_LINEUP.find((p) => p.chNumber === "04") ?? WURFI_DEMO_LINEUP[0]!;
+
+const FALLBACK_HLS =
+  "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
 
 function wallClockOffsetSeconds(item: ProgramItem, now: Date = new Date()): number {
   if (item.streamUrl.includes(".m3u8") || item.durationSeconds <= 0) {
@@ -172,7 +175,12 @@ const WurfiChannelVideo: React.FC<{
             playMuted();
           });
           instance.on(Hls.Events.ERROR, (_event, data) => {
-            if (data?.fatal && !cancelled) onPlayingChange(false);
+            if (!data?.fatal || cancelled) return;
+            if (url !== FALLBACK_HLS) {
+              instance.loadSource(FALLBACK_HLS);
+              return;
+            }
+            onPlayingChange(false);
           });
           return;
         }
