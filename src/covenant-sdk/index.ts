@@ -88,12 +88,23 @@ export type {
 } from "./outbound-webhook";
 export { CovenantMcpRegistry } from "./mcp-registry";
 export { COVENANT_MCP_TOOLS, CovenantMcpToolHost } from "./mcp-tools";
+export { CovenantAuthSDK } from "./phone/verification-sdk";
+export type {
+  SendOtpResult,
+  VerifyOtpResult,
+  PhoneOtpChannel,
+} from "./phone/verification-sdk";
+export {
+  CovenantPhoneMcpToolHost,
+  PHONE_MCP_TOOLS,
+} from "./phone/mcp-tools";
 export { COVENANT_HTTP_MOUNTS } from "./routes/app";
 export { covenantRouters } from "./routes/routers";
 export { default as workRoutes } from "./routes/works";
 export { default as sweepDirectRoutes } from "./routes/sweep-direct";
 export { default as sweepAsyncRoutes } from "./routes/sweep-async";
 export { default as luminateRoutes } from "./routes/luminate";
+export { default as phoneRoutes } from "./routes/phone";
 export { CovenantMasterEngineFacade as CovenantProductionFacade } from "./covenant-master-production-sdk";
 export type {
   AssetCategory,

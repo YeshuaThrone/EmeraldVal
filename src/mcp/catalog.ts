@@ -30,7 +30,13 @@ export const COVENANT_MCP_HTTP: readonly McpHttpBinding[] = [
   { method: "POST", path: "/api/v1/sweeper/luminate" },
 ];
 
+export const PHONE_MCP_HTTP: readonly McpHttpBinding[] = [
+  { method: "POST", path: "/api/v1/auth/phone/otp" },
+  { method: "POST", path: "/api/v1/auth/phone/verify" },
+];
+
 export const MCP_HTTP_BINDINGS: readonly McpHttpBinding[] = [
   ...DON_MCP_HTTP,
   ...COVENANT_MCP_HTTP,
+  ...PHONE_MCP_HTTP,
 ];
