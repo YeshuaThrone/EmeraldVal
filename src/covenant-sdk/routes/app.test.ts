@@ -18,12 +18,15 @@ describe("Covenant HTTP app mounts", () => {
       { router: "sweep-direct", method: "POST", path: "/api/v1/sweeper" },
       { router: "sweep-async", method: "POST", path: "/api/v1/sweeper/async" },
       { router: "luminate", method: "POST", path: "/api/v1/sweeper/luminate" },
+      { router: "phone", method: "POST", path: "/api/v1/auth/phone/otp" },
+      { router: "phone", method: "POST", path: "/api/v1/auth/phone/verify" },
     ]);
     expect(Object.keys(covenantRouters)).toEqual([
       "works",
       "sweepDirect",
       "sweepAsync",
       "luminate",
+      "phone",
     ]);
   });
 });

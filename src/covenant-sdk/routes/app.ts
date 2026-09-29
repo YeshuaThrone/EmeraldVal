@@ -5,6 +5,8 @@
  *   app.use('/api/v1/sweeper', sweepDirectRoutes);
  *   app.use('/api/v1/sweeper', sweepAsyncRoutes);
  *   app.use('/api/v1/sweeper', luminateRoutes);
+ *   app.post('/api/v1/auth/phone/otp', phoneRoutes.postOtp);
+ *   app.post('/api/v1/auth/phone/verify', phoneRoutes.postVerify);
  *
  * EmeraldVal serves the same mounts via Next.js App Router.
  * This file is the mount table only — importing it must not load the
@@ -34,6 +36,14 @@ export const COVENANT_HTTP_MOUNTS = [
     mount: "/api/v1/sweeper",
     router: "luminate",
     routes: [{ method: "POST", path: "/luminate" }],
+  },
+  {
+    mount: "/api/v1/auth/phone",
+    router: "phone",
+    routes: [
+      { method: "POST", path: "/otp" },
+      { method: "POST", path: "/verify" },
+    ],
   },
 ] as const;
 

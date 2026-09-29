@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "mcp": "npx tsx src/mcp/covenant-mcp-server.ts",
-    "covenant-mcp": "npx tsx src/mcp/covenant-mcp-server.ts"
+    "covenant-mcp": "npx tsx src/mcp/covenant-mcp-server.ts",
+    "covenant-phone-mcp": "npx tsx src/mcp/covenant-mcp-server.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",

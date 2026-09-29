@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { SqliteStore } from "@/lib/server/store";
 import { CovenantMcpRegistry } from "@/covenant-sdk/mcp-registry";
 import { CovenantMasterEngineFacade } from "@/covenant-sdk/facade";
-import { MCP_HTTP_BINDINGS, COVENANT_MCP_HTTP, DON_MCP_HTTP } from "./catalog";
+import { MCP_HTTP_BINDINGS, COVENANT_MCP_HTTP, DON_MCP_HTTP, PHONE_MCP_HTTP } from "./catalog";
 import { DON_MCP_TOOLS } from "./don-tools";
 import { COVENANT_MCP_TOOLS } from "@/covenant-sdk/mcp-tools";
+import { PHONE_MCP_TOOLS } from "@/covenant-sdk/phone/mcp-tools";
+import { CovenantAuthSDK } from "@/covenant-sdk/phone/verification-sdk";
 import { EmeraldValMcpToolHost } from "./host";
 
 const SPLIT_BODY = {
@@ -67,6 +69,10 @@ function host() {
     engine: new CovenantMasterEngineFacade({
       clock: () => new Date("2026-09-25T00:00:00.000Z"),
     }),
+    phone: new CovenantAuthSDK({
+      clock: () => new Date("2026-09-29T00:00:00.000Z"),
+      codeFactory: () => "123456",
+    }),
   });
 }
 
@@ -99,6 +105,8 @@ describe("MCP catalog covers every /api/v1 route", () => {
         "POST /api/v1/sweeper",
         "POST /api/v1/sweeper/async",
         "POST /api/v1/sweeper/luminate",
+        "POST /api/v1/auth/phone/otp",
+        "POST /api/v1/auth/phone/verify",
       ].sort(),
     );
     expect(DON_MCP_TOOLS).toHaveLength(DON_MCP_HTTP.length);
@@ -113,6 +121,7 @@ describe("MCP catalog covers every /api/v1 route", () => {
         ].includes(tool.name),
       ),
     ).toHaveLength(COVENANT_MCP_HTTP.length);
+    expect(PHONE_MCP_TOOLS).toHaveLength(PHONE_MCP_HTTP.length);
   });
 });
 
@@ -122,6 +131,7 @@ describe("EmeraldValMcpToolHost", () => {
     expect(listed).toEqual([
       ...DON_MCP_TOOLS.map((tool) => tool.name),
       ...COVENANT_MCP_TOOLS.map((tool) => tool.name),
+      ...PHONE_MCP_TOOLS.map((tool) => tool.name),
     ]);
   });
 
@@ -396,5 +406,43 @@ describe("EmeraldValMcpToolHost", () => {
     expect(proofs.isError).toBe(false);
     const metrics = await mcp.callTool("get_channel_unclaimed_metrics", {});
     expect(metrics.isError).toBe(false);
+  });
+
+  it("sends and verifies a sandbox phone OTP", async () => {
+    const mcp = host();
+    const sent = await mcp.callTool("send_phone_otp", {
+      userId: "11111111-1111-4111-8111-111111111111",
+      phone: "+15125550123",
+    });
+    expect(sent.isError).toBe(false);
+    expect(sent.payload).toEqual(
+      expect.objectContaining({
+        ok: true,
+        mode: "sandbox",
+        channel: "whatsapp",
+        sandboxCode: "123456",
+      }),
+    );
+
+    const verified = await mcp.callTool("verify_phone_otp", {
+      userId: "11111111-1111-4111-8111-111111111111",
+      phone: "+15125550123",
+      code: "123456",
+    });
+    expect(verified.isError).toBe(false);
+    expect(verified.payload).toEqual(
+      expect.objectContaining({
+        ok: true,
+        mode: "sandbox",
+        phone: "+15125550123",
+        verifiedAt: "2026-09-29T00:00:00.000Z",
+      }),
+    );
+
+    const bad = await mcp.callTool("send_phone_otp", { phone: "+15125550123" });
+    expect(bad.isError).toBe(true);
+    expect(bad.payload).toEqual(
+      expect.objectContaining({ ok: false, code: "missing_user_id" }),
+    );
   });
 });

@@ -1,8 +1,10 @@
 /**
- * Stdio MCP server for every Don Engine + Covenant `/api/v1` route.
- * Run: `npm run mcp` (alias: `npm run covenant-mcp`).
+ * Stdio MCP server for every Don Engine + Covenant `/api/v1` route,
+ * including sandbox phone OTP (`send_phone_otp` / `verify_phone_otp`).
+ * Run: `npm run mcp` (aliases: `covenant-mcp`, `covenant-phone-mcp`).
  *
- * Does not call live Plaid, Column, Unit, DSP, or PRO HTTP.
+ * Does not call live Plaid, Column, Unit, DSP, PRO, WhatsApp, TextBee,
+ * or Supabase HTTP.
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";

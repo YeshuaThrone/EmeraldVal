@@ -29,4 +29,9 @@ export { CovenantSplitLedgerNode, DEFAULT_ADMIN_FEE_BPS } from "./split-ledger";
 export { CovenantAuditProofGenerator } from "./audit-proof";
 export { CovenantMcpRegistry } from "./mcp-registry";
 export { CovenantMcpToolHost, COVENANT_MCP_TOOLS } from "./mcp-tools";
+export { CovenantAuthSDK } from "./phone/verification-sdk";
+export {
+  CovenantPhoneMcpToolHost,
+  PHONE_MCP_TOOLS,
+} from "./phone/mcp-tools";
 export { COVENANT_HTTP_MOUNTS } from "./routes/app";
