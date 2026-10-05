@@ -1,3 +1,10 @@
+import {
+  buildCartoonCharacterPrompt,
+  collectCartoonNegativePrompt,
+  parseCharacterStateConfig,
+  type CharacterStateConfig,
+} from "./cartoonCharacterPrompt";
+
 export interface MotionVectorConfig {
   type: "pan" | "zoom" | "tilt" | "orbit" | "camera_only";
   speed: number;
@@ -27,6 +34,7 @@ export interface AdvancedShotConditioningPayload {
   controlNet?: ControlNetMapConfig;
   motionVector: MotionVectorConfig;
   seed: number;
+  characterState?: CharacterStateConfig;
 }
 
 const MOTION_TYPES = new Set<MotionVectorConfig["type"]>([
@@ -44,7 +52,14 @@ function clamp01(value: number): number {
 export function compileConditioningPayload(
   config: AdvancedShotConditioningPayload,
 ) {
+  const cartoonPrompt = config.characterState
+    ? buildCartoonCharacterPrompt(config.characterState)
+    : "";
+  const cartoonNegatives = config.characterState
+    ? collectCartoonNegativePrompt(config.characterState)
+    : "";
   const structuredPrompt = [
+    cartoonPrompt,
     `[CHARACTER_LOCK: ${config.characterRef.characterId}]`,
     `[CAMERA_MOTION: ${config.motionVector.type} SPEED=${config.motionVector.speed}]`,
     config.prompt,
@@ -57,13 +72,18 @@ export function compileConditioningPayload(
     project_id: config.projectId,
     generation_params: {
       prompt: structuredPrompt,
-      negative_prompt: config.negativePrompt,
+      negative_prompt: [config.negativePrompt, cartoonNegatives]
+        .filter(Boolean)
+        .join(", "),
       seed: config.seed,
     },
     conditioning_layers: {
       ip_adapter: {
         image_url: config.characterRef.turnaroundSheetUrl,
-        face_embedding: config.characterRef.faceEmbeddingUrl || null,
+        face_embedding:
+          config.characterRef.faceEmbeddingUrl ||
+          config.characterState?.baseEmbeddingId ||
+          null,
         weight: clamp01(config.characterRef.weight),
       },
       controlnet: config.controlNet
@@ -164,5 +184,8 @@ export function parseAdvancedShotConditioningPayload(
           : undefined,
     },
     seed: requiredNumber(record, "seed"),
+    characterState: record.characterState
+      ? parseCharacterStateConfig(record.characterState)
+      : undefined,
   };
 }

@@ -29,8 +29,26 @@ describe("compileConditioningPayload", () => {
           speed: 0.8,
           videoUrl: "https://cdn.example/orbit.mp4",
         },
+        characterState: {
+          characterName: "Maya",
+          baseEmbeddingId: "face-maya-01",
+          expressionTag: "EXCITED",
+          activeProps: [
+            {
+              propId: "fan-1",
+              propName: "paper fan",
+              anchorPoint: "LEFT_HAND",
+              visualPromptModifier: "folded red paper fan",
+              negativePromptModifier: "firearm",
+            },
+          ],
+        },
       }),
     );
+
+    expect(compiled.generation_params.prompt).toContain("[CARTOON_STYLE]");
+    expect(compiled.generation_params.prompt).toContain("holding paper fan in left_hand");
+    expect(compiled.generation_params.negative_prompt).toContain("firearm");
 
     expect(compiled.generation_params.prompt).toContain("[CHARACTER_LOCK:");
     expect(compiled.generation_params.prompt).toContain("[CAMERA_MOTION: orbit SPEED=0.8]");
