@@ -1,79 +1,131 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
-  parseObviousWebhook,
-  verifyObviousSignature,
-} from "@/internal-studio/api/obviousWebhooks";
-import {
-  insertStudioShot,
-  isUnavailableDb,
-  updateStudioShot,
-} from "@/internal-studio/api/shotsRepository";
+  isPillarCutMetadata,
+  stitchShotsAtPillarCut,
+} from "@/utils/ffmpegStitcher";
+import * as path from "path";
+import * as fs from "fs";
 
-export async function POST(request: Request) {
-  const rawBody = await request.text();
-  if (
-    !verifyObviousSignature(rawBody, request.headers.get("x-obvious-signature"))
-  ) {
-    return NextResponse.json(
-      { success: false, error: "Invalid Obvious webhook signature" },
-      { status: 403 },
-    );
+function getSupabaseAdmin(): SupabaseClient {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error("Supabase is not configured");
   }
+  return createClient(url, key);
+}
 
-  let parsed: unknown = {};
-  try {
-    parsed = rawBody ? JSON.parse(rawBody) : {};
-  } catch {
-    return NextResponse.json(
-      { success: false, error: "Obvious webhook body is invalid" },
-      { status: 400 },
-    );
+async function downloadToFile(url: string, filePath: string): Promise<void> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download clip (${response.status})`);
   }
+  fs.writeFileSync(filePath, Buffer.from(await response.arrayBuffer()));
+}
 
+export async function POST(req: NextRequest) {
   try {
-    const event = parseObviousWebhook(parsed);
-    if (!event.shotId) {
-      return NextResponse.json({ success: true, ignored: true });
-    }
-
-    const status =
-      event.event === "review.approved"
-        ? "approved"
-        : event.event === "review.rejected" || event.event === "shot.failed"
-          ? "rejected"
-          : event.event === "shot.ready" || event.event === "stitch.complete"
-            ? "pending_review"
-            : "generating";
-
-    const row = await updateStudioShot(event.shotId, {
-      status,
-      videoUrl: event.videoUrl,
-      audioStemUrl: event.audioStemUrl,
-      directorNotes: event.notes,
-    });
-
-    if (row) {
-      return NextResponse.json({ success: true, shot: row, event: event.event });
-    }
-
-    const created = await insertStudioShot({
-      projectId: event.projectId ?? "studio-default",
-      shotId: event.shotId,
-      status,
-      videoUrl: event.videoUrl,
-      audioStemUrl: event.audioStemUrl,
-      directorNotes: event.notes,
-    });
-    return NextResponse.json({ success: true, shot: created, event: event.event });
-  } catch (err) {
-    if (isUnavailableDb(err)) {
+    const authHeader = req.headers.get("x-obvious-signature");
+    if (authHeader !== process.env.OBVIOUS_WEBHOOK_SECRET) {
       return NextResponse.json(
-        { success: false, error: "Studio database is unavailable" },
-        { status: 503 },
+        { error: "Unauthorized webhook signature" },
+        { status: 401 },
       );
     }
-    const message =
-      err instanceof Error ? err.message : "Obvious webhook failed";
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+
+    const payload = (await req.json()) as {
+      projectId?: string;
+      shotId?: string;
+      videoUrl?: string;
+      scriptText?: string;
+      metadata?: unknown;
+    };
+    const { projectId, shotId, videoUrl, scriptText, metadata } = payload;
+    if (!projectId || !shotId || !videoUrl) {
+      return NextResponse.json(
+        { error: "projectId, shotId, and videoUrl are required" },
+        { status: 400 },
+      );
+    }
+
+    let finalVideoUrl = videoUrl;
+    const supabaseAdmin = getSupabaseAdmin();
+
+    if (isPillarCutMetadata(metadata)) {
+      const { data: previousShot } = await supabaseAdmin
+        .from("studio_shots")
+        .select("video_url")
+        .eq("shot_id", metadata.previous_shot_id)
+        .single();
+
+      if (previousShot?.video_url) {
+        const tmpDir = path.join(process.cwd(), "tmp");
+        if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir);
+
+        const shotAPath = path.join(tmpDir, `shot_a_${Date.now()}.mp4`);
+        const shotBPath = path.join(tmpDir, `shot_b_${Date.now()}.mp4`);
+        const outputPath = path.join(tmpDir, `stitched_${Date.now()}.mp4`);
+
+        try {
+          await downloadToFile(previousShot.video_url, shotAPath);
+          await downloadToFile(videoUrl, shotBPath);
+
+          await stitchShotsAtPillarCut({
+            shotAVideoPath: shotAPath,
+            shotBVideoPath: shotBPath,
+            outputPath,
+          });
+
+          const fileBuffer = fs.readFileSync(outputPath);
+          const storagePath = `stitched/${projectId}/${shotId}_stitched.mp4`;
+
+          const { error: uploadError } = await supabaseAdmin.storage
+            .from("studio-assets")
+            .upload(storagePath, fileBuffer, {
+              contentType: "video/mp4",
+              upsert: true,
+            });
+
+          if (!uploadError) {
+            const { data: publicUrlData } = supabaseAdmin.storage
+              .from("studio-assets")
+              .getPublicUrl(storagePath);
+            finalVideoUrl = publicUrlData.publicUrl;
+          }
+        } finally {
+          for (const filePath of [shotAPath, shotBPath, outputPath]) {
+            if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+          }
+        }
+      }
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from("studio_shots")
+      .upsert(
+        {
+          project_id: projectId,
+          shot_id: shotId,
+          video_url: finalVideoUrl,
+          script_text: scriptText,
+          status: "pending_review",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "shot_id" },
+      )
+      .select();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, record: data }, { status: 200 });
+  } catch (err: unknown) {
+    console.error("Webhook processing error:", err);
+    return NextResponse.json(
+      { error: "Internal processing error" },
+      { status: 500 },
+    );
   }
 }

@@ -12,6 +12,7 @@
     "push:vercel": "tsx src/scripts/pushToVercel.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "better-sqlite3": "^12.11.1",
     "express": "^4.21.2",
     "hls.js": "^1.7.3",
