@@ -8,6 +8,7 @@ import {
   compilePalaisRoseRoomPrompt,
   type PalaisRoseRoomConfig,
 } from "@/config/palaisRosePresets";
+import { PALAIS_ROSE_CHARACTER_ANCHORS } from "@/config/palaisRoseAnchors";
 
 interface PalaisRoseEstateSelectorProps {
   onCompiledPromptChange?: (prompt: string) => void;
@@ -79,6 +80,32 @@ export function PalaisRoseEstateSelector({
       <p className="rounded-lg border border-slate-800/80 bg-slate-950 p-3 font-mono text-[11px] leading-relaxed text-slate-300">
         {prompt}
       </p>
+
+      <div className="space-y-2">
+        <label className="text-[10px] font-bold tracking-wider text-pink-300 uppercase">
+          Character Multiplane Anchors
+        </label>
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+          {PALAIS_ROSE_CHARACTER_ANCHORS.map((anchor) => (
+            <div
+              key={anchor.anchorId}
+              className="rounded-lg border border-slate-800 bg-slate-950 p-2 text-[11px] text-slate-400"
+            >
+              <div className="font-semibold text-slate-200">{anchor.locationName}</div>
+              <div className="mt-1 font-mono text-[10px]">
+                z={anchor.depthZ} · scale={anchor.recommendedScale} · max=
+                {anchor.maxCharactersAllowed}
+              </div>
+              <div
+                className="mt-1 inline-block rounded px-1.5 py-0.5 font-mono text-[10px] text-slate-950"
+                style={{ backgroundColor: anchor.ambientTintHex }}
+              >
+                {anchor.ambientTintHex}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
