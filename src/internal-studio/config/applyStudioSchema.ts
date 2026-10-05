@@ -23,7 +23,101 @@ async function hasAuthUsers(client: PoolClient): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
-type StudioRlsTable = "studio_shots" | "character_models" | "shot_cards";
+type StudioRlsTable =
+  | "studio_shots"
+  | "character_models"
+  | "shot_cards"
+  | "shot_render_jobs"
+  | "shot_motion_trajectories";
+
+async function applyCharacterEmbeddingSupport(client: PoolClient): Promise<void> {
+  let hasVector = false;
+  try {
+    await client.query(`CREATE EXTENSION IF NOT EXISTS vector`);
+    hasVector = true;
+  } catch {
+    hasVector = false;
+  }
+
+  if (hasVector) {
+    await client.query(`
+      ALTER TABLE public.character_models
+        ADD COLUMN IF NOT EXISTS face_embedding vector(512)
+    `);
+    await client.query(`
+      CREATE OR REPLACE FUNCTION public.match_character_embedding(
+        target_character_id uuid,
+        candidate_vector vector(512)
+      )
+      RETURNS TABLE (similarity double precision)
+      LANGUAGE sql
+      STABLE
+      AS $$
+        SELECT COALESCE(
+          1::double precision - (cm.face_embedding <=> candidate_vector),
+          0::double precision
+        ) AS similarity
+        FROM public.character_models AS cm
+        WHERE cm.id = target_character_id;
+      $$
+    `);
+    return;
+  }
+
+  await client.query(`
+    ALTER TABLE public.character_models
+      ADD COLUMN IF NOT EXISTS face_embedding float8[]
+  `);
+  await client.query(`
+    CREATE OR REPLACE FUNCTION public.studio_cosine_similarity(a float8[], b float8[])
+    RETURNS double precision
+    LANGUAGE plpgsql
+    IMMUTABLE
+    AS $$
+    DECLARE
+      dot double precision := 0;
+      na double precision := 0;
+      nb double precision := 0;
+      i int;
+      n int;
+    BEGIN
+      IF a IS NULL OR b IS NULL THEN
+        RETURN 0;
+      END IF;
+      n := LEAST(COALESCE(array_length(a, 1), 0), COALESCE(array_length(b, 1), 0));
+      IF n = 0 THEN
+        RETURN 0;
+      END IF;
+      FOR i IN 1..n LOOP
+        dot := dot + a[i] * b[i];
+        na := na + a[i] * a[i];
+        nb := nb + b[i] * b[i];
+      END LOOP;
+      IF na = 0 OR nb = 0 THEN
+        RETURN 0;
+      END IF;
+      RETURN dot / sqrt(na * nb);
+    END;
+    $$
+  `);
+  await client.query(`
+    CREATE OR REPLACE FUNCTION public.match_character_embedding(
+      target_character_id uuid,
+      candidate_vector float8[]
+    )
+    RETURNS TABLE (similarity double precision)
+    LANGUAGE sql
+    STABLE
+    AS $$
+      SELECT COALESCE(
+        public.studio_cosine_similarity(cm.face_embedding, candidate_vector),
+        0::double precision
+      ) AS similarity
+      FROM public.character_models AS cm
+      WHERE cm.id = target_character_id;
+    $$
+  `);
+}
 
 const STUDIO_ROLE_PREDICATE =
   "(auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')";
@@ -133,9 +227,44 @@ export async function applyStudioSchema(client: PoolClient): Promise<void> {
     END $$;
   `);
 
+  await applyCharacterEmbeddingSupport(client);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS public.shot_render_jobs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      shot_id TEXT NOT NULL,
+      project_id TEXT NOT NULL,
+      user_id UUID,
+      status TEXT NOT NULL DEFAULT 'queued',
+      payload JSONB NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS public.shot_motion_trajectories (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      shot_id VARCHAR(128) NOT NULL,
+      project_id UUID NOT NULL,
+      duration_seconds NUMERIC(5, 2) NOT NULL DEFAULT 5.00,
+      zoom_factor NUMERIC(3, 2) NOT NULL DEFAULT 1.00,
+      trajectory_points JSONB NOT NULL,
+      camera_vector_string TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  await client.query(`
+    CREATE INDEX IF NOT EXISTS idx_motion_trajectories_shot
+      ON public.shot_motion_trajectories (shot_id);
+  `);
+
   await enableStudioTableRls(client, "studio_shots");
   await enableStudioTableRls(client, "character_models");
   await enableStudioTableRls(client, "shot_cards");
+  await enableStudioTableRls(client, "shot_render_jobs");
+  await enableStudioTableRls(client, "shot_motion_trajectories");
 
   if (await hasAuthUsers(client)) {
     await client.query(`
@@ -149,6 +278,16 @@ export async function applyStudioSchema(client: PoolClient): Promise<void> {
       "Studio Team Character Models",
     );
     await createStudioTeamPolicy(client, "shot_cards", "Studio Team Shot Cards");
+    await createStudioTeamPolicy(
+      client,
+      "shot_render_jobs",
+      "Studio Team Shot Render Jobs",
+    );
+    await createStudioTeamPolicy(
+      client,
+      "shot_motion_trajectories",
+      "Studio Team Motion Trajectories",
+    );
   }
 }
 

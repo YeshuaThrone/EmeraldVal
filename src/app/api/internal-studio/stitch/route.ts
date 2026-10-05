@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { stitchShotsWithFfmpeg } from "@/internal-studio/api/ffmpegStitcher";
+import {
+  assertInsideWorkDir,
+  stitchShotsWithFfmpeg,
+  studioWorkDir,
+} from "@/internal-studio/api/ffmpegStitcher";
+import { stitchMultiStyleClips } from "@/internal-studio/api/xfadeStitcher";
 import { readJsonBody, studioStaffFrom, studioUnauthorized } from "@/internal-studio/api/http";
 
 export async function POST(request: Request) {
@@ -9,6 +14,8 @@ export async function POST(request: Request) {
   const body = (await readJsonBody(request)) as {
     clipPaths?: unknown;
     outputFileName?: unknown;
+    transition?: unknown;
+    transitionDuration?: unknown;
   };
 
   const clipPaths = Array.isArray(body.clipPaths)
@@ -18,6 +25,24 @@ export async function POST(request: Request) {
     typeof body.outputFileName === "string" ? body.outputFileName : "stitched.mp4";
 
   try {
+    if (body.transition === "xfade") {
+      const workDir = studioWorkDir();
+      const resolvedClips = clipPaths.map((clip) =>
+        assertInsideWorkDir(clip, workDir),
+      );
+      const outputPath = assertInsideWorkDir(outputFileName, workDir);
+      const transitionDuration =
+        typeof body.transitionDuration === "number"
+          ? body.transitionDuration
+          : 0.5;
+      const result = await stitchMultiStyleClips(
+        resolvedClips,
+        outputPath,
+        transitionDuration,
+      );
+      return NextResponse.json({ success: true, ...result });
+    }
+
     const result = await stitchShotsWithFfmpeg({ clipPaths, outputFileName });
     return NextResponse.json({ success: true, ...result });
   } catch (err) {

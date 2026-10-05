@@ -86,3 +86,76 @@ USING (
 WITH CHECK (
     (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
 );
+
+-- 8. Canonical face embeddings (pgvector) for character lock
+CREATE EXTENSION IF NOT EXISTS vector;
+
+ALTER TABLE public.character_models
+    ADD COLUMN IF NOT EXISTS face_embedding vector(512);
+
+CREATE OR REPLACE FUNCTION public.match_character_embedding(
+    target_character_id uuid,
+    candidate_vector vector(512)
+)
+RETURNS TABLE (similarity double precision)
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT COALESCE(
+        1::double precision - (cm.face_embedding <=> candidate_vector),
+        0::double precision
+    ) AS similarity
+    FROM public.character_models AS cm
+    WHERE cm.id = target_character_id;
+$$;
+
+-- 9. Production queue for compiled conditioning payloads
+CREATE TABLE IF NOT EXISTS public.shot_render_jobs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shot_id TEXT NOT NULL,
+    project_id TEXT NOT NULL,
+    user_id UUID,
+    status TEXT NOT NULL DEFAULT 'queued',
+    payload JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.shot_render_jobs ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Studio Team Shot Render Jobs"
+ON public.shot_render_jobs
+FOR ALL
+USING (
+    (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
+)
+WITH CHECK (
+    (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
+);
+
+-- 10. Screen-space camera trajectories
+CREATE TABLE IF NOT EXISTS public.shot_motion_trajectories (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    shot_id VARCHAR(128) NOT NULL,
+    project_id UUID NOT NULL,
+    duration_seconds NUMERIC(5, 2) NOT NULL DEFAULT 5.00,
+    zoom_factor NUMERIC(3, 2) NOT NULL DEFAULT 1.00,
+    trajectory_points JSONB NOT NULL,
+    camera_vector_string TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_motion_trajectories_shot
+ON public.shot_motion_trajectories (shot_id);
+
+ALTER TABLE public.shot_motion_trajectories ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Studio Team Motion Trajectories"
+ON public.shot_motion_trajectories
+FOR ALL
+USING (
+    (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
+)
+WITH CHECK (
+    (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
+);

@@ -42,6 +42,12 @@ describe("AnimationStudioOS schema", () => {
     );
     expect(schema).toContain('CREATE POLICY "Studio Team Character Models"');
     expect(schema).toContain('CREATE POLICY "Studio Team Shot Cards"');
+    expect(schema).toContain("CREATE EXTENSION IF NOT EXISTS vector");
+    expect(schema).toContain("match_character_embedding");
+    expect(schema).toContain("CREATE TABLE IF NOT EXISTS public.shot_render_jobs");
+    expect(schema).toContain("CREATE TABLE IF NOT EXISTS public.shot_motion_trajectories");
+    expect(schema).toContain("idx_motion_trajectories_shot");
+    expect(schema).toContain('CREATE POLICY "Studio Team Motion Trajectories"');
     expect(schema).toContain("ALTER TABLE public.studio_shots ENABLE ROW LEVEL SECURITY");
     expect(schema).toContain('CREATE POLICY "Studio Team Full Access"');
     expect(schema).toContain(
