@@ -10,6 +10,7 @@ import {
   type CartoonHousingStyle,
   type HousingTier,
 } from "@/config/housingMaterials";
+import { PalaisRoseEstateSelector } from "./PalaisRoseEstateSelector";
 
 interface HouseMaterialSelectorProps {
   onCompiledPromptChange?: (prompt: string) => void;
@@ -169,6 +170,10 @@ export function HouseMaterialSelector({
           Active facade: {activeMaterial.facade}
         </p>
       </div>
+
+      {tier === "PALAIS_ROSE_MANSION" ? (
+        <PalaisRoseEstateSelector onCompiledPromptChange={onCompiledPromptChange} />
+      ) : null}
     </div>
   );
 }

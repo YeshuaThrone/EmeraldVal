@@ -299,6 +299,7 @@ describe("HouseMaterialSelector", () => {
     expect(src).toContain("compileCartoonStructurePrompt");
     expect(src).toContain("PALAIS_ROSE_MANSION");
     expect(src).toContain("GHIBLI_WATERCOLOR");
+    expect(src).toContain("PalaisRoseEstateSelector");
   });
 });
 

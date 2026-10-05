@@ -94,6 +94,11 @@ export const TIER_MATERIALS: Record<HousingTier, HousingMaterialPreset[]> = {
       roof: "Polished Onyx Dome",
       facade: "Royal Beaux-Arts Empire",
     },
+    {
+      primary: "Pink French Marble & Carved Limestone",
+      roof: "Copper Mansard & Ornate Stone Balustrades",
+      facade: "Grand Trianon Neoclassical",
+    },
   ],
 };
 
