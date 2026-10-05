@@ -12,6 +12,8 @@ import {
 } from "./api/obviousWebhooks";
 import { isInternalStudioRole } from "./config/studioRoles";
 import { resolveStudioStaff } from "./config/staffAllowlist";
+import { parseCharacterModelBody } from "./api/characterModelsRepository";
+import { parseShotCardBody } from "./api/shotCardsRepository";
 
 const schema = readFileSync(
   path.join(import.meta.dirname, "config/studioSchema.sql"),
@@ -30,6 +32,16 @@ describe("AnimationStudioOS schema", () => {
     expect(schema).toContain("project_id TEXT NOT NULL");
     expect(schema).toContain("shot_id TEXT UNIQUE NOT NULL");
     expect(schema).toContain("animation_style TEXT");
+    expect(schema).toContain("CREATE TABLE IF NOT EXISTS public.character_models");
+    expect(schema).toContain("lora_checkpoint_url TEXT NOT NULL");
+    expect(schema).toContain("turnaround_sheet_url TEXT NOT NULL");
+    expect(schema).toContain("CREATE TABLE IF NOT EXISTS public.shot_cards");
+    expect(schema).toContain("assigned_character_id UUID REFERENCES public.character_models(id)");
+    expect(schema).toContain(
+      "CONSTRAINT unique_shot_per_scene UNIQUE (project_id, scene_number, shot_number)",
+    );
+    expect(schema).toContain('CREATE POLICY "Studio Team Character Models"');
+    expect(schema).toContain('CREATE POLICY "Studio Team Shot Cards"');
     expect(schema).toContain("ALTER TABLE public.studio_shots ENABLE ROW LEVEL SECURITY");
     expect(schema).toContain('CREATE POLICY "Studio Team Full Access"');
     expect(schema).toContain(
@@ -199,6 +211,55 @@ describe("studio JWT access", () => {
     expect(
       assertStudioAccess(new Headers({ authorization: `Bearer ${fan}` })).ok,
     ).toBe(false);
+  });
+});
+
+describe("character models and shot cards", () => {
+  const projectId = "11111111-1111-4111-8111-111111111111";
+
+  it("parses a LoRA character model and a unique scene/shot card", () => {
+    const character = parseCharacterModelBody({
+      projectId,
+      characterName: "Maya",
+      loraCheckpointUrl: "https://cdn.example/maya.safetensors",
+      turnaroundSheetUrl: "https://cdn.example/maya-turnaround.png",
+      faceEmbeddingId: "face-maya-01",
+    });
+    expect(character.characterName).toBe("Maya");
+    expect(character.loraCheckpointUrl).toContain("maya.safetensors");
+
+    const card = parseShotCardBody({
+      projectId,
+      sceneNumber: 2,
+      shotNumber: 4,
+      scriptText: "Maya turns into the key light.",
+      cameraMotion: "Dynamic Anime Zoom",
+      assignedCharacterId: "22222222-2222-4222-8222-222222222222",
+      promptOverride: "Hold on the eyes.",
+    });
+    expect(card.cameraMotion).toBe("Dynamic Anime Zoom");
+    expect(card.sceneNumber).toBe(2);
+    expect(card.assignedCharacterId).toContain("2222");
+  });
+
+  it("rejects missing turnaround sheets and overlong camera moves", () => {
+    expect(() =>
+      parseCharacterModelBody({
+        projectId,
+        characterName: "Maya",
+        loraCheckpointUrl: "https://cdn.example/maya.safetensors",
+      }),
+    ).toThrow(/turnaroundSheetUrl is required/);
+
+    expect(() =>
+      parseShotCardBody({
+        projectId,
+        sceneNumber: 1,
+        shotNumber: 1,
+        scriptText: "Hold.",
+        cameraMotion: "X".repeat(51),
+      }),
+    ).toThrow(/cameraMotion must be 50 characters or fewer/);
   });
 });
 

@@ -23,6 +23,42 @@ async function hasAuthUsers(client: PoolClient): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
+type StudioRlsTable = "studio_shots" | "character_models" | "shot_cards";
+
+const STUDIO_ROLE_PREDICATE =
+  "(auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')";
+
+async function enableStudioTableRls(
+  client: PoolClient,
+  table: StudioRlsTable,
+): Promise<void> {
+  await client.query(
+    `ALTER TABLE public.${table} ENABLE ROW LEVEL SECURITY;`,
+  );
+}
+
+async function createStudioTeamPolicy(
+  client: PoolClient,
+  table: StudioRlsTable,
+  policyName: string,
+): Promise<void> {
+  await client.query(
+    `DO $$ BEGIN
+      CREATE POLICY "${policyName}"
+      ON public.${table}
+      FOR ALL
+      USING (
+        ${STUDIO_ROLE_PREDICATE}
+      )
+      WITH CHECK (
+        ${STUDIO_ROLE_PREDICATE}
+      );
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+    END $$;`,
+  );
+}
+
 /**
  * Applies AnimationStudioOS tables on the cable Postgres.
  * The Supabase `auth.users` / `auth.jwt()` statements in studioSchema.sql
@@ -59,30 +95,60 @@ export async function applyStudioSchema(client: PoolClient): Promise<void> {
       ADD COLUMN IF NOT EXISTS animation_style TEXT;
   `);
 
-  await client.query(
-    `ALTER TABLE public.studio_shots ENABLE ROW LEVEL SECURITY;`,
-  );
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS public.character_models (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID NOT NULL,
+      character_name VARCHAR(100) NOT NULL,
+      lora_checkpoint_url TEXT NOT NULL,
+      face_embedding_id VARCHAR(128),
+      turnaround_sheet_url TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS public.shot_cards (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id UUID NOT NULL,
+      scene_number INT NOT NULL,
+      shot_number INT NOT NULL,
+      script_text TEXT NOT NULL,
+      camera_motion VARCHAR(50) NOT NULL,
+      assigned_character_id UUID REFERENCES public.character_models(id),
+      prompt_override TEXT,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      CONSTRAINT unique_shot_per_scene UNIQUE (project_id, scene_number, shot_number)
+    );
+  `);
+
+  await client.query(`
+    DO $$ BEGIN
+      ALTER TABLE public.shot_cards
+        ADD CONSTRAINT unique_shot_per_scene
+        UNIQUE (project_id, scene_number, shot_number);
+    EXCEPTION
+      WHEN duplicate_object THEN NULL;
+      WHEN undefined_table THEN NULL;
+    END $$;
+  `);
+
+  await enableStudioTableRls(client, "studio_shots");
+  await enableStudioTableRls(client, "character_models");
+  await enableStudioTableRls(client, "shot_cards");
 
   if (await hasAuthUsers(client)) {
     await client.query(`
       ALTER TABLE auth.users
         ADD COLUMN IF NOT EXISTS studio_role studio_role DEFAULT 'subscriber';
     `);
-    await client.query(`
-      DO $$ BEGIN
-        CREATE POLICY "Studio Team Full Access"
-        ON public.studio_shots
-        FOR ALL
-        USING (
-          (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
-        )
-        WITH CHECK (
-          (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
-        );
-      EXCEPTION
-        WHEN duplicate_object THEN NULL;
-      END $$;
-    `);
+    await createStudioTeamPolicy(client, "studio_shots", "Studio Team Full Access");
+    await createStudioTeamPolicy(
+      client,
+      "character_models",
+      "Studio Team Character Models",
+    );
+    await createStudioTeamPolicy(client, "shot_cards", "Studio Team Shot Cards");
   }
 }
 
