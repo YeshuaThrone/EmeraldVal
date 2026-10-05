@@ -90,4 +90,15 @@ export class RedstoneSimulator {
   public getNodePower(x: number, y: number, z: number): number {
     return this.nodes.get(key(x, y, z))?.power ?? 0;
   }
+
+  public getActiveNodes(): Array<{ x: number; y: number; z: number; power: number }> {
+    return [...this.nodes.values()]
+      .filter((node) => node.power > 0)
+      .map((node) => ({
+        x: node.x,
+        y: node.y,
+        z: node.z,
+        power: node.power,
+      }));
+  }
 }
