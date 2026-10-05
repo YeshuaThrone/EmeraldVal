@@ -28,7 +28,8 @@ type StudioRlsTable =
   | "character_models"
   | "shot_cards"
   | "shot_render_jobs"
-  | "shot_motion_trajectories";
+  | "shot_motion_trajectories"
+  | "scene_structures";
 
 async function applyCharacterEmbeddingSupport(client: PoolClient): Promise<void> {
   let hasVector = false;
@@ -260,11 +261,33 @@ export async function applyStudioSchema(client: PoolClient): Promise<void> {
       ON public.shot_motion_trajectories (shot_id);
   `);
 
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS public.scene_structures (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      project_id TEXT NOT NULL,
+      structure_name TEXT NOT NULL,
+      tier TEXT NOT NULL,
+      style_preset TEXT NOT NULL,
+      primary_material TEXT NOT NULL,
+      roof_material TEXT NOT NULL,
+      facade_style TEXT NOT NULL,
+      generated_prompt TEXT NOT NULL,
+      negative_prompt TEXT,
+      accent_materials JSONB NOT NULL DEFAULT '[]'::jsonb,
+      color_palette JSONB NOT NULL DEFAULT '[]'::jsonb,
+      confidence_score NUMERIC(4, 3),
+      condition TEXT,
+      damage_intensity NUMERIC(3, 2) DEFAULT 0.00,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
   await enableStudioTableRls(client, "studio_shots");
   await enableStudioTableRls(client, "character_models");
   await enableStudioTableRls(client, "shot_cards");
   await enableStudioTableRls(client, "shot_render_jobs");
   await enableStudioTableRls(client, "shot_motion_trajectories");
+  await enableStudioTableRls(client, "scene_structures");
 
   if (await hasAuthUsers(client)) {
     await client.query(`
@@ -287,6 +310,11 @@ export async function applyStudioSchema(client: PoolClient): Promise<void> {
       client,
       "shot_motion_trajectories",
       "Studio Team Motion Trajectories",
+    );
+    await createStudioTeamPolicy(
+      client,
+      "scene_structures",
+      "Studio Team Scene Structures",
     );
   }
 }

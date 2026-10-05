@@ -48,6 +48,8 @@ describe("AnimationStudioOS schema", () => {
     expect(schema).toContain("CREATE TABLE IF NOT EXISTS public.shot_motion_trajectories");
     expect(schema).toContain("idx_motion_trajectories_shot");
     expect(schema).toContain('CREATE POLICY "Studio Team Motion Trajectories"');
+    expect(schema).toContain("CREATE TABLE IF NOT EXISTS public.scene_structures");
+    expect(schema).toContain('CREATE POLICY "Studio Team Scene Structures"');
     expect(schema).toContain("ALTER TABLE public.studio_shots ENABLE ROW LEVEL SECURITY");
     expect(schema).toContain('CREATE POLICY "Studio Team Full Access"');
     expect(schema).toContain(

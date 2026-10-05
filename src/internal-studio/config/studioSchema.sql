@@ -159,3 +159,35 @@ USING (
 WITH CHECK (
     (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
 );
+
+-- 11. Extracted / authored scene structures
+CREATE TABLE IF NOT EXISTS public.scene_structures (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    project_id TEXT NOT NULL,
+    structure_name TEXT NOT NULL,
+    tier TEXT NOT NULL,
+    style_preset TEXT NOT NULL,
+    primary_material TEXT NOT NULL,
+    roof_material TEXT NOT NULL,
+    facade_style TEXT NOT NULL,
+    generated_prompt TEXT NOT NULL,
+    negative_prompt TEXT,
+    accent_materials JSONB NOT NULL DEFAULT '[]'::jsonb,
+    color_palette JSONB NOT NULL DEFAULT '[]'::jsonb,
+    confidence_score NUMERIC(4, 3),
+    condition TEXT,
+    damage_intensity NUMERIC(3, 2) DEFAULT 0.00,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.scene_structures ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Studio Team Scene Structures"
+ON public.scene_structures
+FOR ALL
+USING (
+    (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
+)
+WITH CHECK (
+    (auth.jwt() ->> 'studio_role') IN ('hollywood_editor', 'director', 'studio_admin')
+);
