@@ -25,6 +25,9 @@ describe("executeAutomated3DHouseBuilder", () => {
     expect(planks.length).toBeGreaterThan(0);
     expect(planks.length).toBeLessThan(5 * 4 * 4);
     expect(stairs.length).toBe(3);
+    expect(agent.getLogs().some((line) => line.includes("Placing roof block"))).toBe(
+      true,
+    );
     expect(agent.getLogs().some((line) => line.includes("Script Complete"))).toBe(
       true,
     );

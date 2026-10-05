@@ -30,7 +30,7 @@ export function executeAutomated3DHouseBuilder(
   for (let x = 0; x < width; x++) {
     for (let z = 0; z < length; z++) {
       addStep(() => {
-        agent.place("DOWN", 1);
+        agent.place("DOWN", 1); // Slot 1: Cobblestone
         agent.move("FORWARD", 1);
       });
     }
@@ -47,10 +47,11 @@ export function executeAutomated3DHouseBuilder(
     [width, length, width, length].forEach((wallLength, side) => {
       for (let step = 0; step < wallLength; step++) {
         addStep(() => {
+          // Leave gap for front entrance on ground level
           const isDoorGap =
             y <= 2 && side === 0 && step === Math.floor(width / 2);
           if (!isDoorGap) {
-            agent.place("DOWN", 2);
+            agent.place("DOWN", 2); // Slot 2: Oak Planks
           }
           agent.move("FORWARD", 1);
         });
@@ -62,8 +63,8 @@ export function executeAutomated3DHouseBuilder(
   addStep(() => agent.move("UP", 1));
   for (let r = 0; r < Math.ceil(width / 2); r++) {
     addStep(() => {
-      agent.log(`[Roof Layer ${r + 1}] Placing roof tier...`);
-      agent.place("DOWN", 3);
+      agent.log(`[Roof Layer ${r + 1}] Placing roof block...`);
+      agent.place("DOWN", 3); // Slot 3: Stone Brick Stairs
     });
   }
 
