@@ -287,6 +287,19 @@ describe("SeeDance generate-shot payload", () => {
   });
 });
 
+describe("HouseMaterialSelector", () => {
+  it("builds Palais Rose housing prompts from the material catalog", () => {
+    const src = readFileSync(
+      path.join(import.meta.dirname, "components/HouseMaterialSelector.tsx"),
+      "utf8",
+    );
+    expect(src).toContain("Cartoon Housing & Material Builder");
+    expect(src).toContain("compileCartoonStructurePrompt");
+    expect(src).toContain("PALAIS_ROSE_MANSION");
+    expect(src).toContain("GHIBLI_WATERCOLOR");
+  });
+});
+
 describe("ShotGeneratorModal", () => {
   it("posts 3D conditioned fields to /api/generate-shot", () => {
     const src = readFileSync(
