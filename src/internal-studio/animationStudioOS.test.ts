@@ -29,6 +29,7 @@ describe("AnimationStudioOS schema", () => {
     expect(schema).toContain("CREATE TABLE IF NOT EXISTS public.studio_shots");
     expect(schema).toContain("project_id TEXT NOT NULL");
     expect(schema).toContain("shot_id TEXT UNIQUE NOT NULL");
+    expect(schema).toContain("animation_style TEXT");
     expect(schema).toContain("ALTER TABLE public.studio_shots ENABLE ROW LEVEL SECURITY");
     expect(schema).toContain('CREATE POLICY "Studio Team Full Access"');
     expect(schema).toContain(

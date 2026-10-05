@@ -18,9 +18,12 @@ CREATE TABLE IF NOT EXISTS public.studio_shots (
     audio_stem_url TEXT,
     script_text TEXT,
     director_notes TEXT,
+    animation_style TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE public.studio_shots ADD COLUMN IF NOT EXISTS animation_style TEXT;
 
 -- 4. Enable Row Level Security (RLS)
 ALTER TABLE public.studio_shots ENABLE ROW LEVEL SECURITY;
