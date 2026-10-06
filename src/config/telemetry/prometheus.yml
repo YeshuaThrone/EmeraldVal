@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 5s     # Collect telemetry snapshot every 5 seconds
+  evaluation_interval: 5s # Evaluate alert rules every 5 seconds
+
+scrape_configs:
+  - job_name: 'minecraft_core_engine'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['minecraft-engine:3000']
+        labels:
+          environment: 'production'
+          service: 'game-engine-backend'
