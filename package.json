@@ -29,6 +29,7 @@
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "stripe": "^22.6.0",
+    "three": "^0.186.1",
     "ws": "^8.22.0"
   },
   "devDependencies": {
@@ -40,6 +41,7 @@
     "@types/pg": "^8.15.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.186.0",
     "@types/ws": "^8.18.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",

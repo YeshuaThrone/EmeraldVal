@@ -303,6 +303,20 @@ describe("HouseMaterialSelector", () => {
   });
 });
 
+describe("CraftingVisualizer", () => {
+  it("posts itemId and count to the Minecraft crafting solver", () => {
+    const src = readFileSync(
+      path.join(import.meta.dirname, "components/CraftingVisualizer.tsx"),
+      "utf8",
+    );
+    expect(src).toContain('fetch("/api/minecraft/crafting/solve"');
+    expect(src).toContain("minecraft:netherite_chestplate");
+    expect(src).toContain("rawMaterialsNeeded");
+    expect(src).toContain("executionSteps");
+    expect(src).toContain("Solve Tree");
+  });
+});
+
 describe("ShotGeneratorModal", () => {
   it("posts 3D conditioned fields to /api/generate-shot", () => {
     const src = readFileSync(
