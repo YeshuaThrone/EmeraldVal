@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Redstone3DRenderer } from "./redstone3DRenderer";
 
 class FakeRenderer {
-  domElement = { nodeName: "CANVAS" };
+  domElement = { nodeName: "CANVAS", style: {} as Record<string, string> };
   setSize() {}
   render() {}
   dispose() {}
@@ -54,7 +54,7 @@ describe("Redstone3DRenderer", () => {
       },
     });
 
-    expect(MockWebSocket.lastUrl).toBe("ws://localhost:8080");
+    expect(MockWebSocket.lastUrl).toBe("ws://127.0.0.1:8080");
     expect(container.appended).toHaveLength(1);
 
     ws.current?.emit({

@@ -20,7 +20,7 @@ export class RedstoneStreamServer {
   private tickInterval: NodeJS.Timeout | null = null;
 
   constructor(port = 8080, options: RedstoneStreamServerOptions = {}) {
-    this.wss = options.wss ?? new WebSocketServer({ port });
+    this.wss = options.wss ?? new WebSocketServer({ port, host: "0.0.0.0" });
     this.redstoneSim = options.simulator ?? new RedstoneSimulator();
     this.init();
     // Run tick loop at 20 TPS (50ms per tick)

@@ -22,14 +22,15 @@ export class Redstone3DRenderer {
   private nodeMeshes = new Map<string, THREE.Mesh>();
   private ws: WebSocket | null = null;
   private animationFrame: number | null = null;
+  private readonly container: HTMLElement;
   private readonly WebSocketImpl: { new (url: string): WebSocket };
 
   constructor(containerElement: HTMLElement, options: Redstone3DRendererOptions = {}) {
+    this.container = containerElement;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x1a1a1a);
 
-    const width = containerElement.clientWidth || 1;
-    const height = containerElement.clientHeight || 1;
+    const { width, height } = this.measureContainer();
 
     this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
     this.camera.position.set(10, 15, 20);
@@ -38,18 +39,28 @@ export class Redstone3DRenderer {
     this.renderer =
       options.renderer ?? new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(width, height);
+    this.renderer.domElement.style.display = "block";
+    this.renderer.domElement.style.width = "100%";
+    this.renderer.domElement.style.height = "100%";
     containerElement.appendChild(this.renderer.domElement);
 
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
     this.scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+    directionalLight.position.set(12, 20, 10);
+    this.scene.add(directionalLight);
 
     this.WebSocketImpl = options.WebSocketImpl ?? WebSocket;
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("resize", this.onResize);
+    }
 
     if (options.autoAnimate !== false) {
       this.animate();
     }
     if (options.autoConnect !== false) {
-      this.connectWebSocket(options.wsUrl ?? "ws://localhost:8080");
+      this.connectWebSocket(options.wsUrl ?? "ws://127.0.0.1:8080");
     }
   }
 
@@ -115,17 +126,49 @@ export class Redstone3DRenderer {
     });
   }
 
+  private measureContainer(): { width: number; height: number } {
+    const width = Math.max(
+      1,
+      this.container.clientWidth ||
+        (typeof window !== "undefined" ? window.innerWidth : 0) ||
+        1,
+    );
+    const height = Math.max(
+      1,
+      this.container.clientHeight ||
+        (typeof window !== "undefined" ? window.innerHeight : 0) ||
+        1,
+    );
+    return { width, height };
+  }
+
+  private onResize = () => {
+    const { width, height } = this.measureContainer();
+    this.camera.aspect = width / height;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(width, height);
+  };
+
   private animate = () => {
     this.animationFrame = requestAnimationFrame(this.animate);
     this.renderer.render(this.scene, this.camera);
   };
 
   public destroy() {
+    if (typeof window !== "undefined") {
+      window.removeEventListener("resize", this.onResize);
+    }
     if (this.animationFrame != null && typeof cancelAnimationFrame === "function") {
       cancelAnimationFrame(this.animationFrame);
       this.animationFrame = null;
     }
     if (this.ws) this.ws.close();
+    const canvas = this.renderer.domElement as { remove?: () => void; parentNode?: ParentNode | null };
+    if (typeof canvas.remove === "function") {
+      canvas.remove();
+    } else if (canvas.parentNode) {
+      canvas.parentNode.removeChild(this.renderer.domElement);
+    }
     this.renderer.dispose();
   }
 }
