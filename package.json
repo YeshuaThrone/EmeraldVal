@@ -10,6 +10,7 @@
     "test": "vitest run",
     "broadcast": "tsx src/streaming/server/server.ts",
     "minecraft-engine": "tsx src/config/metrics/metricsServer.ts",
+    "studio:harness": "tsx scripts/runAnimationStudioOS.ts",
     "push:vercel": "tsx src/scripts/pushToVercel.ts"
   },
   "dependencies": {
