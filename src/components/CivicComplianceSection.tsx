@@ -12,14 +12,15 @@ import {
 /**
  * Civic Compliance & Economic Telemetry section for /admin. All figures are
  * deterministic display contracts (see src/lib/civic.ts) — labeled as such,
- * never as real-time feeds. Themed with the app's white/dark-red/electric-blue
- * tokens; status colors match the audio-compliance widget's language.
+ * never as real-time feeds. Authored on the M2 Civic Chrome tokens: slab
+ * tiles, night-line hairlines, electric-soft data accents; status colors
+ * match the audio-compliance widget's language.
  */
 
 /** Status pill tone per audit state — matches the admin compliance chips. */
 const VENUE_STATUS_PILL_CLASSES: Record<VenueAuditStatus, string> = {
   OVER_LIMIT: "bg-atx-red/15 text-atx-red",
-  COMPLIANT: "bg-atx-blue/15 text-atx-blue-deep",
+  COMPLIANT: "bg-atx-electric-soft/15 text-atx-electric-soft",
 };
 
 function VenueStatusPill({ status }: { status: VenueAuditStatus }) {
@@ -51,9 +52,9 @@ function MetricCard({
   const valueClasses =
     tone === "violation"
       ? "font-display text-3xl font-bold text-atx-red md:text-4xl"
-      : "font-display text-3xl font-bold text-atx-blue-deep md:text-4xl";
+      : "font-display text-3xl font-bold text-atx-gold md:text-4xl";
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-atx-line bg-white p-5 shadow-[0_0_0_1px_rgba(28,25,23,0.05)]">
+    <div className="flex flex-col gap-3 rounded-2xl border border-atx-night-line bg-atx-slab p-5">
       <div className="flex items-center gap-2">
         <span className="flex h-10 w-10 items-center justify-center rounded-full bg-atx-red/15 text-atx-red">
           <Icon className="h-5 w-5" />
@@ -93,7 +94,7 @@ export default function CivicComplianceSection({
             Civic Compliance &amp; Economic Telemetry
           </h2>
         </div>
-        <span className="rounded-full border border-atx-line bg-white px-3 py-1 text-xs font-semibold text-stone-500">
+        <span className="rounded-full border border-atx-night-line bg-atx-slab px-3 py-1 text-xs font-semibold text-stone-500">
           {userRole}
         </span>
       </div>
@@ -123,12 +124,12 @@ export default function CivicComplianceSection({
         />
       </div>
 
-      <div className="rounded-2xl border border-atx-line bg-white p-5">
+      <div className="rounded-2xl border border-atx-night-line bg-atx-slab p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
             Live Decibel (dB) &amp; Ordinance Audit
           </h3>
-          <label className="flex items-center gap-2 rounded-xl border border-atx-line bg-atx-paper px-3 py-1.5">
+          <label className="flex items-center gap-2 rounded-xl border border-atx-night-line bg-atx-night px-3 py-1.5">
             <Search className="h-4 w-4 text-stone-400" />
             <input
               type="search"
@@ -146,14 +147,14 @@ export default function CivicComplianceSection({
             return (
               <div
                 key={venue.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-atx-line bg-atx-paper p-3"
+                className="flex items-center justify-between gap-3 rounded-xl border border-atx-night-line bg-atx-night p-3"
               >
                 <div className="flex items-center gap-3">
-                  <span className="shrink-0 rounded-md bg-atx-electric/10 px-2 py-0.5 text-xs font-semibold text-atx-electric">
+                  <span className="shrink-0 rounded-md bg-atx-electric-soft/10 px-2 py-0.5 text-xs font-semibold text-atx-electric-soft">
                     {venue.district}
                   </span>
                   <div>
-                    <p className="text-sm font-semibold text-atx-ink">
+                    <p className="text-sm font-semibold text-atx-paper">
                       {venue.name}
                     </p>
                     <p className="text-xs text-stone-500">
@@ -166,7 +167,7 @@ export default function CivicComplianceSection({
             );
           })}
           {visibleVenues.length === 0 ? (
-            <p className="rounded-xl border border-atx-line bg-atx-paper p-3 text-sm text-stone-500">
+            <p className="rounded-xl border border-atx-night-line bg-atx-night p-3 text-sm text-stone-500">
               No venues found matching filter criteria.
             </p>
           ) : null}
