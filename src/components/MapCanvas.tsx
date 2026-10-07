@@ -125,9 +125,20 @@ export default function MapCanvas({
       style={{ height: "100%", width: "100%", background: "#ffffff" }}
     >
       <ZoomControl position="bottomleft" />
+      {/* Dark civic basemap. Spec Move 1 pinned CARTO dark_all, but CARTO
+          now watermarks every anonymous tile with "API KEY REQUIRED"
+          (verified session-live on basemaps.cartocdn.com and the fastly
+          CDN). Esri World Dark Gray (base + labels reference overlay) is
+          the nearest no-signup dark raster; a CARTO key restores the
+          spec'd provider in one line:
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          subdomains="abcd". Note Esri's tile scheme is {z}/{y}/{x}. */}
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Source: Esri, HERE, Garmin, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, and the GIS user community'
+        url="https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+      />
+      <TileLayer
+        url="https://services.arcgisonline.com/arcgis/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}"
       />
       <MapController flyTo={flyTo} onMapClick={onMapClick} onPanStart={onPanStart} />
       <HeatmapLayer points={heatPoints} />
