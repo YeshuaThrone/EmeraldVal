@@ -45,6 +45,13 @@ export type Pin = {
   district?: District;
   /** Local act vs touring act. Undefined for user-created pins (search/map/live). */
   isLocal?: boolean;
+  /**
+   * Camera-ready readiness marker (Operator Pass O3, spec art_zVtFFMSp
+   * Move O3). Seed-entry only — a truthful readiness display for the
+   * streaming spec to wire into later, never a stream embed or a
+   * persistence contract (locked decision #4).
+   */
+  streamReady?: boolean;
   /** Artist v2 metadata — set by the artist SDK on show pins. */
   /** Verbatim City Council District select label, e.g. "District 1". */
   councilDistrict?: string;

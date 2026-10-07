@@ -54,11 +54,18 @@ function markerKind(pin: Pin): string {
 function glowIcon(pin: Pin, selected: boolean): L.DivIcon {
   const size = selected ? 36 : 28;
   const kind = markerKind(pin);
+  // Operator Pass O3: camera-ready venues carry a small gold readiness dot
+  // pinned to the marker's corner — display only, never a stream embed
+  // (spec art_zVtFFMSp Move O3, locked decision #4).
+  const streamBadge =
+    pin.streamReady === true
+      ? `<i class="atx-stream-dot" title="Stream-ready venue" role="img" aria-label="Stream-ready venue"></i>`
+      : "";
   return L.divIcon({
     className: "atx-marker",
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
-    html: `<span class="atx-pin atx-pin-${kind}${selected ? " is-on" : ""}"></span>`,
+    html: `<span class="atx-pin atx-pin-${kind}${selected ? " is-on" : ""}"></span>${streamBadge}`,
   });
 }
 

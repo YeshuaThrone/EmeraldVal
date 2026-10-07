@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Gauge, Radio, Volume1 } from "lucide-react";
+import { Gauge, Radio, Video, Volume1 } from "lucide-react";
 import {
   ATXLiveEngine,
   DEFAULT_CURFEW_RULES,
@@ -17,6 +17,11 @@ import {
   type CurfewEdit,
 } from "@/lib/venueOperator";
 import type { District } from "@/lib/types";
+import { CITY_PINS } from "@/lib/seedData";
+import {
+  filterVenues,
+  isStreamReady,
+} from "@/lib/streamReady";
 import type { ATXDistrict } from "@/lib/venueStudioBlueprint";
 
 /**
@@ -39,6 +44,9 @@ const selectClass =
 
 const numberInputClass =
   "w-full rounded-xl border border-atx-line bg-atx-paper px-3 py-2 text-sm text-atx-ink tabular-nums focus:border-atx-blue focus:outline-none";
+
+/** Map-district options for the streaming-readiness filter row. */
+const VENUE_DISTRICTS: District[] = ["Downtown", "North", "South", "East", "West"];
 
 export interface VenueOperatorConsoleProps {
   /** The view's master engine — same instance, no second source of truth. */
@@ -105,6 +113,18 @@ export default function VenueOperatorConsole({
     () => seedFamily ?? profileDistrict,
   );
   const [edits, setEdits] = useState<CurfewEdit>({});
+
+  // ── Streaming readiness (Operator Pass O3) filter state ─────────────
+  // Seed-truth read from streamReady.ts's pure helpers; default shows
+  // camera-ready venues only — the pass's point.
+  const [streamOnly, setStreamOnly] = useState(true);
+  const [readyDistrict, setReadyDistrict] = useState<District | undefined>(
+    undefined,
+  );
+  const visibleVenues = filterVenues(CITY_PINS, {
+    streamReadyOnly: streamOnly,
+    district: readyDistrict,
+  });
 
   const rule = applyCurfewEdit(DEFAULT_CURFEW_RULES[family], edits);
   const curfew =
@@ -357,6 +377,106 @@ export default function VenueOperatorConsole({
               where they sit over the effective district cap.
             </p>
           </>
+        )}
+      </section>
+
+      {/* ── Streaming readiness (Operator Pass O3) ─────────────────── */}
+      <section
+        aria-label="Streaming readiness"
+        className="rounded-2xl border border-atx-line bg-atx-paper p-5"
+      >
+        <h3 className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.2em] text-atx-electric-deep uppercase">
+          <Video className="h-3.5 w-3.5" aria-hidden="true" />
+          Streaming readiness
+        </h3>
+        <p className="mt-2 text-xs leading-relaxed text-stone-500">
+          Which rooms in the seed are camera-ready, straight from the same
+          dataset the Fan Map reads. Display only — no stream embed, no
+          persistence; the streaming spec owns what plugs in later.
+        </p>
+
+        {/* Filter row: readiness toggle + district select. */}
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            aria-pressed={streamOnly}
+            onClick={() => setStreamOnly((prev) => !prev)}
+            className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+              streamOnly
+                ? "border-atx-electric-deep bg-atx-electric-deep/10 text-atx-electric-deep"
+                : "border-atx-line bg-atx-paper text-stone-500 hover:border-atx-blue/40 hover:text-atx-ink"
+            }`}
+          >
+            Stream-ready only
+          </button>
+          <label htmlFor="operator-stream-district" className="sr-only">
+            District filter
+          </label>
+          <select
+            id="operator-stream-district"
+            className={`${selectClass} w-auto`}
+            value={readyDistrict ?? ""}
+            onChange={(event) => {
+              const next = VENUE_DISTRICTS.find(
+                (option) => option === event.target.value,
+              );
+              setReadyDistrict(next);
+            }}
+          >
+            <option value="">All districts</option>
+            {VENUE_DISTRICTS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <span className="text-[11px] text-stone-400">
+            {visibleVenues.length} of {CITY_PINS.length} seed venues shown
+          </span>
+        </div>
+
+        {visibleVenues.length === 0 ? (
+          <p className="mt-3 text-sm text-stone-400">
+            No venues match this filter yet — seed entries carry the flag;
+            nothing here is editable.
+          </p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-2">
+            {visibleVenues.map((pin) => (
+              <li
+                key={pin.id}
+                className="flex flex-wrap items-center gap-2 rounded-xl border border-atx-line px-3 py-2"
+              >
+                {isStreamReady(pin) ? (
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 shrink-0 rounded-full bg-atx-gold ring-2 ring-atx-paper"
+                  />
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 shrink-0 rounded-full bg-stone-300 ring-2 ring-atx-paper"
+                  />
+                )}
+                <span className="text-sm font-semibold text-atx-ink">
+                  {pin.performerName}
+                </span>
+                <span className="text-xs text-stone-400">
+                  {pin.locationName}
+                </span>
+                {isStreamReady(pin) ? (
+                  <span className="rounded-full bg-atx-gold/15 px-2 py-0.5 text-[11px] font-semibold text-atx-ink">
+                    Camera-ready
+                  </span>
+                ) : null}
+                {pin.district !== undefined ? (
+                  <span className="ml-auto rounded-full border border-atx-line px-2 py-0.5 text-[11px] font-semibold text-stone-500">
+                    {pin.district}
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </div>
