@@ -7,6 +7,7 @@ import {
 import {
   callUE5RemoteControl,
   triggerAudio2FaceLiveLink,
+  updateUE5StageProperties,
   type UE5RemoteControlRequest,
 } from "@/lib/UnrealEngineStudioSDK";
 
@@ -50,8 +51,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, ...result });
     }
 
+    if (action === "stage") {
+      const cameraAngle =
+        typeof body.cameraAngle === "string" ? body.cameraAngle.trim() : "";
+      const lightingPreset =
+        typeof body.lightingPreset === "string" ? body.lightingPreset.trim() : "";
+      if (!cameraAngle || !lightingPreset) {
+        return NextResponse.json(
+          { error: "Missing cameraAngle and lightingPreset" },
+          { status: 400 },
+        );
+      }
+      const result = await updateUE5StageProperties(cameraAngle, lightingPreset);
+      return NextResponse.json({ success: true, result });
+    }
+
     return NextResponse.json(
-      { error: "Unknown UE5 action. Use remote or livelink." },
+      { error: "Unknown UE5 action. Use remote, livelink, or stage." },
       { status: 400 },
     );
   } catch (error: unknown) {

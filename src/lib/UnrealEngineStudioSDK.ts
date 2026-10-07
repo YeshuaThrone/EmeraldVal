@@ -17,6 +17,16 @@ export interface UE5ShotRenderTask {
   targetFps?: number;
 }
 
+export const WERFI_STUDIO_BRIDGE_OBJECT_PATH =
+  "/Game/WerfiStudio/Blueprints/WerfiStudioBridge.WerfiStudioBridge";
+
+export function ue5MrqPythonScript(env: NodeJS.ProcessEnv = process.env): string {
+  return (
+    env.UE5_MRQ_PYTHON ||
+    path.resolve("unreal/WerfiStudio/Content/Python/render-ue5-mrq.py")
+  ).trim();
+}
+
 const DEFAULT_UE5_REMOTE =
   "http://127.0.0.1:30010/remote/object/call";
 const DEFAULT_UE5_BIN =
@@ -39,14 +49,11 @@ function assertSafePath(filePath: string, label: string): string {
   return filePath;
 }
 
-function resolutionArgs(targetResolution?: "1080p" | "4K"): string[] {
+function resolutionSize(targetResolution?: "1080p" | "4K"): { width: number; height: number } {
   if (targetResolution === "4K") {
-    return ["-resx=3840", "-resy=2160"];
+    return { width: 3840, height: 2160 };
   }
-  if (targetResolution === "1080p") {
-    return ["-resx=1920", "-resy=1080"];
-  }
-  return [];
+  return { width: 1920, height: 1080 };
 }
 
 function runProcess(bin: string, args: string[]): Promise<void> {
@@ -126,7 +133,8 @@ export async function triggerAudio2FaceLiveLink(
   );
 
   const remotePayload: UE5RemoteControlRequest = {
-    objectPath: "/Game/WerfiStudio/MetaHumans/LiveLinkTarget.LiveLinkTarget",
+    objectPath:
+      env.UE5_BRIDGE_OBJECT_PATH?.trim() || WERFI_STUDIO_BRIDGE_OBJECT_PATH,
     functionName: "StreamAudioTrackToRig",
     parameters: {
       AudioPath: path.resolve(audio),
@@ -140,6 +148,25 @@ export async function triggerAudio2FaceLiveLink(
     status: "STREAMING_ACTIVE",
     streamingChannel: `livelink_${target}`,
   };
+}
+
+export async function updateUE5StageProperties(
+  cameraAngle: string,
+  lightingPreset: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<unknown> {
+  return callUE5RemoteControl(
+    {
+      objectPath:
+        env.UE5_BRIDGE_OBJECT_PATH?.trim() || WERFI_STUDIO_BRIDGE_OBJECT_PATH,
+      functionName: "UpdateStageProperties",
+      parameters: {
+        CameraAngle: cameraAngle,
+        LightingPreset: lightingPreset,
+      },
+    },
+    env,
+  );
 }
 
 export function buildUe5MrqArgs(
@@ -158,19 +185,17 @@ export function buildUe5MrqArgs(
 
   const outputFileName = `ue5_render_${Date.now()}.mp4`;
   const outputPath = path.join(outputDirectory, outputFileName);
+  const scriptPath = path.resolve(assertSafePath(ue5MrqPythonScript(env), "python"));
+  const { width, height } = resolutionSize(task.targetResolution);
 
   return {
     bin: ue5BinaryPath(env),
     args: [
       uprojectPath,
-      "-game",
-      `-MoviePipelineConfig=${sequencePath}`,
       "-log",
       "-NoLoadingScreen",
       "-Unattended",
-      `-outputPath=${outputDirectory}`,
-      `-framerate=${targetFps}`,
-      ...resolutionArgs(task.targetResolution),
+      `-ExecutePythonScript=${scriptPath} ${sequencePath} ${outputDirectory} ${targetFps} ${width} ${height}`,
     ],
     outputPath,
   };

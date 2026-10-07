@@ -6,9 +6,14 @@ vi.mock("@/lib/UnrealEngineStudioSDK", () => ({
     status: "STREAMING_ACTIVE",
     streamingChannel: "livelink_hero_01",
   })),
+  updateUE5StageProperties: vi.fn(async () => ({ ReturnValue: true })),
 }));
 
-import { callUE5RemoteControl, triggerAudio2FaceLiveLink } from "@/lib/UnrealEngineStudioSDK";
+import {
+  callUE5RemoteControl,
+  triggerAudio2FaceLiveLink,
+  updateUE5StageProperties,
+} from "@/lib/UnrealEngineStudioSDK";
 import { POST } from "./route";
 
 function staffRequest(body: unknown) {
@@ -71,5 +76,20 @@ describe("POST /api/internal-studio/ue5", () => {
     const json = (await response.json()) as { streamingChannel: string };
     expect(json.streamingChannel).toBe("livelink_hero_01");
     expect(triggerAudio2FaceLiveLink).toHaveBeenCalled();
+  });
+
+  it("updates camera and lighting on the UE5 bridge", async () => {
+    const response = await POST(
+      staffRequest({
+        action: "stage",
+        cameraAngle: "CAM_WIDE_01",
+        lightingPreset: "NEON_CYAN_NIGHT",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(updateUE5StageProperties).toHaveBeenCalledWith(
+      "CAM_WIDE_01",
+      "NEON_CYAN_NIGHT",
+    );
   });
 });

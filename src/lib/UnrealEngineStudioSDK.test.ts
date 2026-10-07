@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it, vi, afterEach } from "vitest";
 import {
   buildUe5MrqArgs,
@@ -76,7 +78,7 @@ describe("Audio2Face LiveLink", () => {
       functionName: string;
       parameters: { TargetCharacter: string };
     };
-    expect(body.objectPath).toContain("LiveLinkTarget");
+    expect(body.objectPath).toContain("WerfiStudioBridge");
     expect(body.functionName).toBe("StreamAudioTrackToRig");
     expect(body.parameters.TargetCharacter).toBe("hero_01");
   });
@@ -93,11 +95,15 @@ describe("headless Movie Render Queue", () => {
     });
 
     expect(planned.args[0]).toContain("WerfiStudio.uproject");
-    expect(planned.args).toContain("-game");
     expect(planned.args).toContain("-Unattended");
-    expect(planned.args).toContain("-framerate=29.97");
-    expect(planned.args).toContain("-resx=3840");
-    expect(planned.args).toContain("-resy=2160");
+    const pythonArg = planned.args.find((part) =>
+      part.startsWith("-ExecutePythonScript="),
+    );
+    expect(pythonArg).toContain("render-ue5-mrq.py");
+    expect(pythonArg).toContain("29.97");
+    expect(pythonArg).toContain("3840");
+    expect(pythonArg).toContain("2160");
+    expect(planned.args).not.toContain("-game");
     expect(planned.args.join(" ")).not.toContain("UnrealEditor-Cmd.exe\"");
     expect(planned.args.every((part) => !part.includes("&&"))).toBe(true);
     expect(planned.outputPath).toMatch(/ue5_render_\d+\.mp4$/);
@@ -118,5 +124,35 @@ describe("headless Movie Render Queue", () => {
     expect(runner).toHaveBeenCalledTimes(1);
     const [, args] = runner.mock.calls[0] as [string, string[]];
     expect(args).toContain("-NoLoadingScreen");
+  });
+
+  it("ships the native C++ bridge and Python MRQ script", () => {
+    const cpp = readFileSync(
+      path.join(
+        process.cwd(),
+        "unreal/WerfiStudio/Source/WerfiStudio/WerfiStudioBridge.cpp",
+      ),
+      "utf8",
+    );
+    const header = readFileSync(
+      path.join(
+        process.cwd(),
+        "unreal/WerfiStudio/Source/WerfiStudio/WerfiStudioBridge.h",
+      ),
+      "utf8",
+    );
+    const py = readFileSync(
+      path.join(
+        process.cwd(),
+        "unreal/WerfiStudio/Content/Python/render-ue5-mrq.py",
+      ),
+      "utf8",
+    );
+    expect(header).toContain("StreamAudioTrackToRig");
+    expect(header).toContain("UpdateStageProperties");
+    expect(cpp).toContain("OnAudioTrackReceived.Broadcast");
+    expect(py).toContain("MoviePipelineQueueSubsystem");
+    expect(py).toContain("29.97");
+    expect(py).toContain("MoviePipelineInProcessExecutor");
   });
 });
