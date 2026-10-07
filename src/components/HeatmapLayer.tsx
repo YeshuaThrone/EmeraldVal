@@ -3,21 +3,14 @@
 import { useEffect, useRef } from "react";
 import L from "leaflet";
 import { useMap } from "react-leaflet";
-import type { HeatPoint } from "@/lib/heat";
+import { HEAT_RAMP, type HeatPoint } from "@/lib/heat";
 
 /**
- * High-contrast heat ramp (low → high): transparent → amber → orange →
- * gold → white peak. The corridor cultural-density legend swatch in
- * LiveMapApp mirrors this exact ramp so the legend never disagrees with
- * the layer.
+ * Heat ramp lives in heat.ts (HEAT_RAMP) — single source of truth shared
+ * with the LiveMapApp legend swatch, so the legend and the layer can never
+ * disagree.
  */
-const HEAT_GRADIENT: Record<number, string> = {
-  0.0: "rgba(0,0,0,0)",
-  0.3: "rgba(255,140,0,0.4)",
-  0.6: "rgba(255,165,0,0.75)",
-  0.85: "rgba(255,215,0,0.95)",
-  1.0: "#ffffff",
-};
+const HEAT_GRADIENT = HEAT_RAMP;
 
 /**
  * leaflet.heat's UMD build reads the plugin-global `L` directly rather than
