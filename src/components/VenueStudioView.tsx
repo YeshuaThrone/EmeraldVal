@@ -41,6 +41,11 @@ import {
   districtDensityIndexText,
 } from "@/lib/masterSdk";
 import type { District } from "@/lib/types";
+import {
+  getMinuteClockNow,
+  getMinuteClockServerSnapshot,
+  subscribeToMinuteClock,
+} from "@/lib/minuteClock";
 
 /**
  * Venue Studio — "Empire Control Room" (PR 33, fifth surface).
@@ -84,12 +89,6 @@ const TABS: { id: TabId; label: string }[] = [
 
 const inputClass =
   "w-full rounded-xl border border-atx-line bg-atx-paper px-3 py-2 text-sm text-atx-ink placeholder:text-stone-400 focus:border-atx-blue focus:outline-none";
-
-/** Minute tick for the client-only clock read (curfew window). */
-function subscribeToMinuteClock(onStoreChange: () => void): () => void {
-  const timer = setInterval(onStoreChange, 60_000);
-  return () => clearInterval(timer);
-}
 
 export default function VenueStudioView() {
   const router = useRouter();
@@ -139,13 +138,14 @@ export default function VenueStudioView() {
   const masterEngine = new ATXLiveEngine(masterBlueprint);
   const masterPing = masterEngine.processTelemetryPing(currentDb);
   const curfewRule = DEFAULT_CURFEW_RULES[masterProfile.district];
-  // Client clock via useSyncExternalStore: the server snapshot is null, so
-  // SSR and hydration render the standard-hours line, then the curfew window
+  // Client clock via useSyncExternalStore with a cached snapshot
+  // (src/lib/minuteClock.ts): the server snapshot is null, so SSR and
+  // hydration render the standard-hours line, then the curfew window
   // activates on the client and refreshes every minute.
   const masterNowMs = useSyncExternalStore(
     subscribeToMinuteClock,
-    () => Date.now(),
-    () => null,
+    getMinuteClockNow,
+    getMinuteClockServerSnapshot,
   );
   const curfewStatus =
     masterNowMs === null
