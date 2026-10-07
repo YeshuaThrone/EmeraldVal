@@ -2,6 +2,11 @@ import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_BROADCAST_FPS } from "@/sdk/studio-engine";
+import {
+  acquireMetaHuman,
+  lookupMetaHuman,
+  releaseMetaHuman,
+} from "@/lib/MetaHumanRegistry";
 
 export interface UE5RemoteControlRequest {
   objectPath: string;
@@ -128,8 +133,13 @@ export async function triggerAudio2FaceLiveLink(
     throw new Error("MetaHuman target id is required");
   }
 
+  const registered = lookupMetaHuman(target);
+  const asset = registered ? acquireMetaHuman(registered.id) : null;
+  const characterId = asset?.id ?? target;
+  const streamingChannel = asset?.liveLinkSubjectName ?? `livelink_${target}`;
+
   console.log(
-    `[UE5 LiveLink] Ingesting Rodecaster track ${audio} for MetaHuman: ${target}`,
+    `[UE5 LiveLink] Ingesting Rodecaster track ${audio} for MetaHuman: ${characterId}`,
   );
 
   const remotePayload: UE5RemoteControlRequest = {
@@ -138,15 +148,23 @@ export async function triggerAudio2FaceLiveLink(
     functionName: "StreamAudioTrackToRig",
     parameters: {
       AudioPath: path.resolve(audio),
-      TargetCharacter: target,
+      TargetCharacter: characterId,
+      BlueprintPath: asset?.blueprintPath,
+      LiveLinkSubjectName: streamingChannel,
+      LightingRig: asset?.defaultLightingRig,
     },
   };
 
-  await callUE5RemoteControl(remotePayload, env);
+  try {
+    await callUE5RemoteControl(remotePayload, env);
+  } catch (error) {
+    if (asset) releaseMetaHuman(asset.id);
+    throw error;
+  }
 
   return {
     status: "STREAMING_ACTIVE",
-    streamingChannel: `livelink_${target}`,
+    streamingChannel,
   };
 }
 

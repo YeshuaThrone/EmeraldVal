@@ -10,6 +10,7 @@ import {
   updateUE5StageProperties,
   type UE5RemoteControlRequest,
 } from "@/lib/UnrealEngineStudioSDK";
+import { listMetaHumans } from "@/lib/MetaHumanRegistry";
 
 export async function POST(request: Request) {
   const auth = studioStaffFrom(request);
@@ -49,6 +50,13 @@ export async function POST(request: Request) {
         metaHumanTargetId,
       );
       return NextResponse.json({ success: true, ...result });
+    }
+
+    if (action === "metahumans") {
+      return NextResponse.json({
+        success: true,
+        registry: listMetaHumans(),
+      });
     }
 
     if (action === "stage") {

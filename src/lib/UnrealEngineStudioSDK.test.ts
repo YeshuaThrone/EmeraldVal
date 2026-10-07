@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it, vi, afterEach } from "vitest";
+import { resetMetaHumanPool } from "./MetaHumanRegistry";
 import {
   buildUe5MrqArgs,
   callUE5RemoteControl,
@@ -53,6 +54,7 @@ describe("UE5 Remote Control", () => {
 describe("Audio2Face LiveLink", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+    resetMetaHumanPool();
   });
 
   it("streams Rodecaster audio to the MetaHuman LiveLink target", async () => {
@@ -81,6 +83,33 @@ describe("Audio2Face LiveLink", () => {
     expect(body.objectPath).toContain("WerfiStudioBridge");
     expect(body.functionName).toBe("StreamAudioTrackToRig");
     expect(body.parameters.TargetCharacter).toBe("hero_01");
+  });
+
+  it("resolves HOST_01 to Marcus Audio2Face LiveLink", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ ReturnValue: true }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await triggerAudio2FaceLiveLink(
+      "/tmp/internal-studio/ep_01/master.wav",
+      "HOST_01",
+    );
+
+    expect(result.streamingChannel).toBe("Audio2Face_Marcus");
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as { body: string }).body,
+    ) as {
+      parameters: {
+        TargetCharacter: string;
+        BlueprintPath: string;
+        LightingRig: string;
+      };
+    };
+    expect(body.parameters.TargetCharacter).toBe("HOST_01");
+    expect(body.parameters.BlueprintPath).toContain("BP_Marcus");
+    expect(body.parameters.LightingRig).toBe("KEY_SPOT_NEUTRAL");
   });
 });
 

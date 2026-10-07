@@ -78,6 +78,16 @@ describe("POST /api/internal-studio/ue5", () => {
     expect(triggerAudio2FaceLiveLink).toHaveBeenCalled();
   });
 
+  it("lists the MetaHuman registry for staff", async () => {
+    const { listMetaHumans } = await import("@/lib/MetaHumanRegistry");
+    const response = await POST(staffRequest({ action: "metahumans" }));
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as { registry: { id: string }[] };
+    expect(json.registry.map((entry) => entry.id)).toEqual(
+      listMetaHumans().map((entry) => entry.id),
+    );
+  });
+
   it("updates camera and lighting on the UE5 bridge", async () => {
     const response = await POST(
       staffRequest({
