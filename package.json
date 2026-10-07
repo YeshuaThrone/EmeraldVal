@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
     "better-sqlite3": "^12.11.1",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
