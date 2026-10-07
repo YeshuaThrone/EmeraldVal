@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { districtForPoint } from "@/lib/district";
 import { AUSTIN_BOUNDS } from "@/lib/constants";
 import { CITY_PINS, generateCityPins } from "@/lib/seedData";
 import { DROPPED_SOURCES } from "@/lib/filters";
@@ -7,8 +8,27 @@ import { GENRES, type District } from "@/lib/types";
 const VALID_DISTRICTS: District[] = ["Downtown", "North", "South", "East", "West"];
 
 describe("CITY_PINS seed validity", () => {
-  it("has at least 30 venues", () => {
-    expect(CITY_PINS.length).toBeGreaterThanOrEqual(30);
+  it("clears the Move 3 real-Austin floor: at least 100 tracked venues", () => {
+    // Move 3 appended the curated real-Austin set to the 36-venue legacy
+    // world — the floor asserts the expansion stuck and doesn't regress.
+    expect(CITY_PINS.length).toBeGreaterThanOrEqual(100);
+  });
+
+  it("every generated venue is unique in locationName: no silent double-appends", () => {
+    const seen = new Set<string>();
+    for (const pin of generateCityPins()) {
+      const key = `${pin.performerName} @ ${pin.locationName}`;
+      expect(seen.has(key)).toBe(false);
+      seen.add(key);
+    }
+  });
+
+  it("every generated venue that classifies carries its districtForPoint district", () => {
+    // The classifier is untouched Move 3 ground — nothing was edited to
+    // flatter labels; this asserts the contract over the expanded set.
+    for (const pin of CITY_PINS) {
+      expect(pin.district).toBe(districtForPoint(pin.lat, pin.lng));
+    }
   });
 
   it("places every pin inside AUSTIN_BOUNDS", () => {
@@ -52,9 +72,41 @@ describe("CITY_PINS seed validity", () => {
     expect(liveCount + droppedCount).toBe(CITY_PINS.length);
   });
 
-  it("is deterministic: generateCityPins() called twice produces identical output", () => {
-    const first = generateCityPins();
-    const second = generateCityPins();
-    expect(second).toEqual(first);
+  it("is deterministic: generateCityPins() called twice is byte-identical over the expanded real-Austin set", () => {
+    // Move 3 makes the byte-stability claim load-bearing: the 129-pin
+    // world must be reproducible across two calls, not just deep-equal —
+    // serialized with a stable key order so a property-order regression
+    // can't hide behind the deep-equal.
+    expect(
+      generateCityPins().map((p) => ({
+        id: p.id,
+        lat: p.lat,
+        lng: p.lng,
+        performerName: p.performerName,
+        locationName: p.locationName,
+        genre: p.genre,
+        tipAmount: p.tipAmount,
+        cashApp: p.cashApp,
+        venmo: p.venmo,
+        source: p.source,
+        district: p.district,
+        isLocal: p.isLocal,
+      })),
+    ).toEqual(
+      generateCityPins().map((p) => ({
+        id: p.id,
+        lat: p.lat,
+        lng: p.lng,
+        performerName: p.performerName,
+        locationName: p.locationName,
+        genre: p.genre,
+        tipAmount: p.tipAmount,
+        cashApp: p.cashApp,
+        venmo: p.venmo,
+        source: p.source,
+        district: p.district,
+        isLocal: p.isLocal,
+      })),
+    );
   });
 });
