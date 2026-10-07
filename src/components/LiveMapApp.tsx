@@ -505,7 +505,7 @@ export default function LiveMapApp() {
   );
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-atx-paper text-atx-ink">
+    <div className="civic-mode relative h-dvh w-full overflow-hidden bg-atx-paper text-atx-ink">
       <div className="absolute inset-0 z-0">
         <MapCanvas
           pins={visiblePins}
@@ -523,10 +523,10 @@ export default function LiveMapApp() {
       >
         <span
           aria-hidden="true"
-          className="h-2 w-16 rounded-full bg-[linear-gradient(to_right,rgba(0,0,0,0),rgba(255,140,0,0.4),rgba(255,165,0,0.75),rgba(255,215,0,0.95),#ffffff)]"
+          className="h-2 w-16 rounded-full bg-[linear-gradient(to_right,rgba(0,0,0,0),rgba(0,70,192,0.4),rgba(0,85,255,0.75),rgba(255,215,0,0.95),#ff8a3d)]"
         />
         <span className="font-medium">
-          Low Density (Amber) &rarr; Peak Foot Traffic (White)
+          Low Crowd (Electric Blue) &rarr; Peak Foot Traffic (Gold Ember)
         </span>
       </div>
 

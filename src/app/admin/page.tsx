@@ -32,10 +32,12 @@ export const metadata = {
     "City-wide venue analytics for ATXLive: totals, live status, district breakdown, genre mix, and local vs. touring share.",
 };
 
-// Admin-local high-contrast palette. Scoped to this page only — the shared
-// --color-atx-* theme tokens (used by the fan map and festival hub) are
-// untouched.
-const ADMIN_GRADIENT_FILL = "bg-gradient-to-r from-[#0055FF] to-[#00D2FF]";
+// Civic Chrome token fills (Foundry Pass M5): bars live in the
+// electric/electric-soft family, KPI accents in gold or civic red, and
+// every bar track sits on the dark hairline token instead of atx-line.
+const BAR_FILL_ELECTRIC = "bg-gradient-to-r from-atx-electric to-atx-electric-soft";
+const BAR_FILL_ELECTRIC_SOFT = "bg-atx-electric-soft";
+const BAR_TRACK = "bg-atx-night-line";
 
 /** Horizontal bar row shared by the district and genre breakdowns. */
 function BarRow({
@@ -56,6 +58,7 @@ function BarRow({
       <AnimatedBar
         percent={percent}
         fillClassName={fillClassName}
+        trackClassName={BAR_TRACK}
         className="flex-1"
       />
       <span className="w-8 shrink-0 text-right text-sm font-semibold text-atx-ink">
@@ -80,14 +83,21 @@ function StatCard({
   caption: string;
   tone: "primary" | "secondary";
 }) {
-  // Dark-red admin palette: #8B0000 primary, #B22222 secondary accent.
   const toneClasses =
     tone === "primary"
-      ? { chip: "bg-[#8B0000]/15 text-[#8B0000]", value: "text-[#8B0000]" }
-      : { chip: "bg-[#B22222]/15 text-[#B22222]", value: "text-[#B22222]" };
+      ? {
+          chip: "bg-atx-red/15 text-atx-red",
+          value: "text-atx-red",
+          bar: "bg-gradient-to-r from-atx-red to-atx-gold",
+        }
+      : {
+          chip: "bg-atx-gold/20 text-atx-gold",
+          value: "text-atx-gold",
+          bar: "bg-atx-gold",
+        };
 
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-atx-line bg-white p-3 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:p-5">
+    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-atx-night-line bg-atx-slab p-3 sm:p-5">
       <div className="flex items-center gap-2">
         <span
           className={`flex h-10 w-10 items-center justify-center rounded-full ${toneClasses.chip}`}
@@ -103,17 +113,20 @@ function StatCard({
       >
         {value}
       </span>
-      <AnimatedBar percent={percent} fillClassName={ADMIN_GRADIENT_FILL} />
+      <AnimatedBar
+        percent={percent}
+        fillClassName={toneClasses.bar}
+        trackClassName={BAR_TRACK}
+      />
       <span className="text-xs text-stone-500">{caption}</span>
     </div>
   );
 }
 
 /**
- * A single civic data card: icon chip + headline value + caption, in the
- * same white/dark-red/electric-blue admin palette as the headline
- * StatCards above. Used for the three flat contract figures (foot
- * traffic, local share, nighttime impact) that don't carry a progress bar.
+ * A single civic data card: icon chip + headline value + caption. Gold
+ * value on slab — the flat contract figures (foot traffic, local share,
+ * nighttime impact) share the Civic Chrome accent.
  */
 function CivicStatCard({
   icon: Icon,
@@ -127,16 +140,16 @@ function CivicStatCard({
   caption: string;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-atx-line bg-white p-3 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:p-5">
+    <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-atx-night-line bg-atx-slab p-3 sm:p-5">
       <div className="flex items-center gap-2">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8B0000]/15 text-[#8B0000]">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-atx-red/15 text-atx-red">
           <Icon className="h-5 w-5" />
         </span>
         <span className="text-xs font-semibold tracking-[0.15em] text-stone-500 uppercase">
           {label}
         </span>
       </div>
-      <span className="min-w-0 break-words font-display text-3xl font-bold text-atx-blue-deep md:text-4xl">
+      <span className="min-w-0 break-words font-display text-3xl font-bold text-atx-gold md:text-4xl">
         {value}
       </span>
       <span className="text-xs text-stone-500">{caption}</span>
@@ -151,9 +164,9 @@ function CivicStatCard({
  */
 function SoundDensityIndexCard() {
   return (
-    <div className="flex min-w-0 flex-col gap-4 overflow-hidden rounded-2xl border border-atx-line bg-white p-3 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:col-span-2 sm:p-5 lg:col-span-1">
+    <div className="flex min-w-0 flex-col gap-4 overflow-hidden rounded-2xl border border-atx-night-line bg-atx-slab p-3 sm:col-span-2 sm:p-5 lg:col-span-1">
       <div className="flex items-center gap-2">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0055FF]/15 text-[#0055FF]">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-atx-electric-soft/15 text-atx-electric-soft">
           <Volume2 className="h-5 w-5" />
         </span>
         <span className="text-xs font-semibold tracking-[0.15em] text-stone-500 uppercase">
@@ -168,7 +181,8 @@ function SoundDensityIndexCard() {
             </span>
             <AnimatedBar
               percent={entry.indexPercent}
-              fillClassName="bg-gradient-to-r from-[#8B0000] to-[#0055FF]"
+              fillClassName={BAR_FILL_ELECTRIC}
+              trackClassName={BAR_TRACK}
               className="flex-1"
             />
             <span className="w-20 shrink-0 text-right text-sm font-semibold text-atx-ink">
@@ -198,7 +212,8 @@ function CouncilDistrictRow({
       </span>
       <AnimatedBar
         percent={showDensity}
-        fillClassName={ADMIN_GRADIENT_FILL}
+        fillClassName={BAR_FILL_ELECTRIC}
+        trackClassName={BAR_TRACK}
         className="flex-1"
       />
       <span className="w-8 shrink-0 text-right text-sm font-semibold text-atx-ink">
@@ -210,9 +225,9 @@ function CouncilDistrictRow({
 
 /** Status chip tone per compliance state — matches the admin dark-red/blue palette. */
 const COMPLIANCE_CHIP_CLASSES: Record<ComplianceStatus, string> = {
-  Compliant: "bg-atx-blue/15 text-atx-blue-deep",
+  Compliant: "bg-atx-electric-soft/15 text-atx-electric-soft",
   Warning: "bg-amber-100 text-amber-700",
-  "Over Limit": "bg-[#8B0000]/15 text-[#8B0000]",
+  "Over Limit": "bg-atx-red/15 text-atx-red",
 };
 
 function ComplianceChip({ status }: { status: ComplianceStatus }) {
@@ -265,16 +280,16 @@ export default function AdminDashboardPage() {
   );
 
   return (
-    <div className="h-auto min-h-screen max-h-screen w-full overflow-y-auto bg-atx-paper text-atx-ink">
-      <header className="border-b border-atx-line bg-atx-paper/95 p-4 backdrop-blur-md md:p-5">
+    <div className="civic-mode h-auto min-h-screen max-h-screen w-full overflow-y-auto bg-atx-night text-atx-paper">
+      <header className="border-b border-atx-night-line bg-atx-night/95 p-4 backdrop-blur-md md:p-5">
         <div className="mx-auto flex max-w-5xl flex-col gap-4">
           <ViewToggle variant="admin" />
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#8B0000] shadow-[0_0_24px_rgba(139,0,0,0.45)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-atx-red shadow-[0_0_24px_rgba(155,27,48,0.45)]">
               <BarChart3 className="h-5 w-5 text-white" />
             </div>
             <div>
-              <h1 className="font-display text-xl font-semibold tracking-tight text-atx-ink md:text-2xl">
+              <h1 className="font-display text-xl font-semibold tracking-tight text-atx-paper md:text-2xl">
                 Civic / Admin Analytics Dashboard
               </h1>
               <p className="text-xs text-stone-500 md:text-sm">
@@ -312,13 +327,13 @@ export default function AdminDashboardPage() {
             value={`${localSharePercent}%`}
             percent={localSharePercent}
             caption="Share of venues tagged as local acts"
-            tone="primary"
+            tone="secondary"
           />
         </section>
 
         <section
           aria-label="Venues by district"
-          className="rounded-2xl border border-atx-line bg-white p-5"
+          className="rounded-2xl border border-atx-night-line bg-atx-slab p-5"
         >
           <h2 className="mb-4 text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
             District distribution
@@ -330,7 +345,7 @@ export default function AdminDashboardPage() {
                 label={row.label}
                 count={row.count}
                 maxCount={maxDistrictCount}
-                fillClassName={ADMIN_GRADIENT_FILL}
+                fillClassName={BAR_FILL_ELECTRIC}
               />
             ))}
           </div>
@@ -338,7 +353,7 @@ export default function AdminDashboardPage() {
 
         <section
           aria-label="Genre distribution"
-          className="rounded-2xl border border-atx-line bg-atx-paper p-5"
+          className="rounded-2xl border border-atx-night-line bg-atx-slab p-5"
         >
           <div className="mb-4 flex items-center gap-2">
             <Guitar className="h-4 w-4 text-atx-red" />
@@ -353,7 +368,7 @@ export default function AdminDashboardPage() {
                 label={row.label}
                 count={row.count}
                 maxCount={maxGenreCount}
-                fillClassName="bg-atx-red"
+                fillClassName={BAR_FILL_ELECTRIC_SOFT}
               />
             ))}
             {summary.unspecifiedGenreCount > 0 ? (
@@ -369,23 +384,23 @@ export default function AdminDashboardPage() {
 
         <section
           aria-label="Local vs. touring split"
-          className="rounded-2xl border border-atx-line bg-atx-paper p-5"
+          className="rounded-2xl border border-atx-night-line bg-atx-slab p-5"
         >
           <h2 className="mb-4 text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
             Local vs. touring
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-atx-line bg-[#8B0000]/10 p-4 text-center">
-              <p className="text-2xl font-semibold text-[#8B0000]">{local}</p>
+            <div className="rounded-xl border border-atx-night-line bg-atx-red/15 p-4 text-center">
+              <p className="text-2xl font-semibold text-atx-red">{local}</p>
               <p className="text-xs text-stone-500">Local acts</p>
             </div>
-            <div className="rounded-xl border border-atx-line bg-atx-blue/10 p-4 text-center">
-              <p className="text-2xl font-semibold text-atx-blue-deep">
+            <div className="rounded-xl border border-atx-night-line bg-atx-electric-soft/10 p-4 text-center">
+              <p className="text-2xl font-semibold text-atx-electric-soft">
                 {touring}
               </p>
               <p className="text-xs text-stone-500">Touring acts</p>
             </div>
-            <div className="rounded-xl border border-atx-line bg-stone-100 p-4 text-center">
+            <div className="rounded-xl border border-atx-night-line bg-stone-100 p-4 text-center">
               <p className="text-2xl font-semibold text-stone-600">
                 {unspecified}
               </p>
@@ -399,7 +414,7 @@ export default function AdminDashboardPage() {
           className="flex flex-col gap-4"
         >
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-[#8B0000]" />
+            <Building2 className="h-4 w-4 text-atx-red" />
             <h2 className="text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
               Municipal analytics
             </h2>
@@ -429,7 +444,7 @@ export default function AdminDashboardPage() {
 
         <section
           aria-label="Council district distribution"
-          className="rounded-2xl border border-atx-line bg-white p-5"
+          className="rounded-2xl border border-atx-night-line bg-atx-slab p-5"
         >
           <h2 className="mb-4 text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
             Council district distribution
@@ -448,10 +463,10 @@ export default function AdminDashboardPage() {
 
         <section
           aria-label="Live audio compliance and zoning"
-          className="rounded-2xl border border-atx-line bg-atx-paper p-5"
+          className="rounded-2xl border border-atx-night-line bg-atx-slab p-5"
         >
           <div className="mb-4 flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4 text-[#8B0000]" />
+            <ShieldAlert className="h-4 w-4 text-atx-red" />
             <h2 className="text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
               Live audio compliance &amp; zoning
             </h2>
@@ -460,10 +475,10 @@ export default function AdminDashboardPage() {
             {stageCompliance.map((stage) => (
               <div
                 key={stage.name}
-                className="flex items-center justify-between gap-3 rounded-xl border border-atx-line bg-white p-3"
+                className="flex items-center justify-between gap-3 rounded-xl border border-atx-night-line bg-atx-night p-3"
               >
                 <div className="min-w-0">
-                  <p className="min-w-0 break-words text-sm font-semibold text-atx-ink">
+                  <p className="min-w-0 break-words text-sm font-semibold text-atx-paper">
                     {stage.name}
                   </p>
                   <p className="text-xs text-stone-500">

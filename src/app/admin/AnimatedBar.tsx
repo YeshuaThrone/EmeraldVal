@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
  */
 export default function AnimatedBar({
   percent,
-  fillClassName = "bg-gradient-to-r from-[#0055FF] to-[#00D2FF]",
+  fillClassName = "bg-gradient-to-r from-atx-electric to-atx-electric-soft",
   trackClassName = "bg-atx-line",
   className = "",
 }: {
