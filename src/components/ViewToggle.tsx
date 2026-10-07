@@ -8,8 +8,9 @@ import {
 } from "@/lib/routes";
 
 interface ViewToggleProps {
-  /** Which view is currently active — drives which link gets aria-current. */
-  variant: "fan" | "admin" | "festival" | "artist" | "venue";
+  /** Which view is currently active — drives which link gets aria-current.
+   *  Omitted on the flagship landing, where no cross-surface view is active. */
+  variant?: "fan" | "admin" | "festival" | "artist" | "venue";
 }
 
 const linkClass = (active: boolean) =>
