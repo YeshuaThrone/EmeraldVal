@@ -166,7 +166,10 @@ export function assertStudioAccess(
   headers: Headers,
   env: NodeJS.ProcessEnv = process.env,
 ): StudioAuthResult {
-  if (headerValue(headers, "x-studio-staff-email")) {
+  if (
+    headerValue(headers, "x-studio-staff-email") ||
+    headerValue(headers, "x-staff-email")
+  ) {
     return assertStudioStaff(headers, env);
   }
   return assertStudioJwt(headers, env);

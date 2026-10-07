@@ -33,23 +33,31 @@ export function streamStudioDashboardEvents(input: {
 
   return new ReadableStream<Uint8Array>({
     start(controller) {
+      const closeStream = () => {
+        if (closed) return;
+        closed = true;
+        if (timer) clearInterval(timer);
+        studioStreamer.off(`job:${input.jobId}`, handleProgress);
+        try {
+          controller.close();
+        } catch {
+          // The client may have already cancelled the stream.
+        }
+      };
+
       const send = (data: object) => {
         if (closed) return;
         const serialized = JSON.stringify(data);
         if (serialized === lastSerialized) return;
         lastSerialized = serialized;
-        controller.enqueue(
-          encodeStudioProgressEvent(data as JobProgressPayload),
-        );
+        try {
+          controller.enqueue(
+            encodeStudioProgressEvent(data as JobProgressPayload),
+          );
+        } catch {
+          closeStream();
+        }
       };
-
-      send({
-        jobId: input.jobId,
-        status: "CONNECTED",
-        stage: "QUEUED",
-        progressPercent: 0,
-        message: "Listening for render progress updates...",
-      });
 
       const handleProgress = (update: unknown) => {
         send(update as object);
@@ -59,12 +67,17 @@ export function streamStudioDashboardEvents(input: {
           stage === "FAILED" ||
           isTerminalPipelineStage(stage as JobProgressPayload["stage"])
         ) {
-          closed = true;
-          if (timer) clearInterval(timer);
-          studioStreamer.off(`job:${input.jobId}`, handleProgress);
-          controller.close();
+          closeStream();
         }
       };
+
+      send({
+        jobId: input.jobId,
+        status: "CONNECTED",
+        stage: "QUEUED",
+        progressPercent: 0,
+        message: "Listening for render progress updates...",
+      });
 
       studioStreamer.on(`job:${input.jobId}`, handleProgress);
 
