@@ -27,6 +27,12 @@ const DEFAULT_RULE: RateLimitRule = { limit: 10, windowMs: 10 * 60_000 };
 /** Registration is a rare, human-paced action — 10 per 10 minutes per IP. */
 export const REGISTER_RATE_LIMIT: RateLimitRule = DEFAULT_RULE;
 
+/** Don Engine sandbox APIs — 30 requests per minute per IP. */
+export const DON_API_RATE_LIMIT: RateLimitRule = {
+  limit: 30,
+  windowMs: 60_000,
+};
+
 type WindowState = { count: number; windowStart: number };
 
 const buckets = new Map<string, WindowState>();

@@ -93,7 +93,7 @@ function subscribeToMinuteClock(onStoreChange: () => void): () => void {
 
 export default function VenueStudioView() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabId>("blueprint");
+  const [activeTab, setActiveTab] = useState<TabId>("telemetry");
 
   // ── Venue Blueprint state (v3.5.0 schema rebuild) ──────────────────────
   // Seeded from the paste's Default Austin Blueprint Seed Instance; the
