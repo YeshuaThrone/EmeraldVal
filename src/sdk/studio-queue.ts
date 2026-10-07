@@ -2,8 +2,9 @@ import { Queue, Worker, type Job, type ConnectionOptions } from "bullmq";
 import path from "node:path";
 import {
   applyLipSync,
+  compileAndPackageHls,
+  DEFAULT_BROADCAST_FPS,
   generateSceneMotion,
-  packageEpisodeHls,
   type JobProgressPayload,
   type StudioRenderJobData,
 } from "./studio-engine";
@@ -79,13 +80,13 @@ export async function processStudioRenderJob(
   );
 
   try {
-    await reportProgress(job, { stage: "AUDIO_TRANSCRIBING", progressPercent: 15 });
+    await reportProgress(job, { stage: "AUDIO_ALIGNMENT", progressPercent: 15 });
 
-    await reportProgress(job, { stage: "MOTION_GENERATION", progressPercent: 40 });
+    await reportProgress(job, { stage: "MOTION_DISPATCH", progressPercent: 40 });
     const renderedScenePaths: string[] = [];
     for (const shot of shotCards) {
       const rawMotion = await generateSceneMotion(shot, workDir);
-      await reportProgress(job, { stage: "LIP_SYNC_PROCESSING", progressPercent: 55 });
+      await reportProgress(job, { stage: "LIP_SYNC_GENERATION", progressPercent: 45 });
       const syncedMotion = await applyLipSync(
         rawMotion,
         rodecasterAudioPath,
@@ -95,13 +96,13 @@ export async function processStudioRenderJob(
       renderedScenePaths.push(syncedMotion);
     }
 
-    await reportProgress(job, { stage: "SCENE_STITCHING", progressPercent: 70 });
-    await reportProgress(job, { stage: "HLS_PACKAGING", progressPercent: 80 });
-    const hlsUrl = await packageEpisodeHls(
+    await reportProgress(job, { stage: "FFMPEG_STITCHING", progressPercent: 70 });
+    await reportProgress(job, { stage: "HLS_PACKAGING", progressPercent: 85 });
+    const hlsUrl = await compileAndPackageHls(
       renderedScenePaths,
       rodecasterAudioPath,
       workDir,
-      targetFps || 30,
+      targetFps || DEFAULT_BROADCAST_FPS,
     );
 
     await reportProgress(job, {
@@ -149,7 +150,7 @@ export async function enqueueStudioPipelineJob(
     removeOnComplete: { age: 3600 },
     removeOnFail: { age: 86400 },
   });
-  return job.id || "job_queued";
+  return job.id || `job_${Date.now()}`;
 }
 
 /**

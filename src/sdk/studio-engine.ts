@@ -7,12 +7,17 @@ import {
   studioWorkDir,
 } from "@/internal-studio/api/ffmpegStitcher";
 
+export const DEFAULT_BROADCAST_FPS = 29.97;
+
 export type PipelineStage =
   | "QUEUED"
+  | "AUDIO_ALIGNMENT"
   | "AUDIO_TRANSCRIBING"
+  | "MOTION_DISPATCH"
   | "MOTION_GENERATION"
-  | "LIP_SYNC_PROCESSING"
   | "LIP_SYNC_GENERATION"
+  | "LIP_SYNC_PROCESSING"
+  | "FFMPEG_STITCHING"
   | "SCENE_STITCHING"
   | "HLS_PACKAGING"
   | "EPG_PUBLISHED"
@@ -31,6 +36,7 @@ export interface ShotCard {
   dialogueText: string;
   characterModelId: string;
   motionPrompt: string;
+  cameraAngle?: string;
 }
 
 export interface StudioRenderJobData {
@@ -195,6 +201,7 @@ export async function generateSceneMotion(
         prompt: shot.motionPrompt,
         dialogueText: shot.dialogueText,
         characterModelId: shot.characterModelId,
+        cameraAngle: shot.cameraAngle,
         outputPath: targetMp4,
       }),
     });
@@ -202,7 +209,9 @@ export async function generateSceneMotion(
       throw new Error(`SeeDance motion dispatch failed (${response.status})`);
     }
   }
-  console.log(`[Studio Engine] Dispatching Motion Generation for Shot: ${shot.shotId}`);
+  console.log(
+    `[AnimationStudioEngine] Dispatching Motion Generation for Shot: ${shot.shotId}`,
+  );
   return targetMp4;
 }
 
@@ -218,9 +227,7 @@ export async function applyLipSync(
 ): Promise<string> {
   mkdirSync(outputDir, { recursive: true });
   const syncedMp4Path = path.join(outputDir, `synced_${path.basename(motionMp4Path)}`);
-  console.log(
-    `[Studio Engine] Applying Lip-Sync against audio track: ${audioSegmentPath}`,
-  );
+  console.log(`[AnimationStudioEngine] Applying Lip-Sync to: ${motionMp4Path}`);
   void _timestamps;
   return syncedMp4Path;
 }
@@ -229,14 +236,30 @@ export async function applyLipSync(
  * Normalizes frame rates, merges Rodecaster master audio, and packages HLS.
  * Uses spawn argv (not a shell string). Does not publish to the public WURFI player.
  */
+export async function compileAndPackageHls(
+  syncedScenePaths: string[],
+  masterAudioPath: string,
+  outputDir: string,
+  targetFps = DEFAULT_BROADCAST_FPS,
+  ffmpegBin = "ffmpeg",
+): Promise<string> {
+  return compileAndPackageEpisode(
+    syncedScenePaths,
+    masterAudioPath,
+    outputDir,
+    targetFps,
+    ffmpegBin,
+  );
+}
+
 export async function packageEpisodeHls(
   syncedScenePaths: string[],
   masterAudioPath: string,
   outputDir: string,
-  targetFps = 30,
+  targetFps = DEFAULT_BROADCAST_FPS,
   ffmpegBin = "ffmpeg",
 ): Promise<string> {
-  return compileAndPackageEpisode(
+  return compileAndPackageHls(
     syncedScenePaths,
     masterAudioPath,
     outputDir,

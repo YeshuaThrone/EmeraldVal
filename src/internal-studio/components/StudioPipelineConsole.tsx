@@ -5,10 +5,10 @@ import type { JobProgressPayload, PipelineStage, ShotCard } from "@/sdk/studio-e
 
 const STAGES: PipelineStage[] = [
   "QUEUED",
-  "AUDIO_TRANSCRIBING",
-  "MOTION_GENERATION",
-  "LIP_SYNC_PROCESSING",
-  "SCENE_STITCHING",
+  "AUDIO_ALIGNMENT",
+  "MOTION_DISPATCH",
+  "LIP_SYNC_GENERATION",
+  "FFMPEG_STITCHING",
   "HLS_PACKAGING",
   "EPG_PUBLISHED",
 ];
@@ -91,7 +91,7 @@ export function StudioPipelineConsole() {
           showId,
           rodecasterAudioPath: audioPath,
           shotCards: defaultShotCards,
-          targetFps: 30,
+          targetFps: 29.97,
         }),
       });
       const json = (await response.json()) as {

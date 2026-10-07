@@ -21,6 +21,8 @@ export function studioStaffAllowlist(
   return new Set(listStudioStaff(env).map((entry) => entry.email));
 }
 
+export const getOwnerAllowlist = studioStaffAllowlist;
+
 /**
  * Validates staff session against the owner allowlist before pipeline operations.
  */
@@ -32,7 +34,7 @@ export function authorizeStaffAccess(
   const entry = resolveStudioStaff(normalizedEmail, env);
   if (!entry || !isInternalStudioRole(entry.role)) {
     throw new Error(
-      `Access Denied: ${normalizedEmail} is not authorized to access AnimationStudioEngine.`,
+      `Access Denied: ${normalizedEmail} is not authorized to execute AnimationStudioEngine pipelines.`,
     );
   }
   return {

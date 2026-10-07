@@ -2,7 +2,9 @@ export {
   applyLipSync,
   authorizeStaffAccess,
   compileAndPackageEpisode,
+  compileAndPackageHls,
   createStudioWorker,
+  DEFAULT_BROADCAST_FPS,
   enqueueStudioPipeline,
   enqueueStudioPipelineJob,
   generateSceneMotion,
@@ -10,6 +12,7 @@ export {
   parseAudioPhonemes,
   parseMasterAudioTrack,
   processStudioRenderJob,
+  getOwnerAllowlist,
   STUDIO_OWNER_EMAIL,
   STUDIO_RENDER_QUEUE,
 } from "@/sdk/studio-engine-sdk";

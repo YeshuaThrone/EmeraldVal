@@ -8,6 +8,8 @@ export {
   buildStudioConcatArgs,
   buildStudioHlsArgs,
   compileAndPackageEpisode,
+  compileAndPackageHls,
+  DEFAULT_BROADCAST_FPS,
   generateSceneMotion,
   packageEpisodeHls,
   parseAudioPhonemes,
@@ -22,6 +24,7 @@ export {
 
 export {
   authorizeStaffAccess,
+  getOwnerAllowlist,
   studioStaffAllowlist,
   STUDIO_OWNER_EMAIL,
   type StaffSession,

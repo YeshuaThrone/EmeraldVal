@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { authorizeStaffAccess, studioStaffAllowlist } from "./studio-staff";
+import { authorizeStaffAccess, getOwnerAllowlist, studioStaffAllowlist } from "./studio-staff";
 
 describe("authorizeStaffAccess", () => {
   afterEach(() => {
@@ -12,6 +12,7 @@ describe("authorizeStaffAccess", () => {
       role: "studio_admin",
     });
     expect(studioStaffAllowlist().has("3bbullion@gmail.com")).toBe(true);
+    expect(getOwnerAllowlist().has("3bbullion@gmail.com")).toBe(true);
   });
 
   it("allows extra staff from ANIMATION_STUDIO_OS_STAFF", () => {

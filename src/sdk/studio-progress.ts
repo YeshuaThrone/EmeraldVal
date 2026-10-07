@@ -20,11 +20,11 @@ export function encodeStudioProgressEvent(payload: JobProgressPayload): Uint8Arr
 
 function stageFromPercent(percent: number): PipelineStage {
   if (percent >= 100) return "EPG_PUBLISHED";
-  if (percent >= 80) return "HLS_PACKAGING";
-  if (percent >= 70) return "SCENE_STITCHING";
-  if (percent >= 55) return "LIP_SYNC_PROCESSING";
-  if (percent >= 40) return "MOTION_GENERATION";
-  if (percent >= 15) return "AUDIO_TRANSCRIBING";
+  if (percent >= 85) return "HLS_PACKAGING";
+  if (percent >= 70) return "FFMPEG_STITCHING";
+  if (percent >= 45) return "LIP_SYNC_GENERATION";
+  if (percent >= 40) return "MOTION_DISPATCH";
+  if (percent >= 15) return "AUDIO_ALIGNMENT";
   return "QUEUED";
 }
 

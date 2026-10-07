@@ -1,6 +1,10 @@
 import path from "node:path";
 import { studioWorkDir } from "@/internal-studio/api/ffmpegStitcher";
-import type { ShotCard, StudioRenderJobData } from "./studio-engine";
+import {
+  DEFAULT_BROADCAST_FPS,
+  type ShotCard,
+  type StudioRenderJobData,
+} from "./studio-engine";
 
 export const DEFAULT_STUDIO_SHOW_ID = "wurfi-default-show";
 
@@ -21,7 +25,18 @@ function parseShotCard(value: unknown): ShotCard | null {
   if (!shotId || !speakerId || !dialogueText || !characterModelId || !motionPrompt) {
     return null;
   }
-  return { shotId, speakerId, dialogueText, characterModelId, motionPrompt };
+  const cameraAngle =
+    typeof record.cameraAngle === "string" && record.cameraAngle.trim()
+      ? record.cameraAngle.trim()
+      : undefined;
+  return {
+    shotId,
+    speakerId,
+    dialogueText,
+    characterModelId,
+    motionPrompt,
+    ...(cameraAngle ? { cameraAngle } : {}),
+  };
 }
 
 export function parseStudioRenderJobBody(
@@ -59,7 +74,7 @@ export function parseStudioRenderJobBody(
   const targetFps =
     typeof record.targetFps === "number" && Number.isFinite(record.targetFps)
       ? record.targetFps
-      : 30;
+      : DEFAULT_BROADCAST_FPS;
 
   return {
     episodeId,

@@ -13,13 +13,16 @@ vi.mock("./studio-engine", async (importOriginal) => {
     applyLipSync: vi.fn(async (motionPath: string, _audio: string, _ts: unknown, outputDir: string) => {
       return `${outputDir}/synced_${motionPath.split("/").pop()}`;
     }),
+    compileAndPackageHls: vi.fn(async (_scenes, _audio, outputDir: string) => {
+      return `${outputDir}/hls/index.m3u8`;
+    }),
     packageEpisodeHls: vi.fn(async (_scenes, _audio, outputDir: string) => {
       return `${outputDir}/hls/index.m3u8`;
     }),
   };
 });
 
-import { applyLipSync, generateSceneMotion, packageEpisodeHls } from "./studio-engine";
+import { applyLipSync, compileAndPackageHls, generateSceneMotion } from "./studio-engine";
 import {
   enqueueStudioPipeline,
   enqueueStudioPipelineJob,
@@ -71,9 +74,8 @@ describe("enqueueStudioPipeline", () => {
 
   it("returns a fallback id when BullMQ omits job.id", async () => {
     const add = vi.fn(async () => ({ id: undefined }));
-    await expect(enqueueStudioPipelineJob(sampleJob(), { add })).resolves.toBe(
-      "job_queued",
-    );
+    const jobId = await enqueueStudioPipelineJob(sampleJob(), { add });
+    expect(jobId).toMatch(/^job_\d+$/);
   });
 });
 
@@ -90,7 +92,7 @@ describe("processStudioRenderJob", () => {
 
     expect(generateSceneMotion).toHaveBeenCalled();
     expect(applyLipSync).toHaveBeenCalled();
-    expect(packageEpisodeHls).toHaveBeenCalledWith(
+    expect(compileAndPackageHls).toHaveBeenCalledWith(
       ["/tmp/internal-studio/ep-42/synced_motion_shot_01.mp4"],
       sampleJob().rodecasterAudioPath,
       "/tmp/internal-studio/ep-42",
@@ -103,10 +105,10 @@ describe("processStudioRenderJob", () => {
       hlsUrl: "/tmp/internal-studio/ep-42/hls/index.m3u8",
     });
     expect(progress.map((item) => item.stage)).toEqual([
-      "AUDIO_TRANSCRIBING",
-      "MOTION_GENERATION",
-      "LIP_SYNC_PROCESSING",
-      "SCENE_STITCHING",
+      "AUDIO_ALIGNMENT",
+      "MOTION_DISPATCH",
+      "LIP_SYNC_GENERATION",
+      "FFMPEG_STITCHING",
       "HLS_PACKAGING",
       "EPG_PUBLISHED",
     ]);

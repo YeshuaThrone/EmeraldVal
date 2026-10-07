@@ -230,3 +230,27 @@ export function exampleStudioPipelineConfig(): RenderPipelineConfig {
     autoPublishToNetwork: true,
   };
 }
+
+export {
+  applyLipSync,
+  authorizeStaffAccess,
+  compileAndPackageHls,
+  createStudioWorker,
+  DEFAULT_BROADCAST_FPS,
+  enqueueStudioPipeline,
+  generateSceneMotion,
+  getOwnerAllowlist,
+  parseMasterAudioTrack,
+  processStudioRenderJob,
+  STUDIO_OWNER_EMAIL,
+  STUDIO_RENDER_QUEUE,
+} from "./studio-engine-sdk";
+
+export type {
+  JobProgressPayload,
+  PipelineStage,
+  ShotCard,
+  StaffSession,
+  StudioRenderJobData,
+  WordTimestamp,
+} from "./studio-engine-sdk";

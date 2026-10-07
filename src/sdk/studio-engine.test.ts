@@ -130,6 +130,16 @@ describe("studio FFmpeg argv builders", () => {
     expect(args.every((part) => !part.includes("&&"))).toBe(true);
   });
 
+  it("uses broadcast 29.97 fps in concat argv", () => {
+    const args = buildStudioConcatArgs({
+      concatListPath: "/tmp/internal-studio/ep1/concat_list.txt",
+      masterAudioPath: "/tmp/internal-studio/ep1/master.wav",
+      stitchedMp4Path: "/tmp/internal-studio/ep1/master_stitched.mp4",
+      targetFps: 29.97,
+    });
+    expect(args[args.indexOf("-r") + 1]).toBe("29.97");
+  });
+
   it("builds HLS argv with 6-second segments", () => {
     const args = buildStudioHlsArgs({
       stitchedMp4Path: "/tmp/internal-studio/ep1/master_stitched.mp4",
