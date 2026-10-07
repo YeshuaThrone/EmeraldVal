@@ -138,6 +138,22 @@ body {
 }
 
 
+/* Operator Pass O3: camera-ready readiness dot on the marker's bottom-right
+   corner. Gold is the system gold token (--color-atx-gold) so the badge reads
+   as system-native on the dark basemap; the night ring matches the pin border
+   tone. Display-only — no stream behavior behind it. */
+.atx-stream-dot {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  width: 11px;
+  height: 11px;
+  border-radius: 9999px;
+  background: var(--color-atx-gold);
+  border: 2px solid var(--color-atx-night);
+  box-shadow: 0 0 6px 1px rgba(212, 160, 40, 0.55);
+}
+
 .atx-pin.is-on {
   animation-duration: 1s;
 }
