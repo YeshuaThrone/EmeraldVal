@@ -35,7 +35,7 @@ export const metadata = {
 // Admin-local high-contrast palette. Scoped to this page only — the shared
 // --color-atx-* theme tokens (used by the fan map and festival hub) are
 // untouched.
-const ADMIN_GRADIENT_FILL = "bg-gradient-to-r from-[#0055FF] to-[#00D2FF]";
+const ADMIN_GRADIENT_FILL = "bg-gradient-to-r from-atx-electric to-atx-electric-soft";
 
 /** Horizontal bar row shared by the district and genre breakdowns. */
 function BarRow({
@@ -80,11 +80,10 @@ function StatCard({
   caption: string;
   tone: "primary" | "secondary";
 }) {
-  // Dark-red admin palette: #8B0000 primary, #B22222 secondary accent.
   const toneClasses =
     tone === "primary"
-      ? { chip: "bg-[#8B0000]/15 text-[#8B0000]", value: "text-[#8B0000]" }
-      : { chip: "bg-[#B22222]/15 text-[#B22222]", value: "text-[#B22222]" };
+      ? { chip: "bg-atx-red/15 text-atx-red", value: "text-atx-red" }
+      : { chip: "bg-atx-gold/20 text-atx-gold", value: "text-atx-gold" };
 
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-atx-line bg-white p-3 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:p-5">
@@ -129,7 +128,7 @@ function CivicStatCard({
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-2xl border border-atx-line bg-white p-3 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:p-5">
       <div className="flex items-center gap-2">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8B0000]/15 text-[#8B0000]">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-atx-red/15 text-atx-red">
           <Icon className="h-5 w-5" />
         </span>
         <span className="text-xs font-semibold tracking-[0.15em] text-stone-500 uppercase">
@@ -153,7 +152,7 @@ function SoundDensityIndexCard() {
   return (
     <div className="flex min-w-0 flex-col gap-4 overflow-hidden rounded-2xl border border-atx-line bg-white p-3 shadow-[0_0_0_1px_rgba(28,25,23,0.05)] sm:col-span-2 sm:p-5 lg:col-span-1">
       <div className="flex items-center gap-2">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0055FF]/15 text-[#0055FF]">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-atx-electric/15 text-atx-electric">
           <Volume2 className="h-5 w-5" />
         </span>
         <span className="text-xs font-semibold tracking-[0.15em] text-stone-500 uppercase">
@@ -168,7 +167,7 @@ function SoundDensityIndexCard() {
             </span>
             <AnimatedBar
               percent={entry.indexPercent}
-              fillClassName="bg-gradient-to-r from-[#8B0000] to-[#0055FF]"
+              fillClassName="bg-gradient-to-r from-atx-red to-atx-electric"
               className="flex-1"
             />
             <span className="w-20 shrink-0 text-right text-sm font-semibold text-atx-ink">
@@ -212,7 +211,7 @@ function CouncilDistrictRow({
 const COMPLIANCE_CHIP_CLASSES: Record<ComplianceStatus, string> = {
   Compliant: "bg-atx-blue/15 text-atx-blue-deep",
   Warning: "bg-amber-100 text-amber-700",
-  "Over Limit": "bg-[#8B0000]/15 text-[#8B0000]",
+  "Over Limit": "bg-atx-red/15 text-atx-red",
 };
 
 function ComplianceChip({ status }: { status: ComplianceStatus }) {
@@ -265,12 +264,12 @@ export default function AdminDashboardPage() {
   );
 
   return (
-    <div className="h-auto min-h-screen max-h-screen w-full overflow-y-auto bg-atx-paper text-atx-ink">
+    <div className="civic-mode h-auto min-h-screen max-h-screen w-full overflow-y-auto bg-atx-paper text-atx-ink">
       <header className="border-b border-atx-line bg-atx-paper/95 p-4 backdrop-blur-md md:p-5">
         <div className="mx-auto flex max-w-5xl flex-col gap-4">
           <ViewToggle variant="admin" />
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#8B0000] shadow-[0_0_24px_rgba(139,0,0,0.45)]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-atx-red shadow-[0_0_24px_rgba(155,27,48,0.45)]">
               <BarChart3 className="h-5 w-5 text-white" />
             </div>
             <div>
@@ -375,8 +374,8 @@ export default function AdminDashboardPage() {
             Local vs. touring
           </h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="rounded-xl border border-atx-line bg-[#8B0000]/10 p-4 text-center">
-              <p className="text-2xl font-semibold text-[#8B0000]">{local}</p>
+            <div className="rounded-xl border border-atx-line bg-atx-red/10 p-4 text-center">
+              <p className="text-2xl font-semibold text-atx-red">{local}</p>
               <p className="text-xs text-stone-500">Local acts</p>
             </div>
             <div className="rounded-xl border border-atx-line bg-atx-blue/10 p-4 text-center">
@@ -399,7 +398,7 @@ export default function AdminDashboardPage() {
           className="flex flex-col gap-4"
         >
           <div className="flex items-center gap-2">
-            <Building2 className="h-4 w-4 text-[#8B0000]" />
+            <Building2 className="h-4 w-4 text-atx-red" />
             <h2 className="text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
               Municipal analytics
             </h2>
@@ -451,7 +450,7 @@ export default function AdminDashboardPage() {
           className="rounded-2xl border border-atx-line bg-atx-paper p-5"
         >
           <div className="mb-4 flex items-center gap-2">
-            <ShieldAlert className="h-4 w-4 text-[#8B0000]" />
+            <ShieldAlert className="h-4 w-4 text-atx-red" />
             <h2 className="text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
               Live audio compliance &amp; zoning
             </h2>
