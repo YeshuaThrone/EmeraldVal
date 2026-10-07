@@ -11,11 +11,13 @@
     "broadcast": "tsx src/streaming/server/server.ts",
     "minecraft-engine": "tsx src/config/metrics/metricsServer.ts",
     "studio:harness": "tsx scripts/test-studio-os.ts",
+    "studio:worker": "tsx scripts/studio-worker.ts",
     "push:vercel": "tsx src/scripts/pushToVercel.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.2",
     "better-sqlite3": "^12.11.1",
+    "bullmq": "^6.3.11",
     "express": "^4.21.2",
     "hls.js": "^1.7.3",
     "leaflet": "^1.9.4",
