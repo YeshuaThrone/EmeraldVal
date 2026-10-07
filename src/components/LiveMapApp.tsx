@@ -505,7 +505,7 @@ export default function LiveMapApp() {
   );
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-atx-paper text-atx-ink">
+    <div className="civic-mode relative h-dvh w-full overflow-hidden bg-atx-paper text-atx-ink">
       <div className="absolute inset-0 z-0">
         <MapCanvas
           pins={visiblePins}

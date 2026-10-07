@@ -14,6 +14,14 @@
   --color-atx-stage: #8b0000;
   --color-atx-stage-deep: #660000;
   --color-atx-line: #e7e5e4;
+  /* Civic Chrome dark family (Foundry Pass M2): deep navy-black page
+     ground, raised slabs, gold primary accent, soft electric for data
+     viz, and hairlines that survive on dark. */
+  --color-atx-night: #16151a;
+  --color-atx-slab: #1f1d24;
+  --color-atx-gold: #d4a028;
+  --color-atx-electric-soft: #8fb8ff;
+  --color-atx-night-line: #2c2a33;
   --font-sans: var(--font-dm-sans);
   --font-display: var(--font-outfit);
 }
@@ -188,4 +196,230 @@ body {
       0 0 0 8px rgba(0, 168, 232, 0.15),
       0 0 26px 10px rgba(0, 168, 232, 0.85);
   }
+}
+
+/* ─── Civic Chrome dark mode (Foundry Pass M2) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+   The dark family is opted into per route: a surface carries `civic-mode`
+   on its wrapper (body or a full-height top node) and the rules below
+   re-grade the light utilities that surface already uses onto the dark
+   token family. Layout, typography, copy, and light-mode rules elsewhere
+   are untouched — dropping the class restores the light page exactly.
+
+   Grading:
+   · page ground → atx-night, raised cards/surfaces → atx-slab,
+     hairlines → atx-night-line
+   · body/ink and warm-stone utility text → paper mixes
+   · closed-surface backgrounds (bg-white/bg-atx-paper/stone tints)
+     → atx-slab, including their alpha variants used as hover/soft fills
+   · bordered chips and closed fills resolve out of white/aluminum into
+     the slab family so both states of every toggle stay legible
+   · leaflet map chrome follows the surface */
+
+.civic-mode {
+  background-color: var(--color-atx-night);
+  color: var(--color-atx-paper);
+}
+
+/* ── text ── */
+
+.civic-mode .text-atx-ink {
+  color: var(--color-atx-paper);
+}
+
+.civic-mode .text-stone-400,
+.civic-mode .text-stone-500 {
+  color: color-mix(in srgb, var(--color-atx-paper) 64%, transparent);
+}
+
+.civic-mode .text-stone-600 {
+  color: color-mix(in srgb, var(--color-atx-paper) 74%, transparent);
+}
+
+/* ── hairlines ── */
+
+.civic-mode .border-atx-line {
+  border-color: var(--color-atx-night-line);
+}
+
+.civic-mode .divide-atx-line > :not([hidden]) ~ :not([hidden]),
+.civic-mode .divide-atx-line > :not(:last-child) {
+  border-color: var(--color-atx-night-line);
+}
+
+/* Dark surfaces get a themed scrollbar — Chromium's default light track
+   is invisible on paper but shouts on night. */
+.civic-mode {
+  scrollbar-color: var(--color-atx-night-line) transparent;
+}
+
+/* ── closed surfaces → slab ── */
+
+.civic-mode .bg-white,
+.civic-mode .bg-atx-paper {
+  background-color: var(--color-atx-slab);
+}
+
+.civic-mode .bg-atx-paper\/90,
+.civic-mode .bg-atx-paper\/95,
+.civic-mode .bg-atx-paper\/80 {
+  background-color: color-mix(in srgb, var(--color-atx-slab) 86%, transparent);
+}
+
+.civic-mode .bg-stone-100 {
+  background-color: color-mix(
+    in srgb,
+    var(--color-atx-slab) 70%,
+    var(--color-atx-night)
+  );
+}
+
+.civic-mode .bg-stone-50 {
+  background-color: var(--color-atx-night);
+}
+
+.civic-mode .bg-atx-red\/15 {
+  background-color: color-mix(
+    in srgb,
+    var(--color-atx-red) 22%,
+    var(--color-atx-slab)
+  );
+}
+
+.civic-mode .bg-amber-100 {
+  background-color: color-mix(
+    in srgb,
+    var(--color-atx-slab) 82%,
+    var(--color-atx-gold)
+  );
+}
+
+.civic-mode .bg-amber-100.text-amber-700:hover {
+  color: color-mix(in srgb, var(--color-atx-gold) 82%, var(--color-atx-paper));
+}
+
+/* ── soft brand fills (bg-atx-* alpha blends) → gold/electric on slab ── */
+
+.civic-mode
+  :is(.bg-atx-electric\/10, .bg-atx-electric\/15, .bg-atx-electric\/5) {
+  background-color: color-mix(
+    in srgb,
+    var(--color-atx-gold) 14%,
+    var(--color-atx-slab)
+  );
+}
+
+.civic-mode
+  :is(
+    .bg-atx-electric\/40,
+    .bg-atx-electric\/50,
+    .bg-atx-gold,
+    .bg-atx-red\/15
+  ):hover {
+  background-color: color-mix(
+    in srgb,
+    var(--color-atx-gold) 10%,
+    var(--color-atx-slab)
+  );
+}
+
+.civic-mode .bg-atx-electric\/40,
+.civic-mode .bg-atx-electric\/50 {
+  border-color: color-mix(
+    in srgb,
+    var(--color-atx-gold) 40%,
+    var(--color-atx-night-line)
+  );
+}
+
+.civic-mode
+  :is(
+    .border-atx-electric\/30,
+    .border-atx-electric\/40,
+    .border-atx-electric\/50
+  ) {
+  border-color: color-mix(
+    in srgb,
+    var(--color-atx-gold) 32%,
+    var(--color-atx-night-line)
+  );
+}
+
+.civic-mode .border-atx-blue\/40,
+.civic-mode .border-atx-blue\/50 {
+  border-color: color-mix(
+    in srgb,
+    var(--color-atx-gold) 38%,
+    var(--color-atx-night-line)
+  );
+}
+
+.civic-mode .border-atx-red\/50 {
+  border-color: color-mix(
+    in srgb,
+    var(--color-atx-gold) 38%,
+    var(--color-atx-night-line)
+  );
+}
+
+/* ── text accents → family accents (strong / soft variants per origin) ── */
+
+.civic-mode
+  :is(.text-atx-electric, .text-atx-electric-deep, .text-atx-blue-deep) {
+  color: var(--color-atx-gold);
+}
+
+.civic-mode .text-atx-blue {
+  color: var(--color-atx-electric-soft);
+}
+
+.civic-mode .text-amber-600,
+.civic-mode .text-amber-700 {
+  color: color-mix(in srgb, var(--color-atx-gold) 82%, var(--color-atx-paper));
+}
+
+.civic-mode .text-atx-red,
+.civic-mode .text-atx-red-deep,
+.civic-mode .text-atx-stage,
+.civic-mode .text-atx-stage-deep {
+  color: color-mix(in srgb, var(--color-atx-red) 80%, var(--color-atx-paper));
+}
+
+.civic-mode .atx-dark-keep {
+  background-color: var(--color-atx-red);
+  color: var(--color-atx-paper);
+}
+
+/* ── map chrome (leaflet controls follow their surface) ── */
+
+.civic-mode .leaflet-container {
+  background: #16151a;
+  color: #e7e5e4;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  z-index: 0;
+}
+
+.civic-mode .leaflet-control-zoom a {
+  background: #1b1922 !important;
+  color: #f5b301 !important;
+  border: 1px solid rgba(44, 42, 51, 1) !important;
+}
+
+.civic-mode .leaflet-control-zoom a:hover {
+  background: #26242c !important;
+  color: #e7e5e4 !important;
+}
+
+.civic-mode .leaflet-bar {
+  border: 0 !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+.civic-mode .leaflet-control-attribution {
+  background: rgba(11, 14, 20, 0.82) !important;
+  color: #a8a29e !important;
+}
+
+.civic-mode .leaflet-control-attribution a {
+  color: #f5b301 !important;
 }

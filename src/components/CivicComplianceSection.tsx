@@ -18,7 +18,7 @@ import {
 
 /** Status pill tone per audit state — matches the admin compliance chips. */
 const VENUE_STATUS_PILL_CLASSES: Record<VenueAuditStatus, string> = {
-  OVER_LIMIT: "bg-[#8B0000]/15 text-[#8B0000]",
+  OVER_LIMIT: "bg-atx-red/15 text-atx-red",
   COMPLIANT: "bg-atx-blue/15 text-atx-blue-deep",
 };
 
@@ -50,12 +50,12 @@ function MetricCard({
 }: MetricCardProps) {
   const valueClasses =
     tone === "violation"
-      ? "font-display text-3xl font-bold text-[#8B0000] md:text-4xl"
+      ? "font-display text-3xl font-bold text-atx-red md:text-4xl"
       : "font-display text-3xl font-bold text-atx-blue-deep md:text-4xl";
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-atx-line bg-white p-5 shadow-[0_0_0_1px_rgba(28,25,23,0.05)]">
       <div className="flex items-center gap-2">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[#8B0000]/15 text-[#8B0000]">
+        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-atx-red/15 text-atx-red">
           <Icon className="h-5 w-5" />
         </span>
         <span className="text-xs font-semibold tracking-[0.15em] text-stone-500 uppercase">
@@ -88,7 +88,7 @@ export default function CivicComplianceSection({
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4 text-[#8B0000]" />
+          <ShieldAlert className="h-4 w-4 text-atx-red" />
           <h2 className="text-sm font-semibold tracking-[0.1em] text-stone-500 uppercase">
             Civic Compliance &amp; Economic Telemetry
           </h2>
@@ -149,7 +149,7 @@ export default function CivicComplianceSection({
                 className="flex items-center justify-between gap-3 rounded-xl border border-atx-line bg-atx-paper p-3"
               >
                 <div className="flex items-center gap-3">
-                  <span className="shrink-0 rounded-md bg-[#0055FF]/10 px-2 py-0.5 text-xs font-semibold text-[#0055FF]">
+                  <span className="shrink-0 rounded-md bg-atx-electric/10 px-2 py-0.5 text-xs font-semibold text-atx-electric">
                     {venue.district}
                   </span>
                   <div>

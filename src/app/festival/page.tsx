@@ -25,11 +25,11 @@ export default function FestivalPage() {
   const now = new Date();
 
   return (
-    <div className="min-h-dvh w-full bg-atx-ink/70 px-4 py-6 backdrop-blur-sm md:py-10">
+    <div className="civic-mode min-h-dvh w-full bg-atx-ink/70 px-4 py-6 backdrop-blur-sm md:py-10">
       <div className="mx-auto w-full max-w-2xl">
         <section
           aria-label="Festival Finder"
-          className="relative max-h-[88dvh] overflow-y-auto rounded-3xl border border-atx-line bg-atx-paper p-5 shadow-[0_24px_80px_rgba(28,25,23,0.45)] md:p-7"
+          className="relative max-h-[88dvh] overflow-y-auto rounded-3xl border border-atx-line bg-atx-paper p-5 shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:p-7"
         >
           <Link
             href={FAN_MAP_ROUTE}
