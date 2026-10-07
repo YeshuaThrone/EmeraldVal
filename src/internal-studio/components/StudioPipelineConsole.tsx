@@ -40,7 +40,10 @@ async function readSsePayloads(
         .split("\n")
         .find((part) => part.startsWith("data: "));
       if (!line) continue;
-      onEvent(JSON.parse(line.slice(6)) as JobProgressPayload);
+      const payload = JSON.parse(line.slice(6)) as JobProgressPayload & {
+        status?: string;
+      };
+      if (payload.stage) onEvent(payload);
     }
   }
 }
@@ -80,7 +83,7 @@ export function StudioPipelineConsole() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/internal-studio/render-jobs", {
+      const response = await fetch("/api/internal-studio/pipeline", {
         method: "POST",
         headers: staffHeaders(email, staffKey),
         body: JSON.stringify({
@@ -93,6 +96,7 @@ export function StudioPipelineConsole() {
       });
       const json = (await response.json()) as {
         jobId?: string;
+        streamUrl?: string;
         error?: string;
         details?: string;
       };
@@ -107,7 +111,7 @@ export function StudioPipelineConsole() {
         progressPercent: 0,
       });
       const stream = await fetch(
-        `/api/internal-studio/render-jobs/${json.jobId}/events`,
+        json.streamUrl || `/api/internal-studio/pipeline?jobId=${json.jobId}`,
         { headers: staffHeaders(email, staffKey) },
       );
       if (!stream.ok) {

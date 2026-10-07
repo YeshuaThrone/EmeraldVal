@@ -1,8 +1,44 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { POST } from "./route";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
 
-function staffRequest(body: unknown) {
-  return new Request("http://localhost/api/internal-studio/pipeline", {
+vi.mock("@/lib/studio-engine-sdk", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/studio-engine-sdk")>();
+  return {
+    ...actual,
+    enqueueStudioPipeline: vi.fn(async () => ({
+      jobId: "job-queued-1",
+      status: "QUEUED",
+    })),
+  };
+});
+
+vi.mock("@/sdk/studio-queue", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/sdk/studio-queue")>();
+  return {
+    ...actual,
+    getStudioQueue: () => ({
+      getJob: vi.fn(async () => ({
+        id: "job-queued-1",
+        data: { episodeId: "ep-42" },
+        progress: {
+          jobId: "job-queued-1",
+          episodeId: "ep-42",
+          stage: "EPG_PUBLISHED",
+          progressPercent: 100,
+        },
+        returnvalue: { status: "EPG_PUBLISHED" },
+        failedReason: undefined,
+        getState: async () => "completed",
+      })),
+    }),
+  };
+});
+
+import { enqueueStudioPipeline } from "@/lib/studio-engine-sdk";
+import { GET, POST } from "./route";
+
+function staffPost(body: unknown) {
+  return new NextRequest("http://localhost/api/internal-studio/pipeline", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -10,79 +46,139 @@ function staffRequest(body: unknown) {
       "x-studio-staff-key": "studio-key",
     },
     body: JSON.stringify(body),
-  }) as never;
+  });
 }
 
+const validBody = {
+  episodeId: "ep-42",
+  rodecasterAudioPath: "/tmp/internal-studio/ep-42/master.wav",
+  shotCards: [
+    {
+      shotId: "shot_01",
+      speakerId: "hero_01",
+      dialogueText: "Hold the city.",
+      characterModelId: "hero_01",
+      motionPrompt: "push-in",
+    },
+  ],
+};
+
 describe("POST /api/internal-studio/pipeline", () => {
+  beforeEach(() => {
+    vi.stubEnv("ANIMATION_STUDIO_OS_SECRET", "studio-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+  });
+
+  it("requires studio staff", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/internal-studio/pipeline", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(validBody),
+      }),
+    );
+    expect(response.status).toBe(401);
+    expect(enqueueStudioPipeline).not.toHaveBeenCalled();
+  });
+
+  it("accepts x-staff-email as an alias when the staff key is present", async () => {
+    const response = await POST(
+      new NextRequest("http://localhost/api/internal-studio/pipeline", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-staff-email": "3bbullion@gmail.com",
+          "x-studio-staff-key": "studio-key",
+        },
+        body: JSON.stringify(validBody),
+      }),
+    );
+    expect(response.status).toBe(202);
+  });
+
+  it("rejects a missing shot card list", async () => {
+    const response = await POST(
+      staffPost({
+        episodeId: "ep-42",
+        rodecasterAudioPath: "/tmp/internal-studio/ep-42/master.wav",
+        shotCards: [],
+      }),
+    );
+    expect(response.status).toBe(400);
+    const json = (await response.json()) as { error: string };
+    expect(json.error).toContain("shot cards");
+    expect(enqueueStudioPipeline).not.toHaveBeenCalled();
+  });
+
+  it("returns 202 with a jobId and SSE streamUrl without publishing to WURFI", async () => {
+    const response = await POST(staffPost(validBody));
+    expect(response.status).toBe(202);
+    const json = (await response.json()) as {
+      jobId: string;
+      status: string;
+      streamUrl: string;
+    };
+    expect(json.jobId).toBe("job-queued-1");
+    expect(json.status).toBe("QUEUED");
+    expect(json.streamUrl).toBe("/api/internal-studio/pipeline?jobId=job-queued-1");
+    expect(enqueueStudioPipeline).toHaveBeenCalledWith(
+      expect.objectContaining({
+        episodeId: "ep-42",
+        showId: "wurfi-default-show",
+        requestedBy: "3bbullion@gmail.com",
+      }),
+    );
+  });
+});
+
+describe("GET /api/internal-studio/pipeline", () => {
+  beforeEach(() => {
+    vi.stubEnv("ANIMATION_STUDIO_OS_SECRET", "studio-key");
+  });
+
   afterEach(() => {
     vi.unstubAllEnvs();
   });
 
   it("requires studio staff", async () => {
-    vi.stubEnv("ANIMATION_STUDIO_OS_SECRET", "studio-key");
-    const response = await POST(
-      new Request("http://localhost/api/internal-studio/pipeline", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          projectId: "comic_issue_01",
-          masterAudioUrl: "https://storage.studio-os.internal/audio/a.wav",
-          comicPanelUrls: ["https://storage.studio-os.internal/panels/p1.png"],
-        }),
-      }) as never,
+    const response = await GET(
+      new NextRequest("http://localhost/api/internal-studio/pipeline?jobId=job-queued-1"),
     );
     expect(response.status).toBe(401);
   });
 
-  it("rejects a missing comic panel list", async () => {
-    vi.stubEnv("ANIMATION_STUDIO_OS_SECRET", "studio-key");
-    const response = await POST(
-      staffRequest({
-        projectId: "comic_issue_01",
-        masterAudioUrl: "https://storage.studio-os.internal/audio/a.wav",
-        comicPanelUrls: [],
+  it("requires jobId", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/internal-studio/pipeline", {
+        headers: {
+          "x-studio-staff-email": "3bbullion@gmail.com",
+          "x-studio-staff-key": "studio-key",
+        },
       }),
     );
     expect(response.status).toBe(400);
-    const json = (await response.json()) as { error: string };
-    expect(json.error).toContain("comicPanelUrls");
   });
 
-  it("returns an internal master HLS URL for a valid staff payload", async () => {
-    vi.stubEnv("ANIMATION_STUDIO_OS_SECRET", "studio-key");
-    const response = await POST(
-      staffRequest({
-        projectId: "comic_issue_01",
-        masterAudioUrl: "https://storage.studio-os.internal/audio/rodecaster_master_01.wav",
-        comicPanelUrls: [
-          "https://storage.studio-os.internal/panels/issue_1_page_1.png",
-        ],
-        characterVault: [
-          {
-            id: "hero_01",
-            name: "Sovereign Lead",
-            seedNumber: 8849201,
-            referenceImageUrls: [
-              "https://storage.studio-os.internal/vault/hero_turnaround.png",
-            ],
-            voiceId: "unity_disney_voice_01",
-            defaultPromptPrefix: "dark graphic novel style",
-          },
-        ],
-        outputResolution: "4K",
-        autoPublishToNetwork: true,
+  it("streams text/event-stream progress for staff", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/internal-studio/pipeline?jobId=job-queued-1", {
+        headers: {
+          "x-studio-staff-email": "3bbullion@gmail.com",
+          "x-studio-staff-key": "studio-key",
+        },
       }),
     );
     expect(response.status).toBe(200);
-    const json = (await response.json()) as {
-      success: boolean;
-      projectId: string;
-      outputStreamUrl: string;
-    };
-    expect(json.success).toBe(true);
-    expect(json.projectId).toBe("comic_issue_01");
-    expect(json.outputStreamUrl).toContain(
-      "network.three-thrones.internal/streams/comic_issue_01/master_episode.m3u8",
-    );
+    expect(response.headers.get("Content-Type")).toContain("text/event-stream");
+    const reader = response.body!.getReader();
+    const { value } = await reader.read();
+    await reader.cancel();
+    const text = new TextDecoder().decode(value);
+    expect(text).toContain("data: ");
+    expect(text).toMatch(/CONNECTED|QUEUED|EPG_PUBLISHED/);
   });
 });

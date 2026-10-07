@@ -91,7 +91,11 @@ export function assertStudioStaff(
     };
   }
 
-  const email = (headerValue(headers, "x-studio-staff-email") ?? "").trim();
+  const email = (
+    headerValue(headers, "x-studio-staff-email") ||
+    headerValue(headers, "x-staff-email") ||
+    ""
+  ).trim();
   const key =
     headerValue(headers, "x-studio-staff-key") ??
     headerValue(headers, "authorization")?.replace(/^Bearer\s+/i, "");

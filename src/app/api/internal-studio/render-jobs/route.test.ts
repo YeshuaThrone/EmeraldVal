@@ -61,7 +61,7 @@ describe("POST /api/internal-studio/render-jobs", () => {
     const response = await POST(staffRequest({ episodeId: "ep-1" }));
     expect(response.status).toBe(400);
     const json = (await response.json()) as { error: string };
-    expect(json.error).toContain("shotCards");
+    expect(json.error).toContain("shot cards");
     expect(enqueueStudioPipeline).not.toHaveBeenCalled();
   });
 
@@ -79,6 +79,7 @@ describe("POST /api/internal-studio/render-jobs", () => {
       jobId: "job-queued-1",
       episodeId: "ep-42",
       stage: "QUEUED",
+      streamUrl: "/api/internal-studio/pipeline?jobId=job-queued-1",
     });
     expect(enqueueStudioPipeline).toHaveBeenCalledWith(
       expect.objectContaining({

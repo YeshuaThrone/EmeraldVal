@@ -8,6 +8,7 @@ import {
   type StudioRenderJobData,
 } from "./studio-engine";
 import { authorizeStaffAccess } from "./studio-staff";
+import { emitStudioJobProgress } from "@/lib/studio-dashboard-sdk";
 import { studioWorkDir } from "@/internal-studio/api/ffmpegStitcher";
 
 export const STUDIO_RENDER_QUEUE = "AnimationStudioEngineQueue";
@@ -37,14 +38,16 @@ async function reportProgress(
   job: StudioJobLike,
   patch: Omit<JobProgressPayload, "jobId" | "episodeId"> & { episodeId?: string },
 ): Promise<void> {
-  await job.updateProgress({
+  const payload: JobProgressPayload = {
     jobId: String(job.id ?? ""),
     episodeId: patch.episodeId ?? job.data.episodeId,
     stage: patch.stage,
     progressPercent: patch.progressPercent,
     hlsMasterUrl: patch.hlsMasterUrl,
     error: patch.error,
-  } satisfies JobProgressPayload);
+  };
+  await job.updateProgress(payload);
+  emitStudioJobProgress(payload.jobId, payload);
 }
 
 /**

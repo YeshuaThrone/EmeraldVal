@@ -45,3 +45,5 @@ export {
   streamStudioJobEvents,
   toJobProgressPayload,
 } from "./studio-progress";
+
+export { parseStudioRenderJobBody, DEFAULT_STUDIO_SHOW_ID } from "./studio-job-parse";
