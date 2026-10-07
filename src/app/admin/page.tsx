@@ -327,7 +327,7 @@ export default function AdminDashboardPage() {
             value={`${localSharePercent}%`}
             percent={localSharePercent}
             caption="Share of venues tagged as local acts"
-            tone="primary"
+            tone="secondary"
           />
         </section>
 
