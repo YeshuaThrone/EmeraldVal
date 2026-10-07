@@ -34,6 +34,8 @@ import {
 } from "@/lib/venueStudioForm";
 import type { VenueStudioBlueprintProfile } from "@/lib/venueStudioBlueprint";
 import VenueStudioHeader from "@/components/VenueStudioHeader";
+import VenueOperatorConsole from "@/components/VenueOperatorConsole";
+import { OPERATOR_MAP_DISTRICT } from "@/lib/venueOperator";
 import {
   ATXLiveEngine,
   DEFAULT_CURFEW_RULES,
@@ -50,7 +52,9 @@ import {
 /**
  * Venue Studio — "Empire Control Room" (PR 33, fifth surface).
  *
- * Two tabs:
+ * Four tabs, Operator Console first:
+ *  - Operator Console: room status / curfew read-edit / sound hour from the
+ *    master engine and the admin audit contract (venueOperator.ts);
  *  - Sound Telemetry Guard: a live dB monitor whose alert box is driven by
  *    ATXLiveIntelligenceEngine.evaluateDecibelAcceleration over a real
  *    readings history — every fader action appends a reading, so the
@@ -67,7 +71,7 @@ import {
  * zinc/green/orange palette is not used.
  */
 
-type TabId = "blueprint" | "telemetry" | "shows";
+type TabId = "console" | "blueprint" | "telemetry" | "shows";
 
 type AuthState =
   | { status: "restoring" }
@@ -82,6 +86,7 @@ type PublishState =
 
 /** One tab of the studio — id drives the themed active state. */
 const TABS: { id: TabId; label: string }[] = [
+  { id: "console", label: "Operator Console" },
   { id: "blueprint", label: "Venue Blueprint" },
   { id: "telemetry", label: "Sound Telemetry Guard" },
   { id: "shows", label: "Stage & Show Management" },
@@ -92,7 +97,7 @@ const inputClass =
 
 export default function VenueStudioView() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabId>("blueprint");
+  const [activeTab, setActiveTab] = useState<TabId>("console");
 
   // ── Venue Blueprint state (v3.5.0 schema rebuild) ──────────────────────
   // Seeded from the paste's Default Austin Blueprint Seed Instance; the
@@ -312,8 +317,22 @@ export default function VenueStudioView() {
         })}
       </div>
 
-      {/* ── Tab 1: Sound Telemetry Guard ──────────────────────────────── */}
-      {activeTab === "blueprint" ? (
+      {/* ── Tab sections — console leads, everything else after it ───── */}
+      {activeTab === "console" ? (
+        <section
+          role="tabpanel"
+          aria-label="Operator Console"
+          className="flex flex-col gap-4"
+        >
+          <VenueOperatorConsole
+            engine={masterEngine}
+            nowMs={masterNowMs}
+            profileDistrict={masterProfile.district}
+            mapDistrict={OPERATOR_MAP_DISTRICT}
+            isLive={masterProfile.isLive}
+          />
+        </section>
+      ) : activeTab === "blueprint" ? (
         <section
           role="tabpanel"
           aria-label="Venue Blueprint"
