@@ -5,6 +5,7 @@ import {
   CORRIDORS,
   corridorPointCount,
   generateHeatPoints,
+  HEAT_RAMP,
   impliedCrowdSize,
   MIN_PEOPLE_FOR_HEAT,
   type CorridorName,
@@ -96,6 +97,35 @@ describe("generateHeatPoints", () => {
     const points = generateHeatPoints(CITY_PINS);
     const blendedPoints = points.filter((point) => point.corridor === undefined);
     expect(blendedPoints.length).toBe(livePinCount);
+  });
+});
+
+describe("HEAT_RAMP (civic dark basemap)", () => {
+  it("stays transparent at zero heat", () => {
+    expect(HEAT_RAMP[0]).toBe("rgba(0,0,0,0)");
+  });
+
+  it("opens cold in the electric-deep blue family", () => {
+    expect(HEAT_RAMP[0.3]).toBe("rgba(0,70,192,0.4)");
+  });
+
+  it("passes through pure electric at mid heat", () => {
+    expect(HEAT_RAMP[0.6]).toBe("rgba(0,85,255,0.75)");
+  });
+
+  it("hits warm gold at high heat", () => {
+    expect(HEAT_RAMP[0.85]).toBe("rgba(255,215,0,0.95)");
+  });
+
+  it("peaks as a warm ember, readable on the dark basemap", () => {
+    expect(HEAT_RAMP[1]).toBe("#ff8a3d");
+  });
+
+  it("peaks gold-side: no white peak and no amber-era endpoints anywhere", () => {
+    const rampValues = Object.values(HEAT_RAMP);
+    expect(rampValues).not.toContain("#ffffff");
+    expect(rampValues.some((value) => value.includes("255,140,0"))).toBe(false);
+    expect(rampValues.some((value) => value.includes("255,165,0"))).toBe(false);
   });
 });
 
