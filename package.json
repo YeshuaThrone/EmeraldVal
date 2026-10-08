@@ -9,10 +9,16 @@
     "lint": "eslint",
     "test": "vitest run",
     "broadcast": "tsx src/streaming/server/server.ts",
+    "minecraft-engine": "tsx src/config/metrics/metricsServer.ts",
+    "studio:harness": "tsx scripts/studio-harness.ts",
+    "studio:harness:mock": "tsx scripts/test-studio-os.ts",
+    "studio:worker": "tsx scripts/studio-worker.ts",
     "push:vercel": "tsx src/scripts/pushToVercel.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "better-sqlite3": "^12.11.1",
+    "bullmq": "^6.3.11",
     "express": "^4.21.2",
     "hls.js": "^1.7.3",
     "leaflet": "^1.9.4",
@@ -24,9 +30,13 @@
     "react-dom": "19.2.8",
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.9.1",
+    "redis": "^6.3.0",
+    "sharp": "^0.35.5",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
-    "stripe": "^22.6.0"
+    "stripe": "^22.6.0",
+    "three": "^0.186.1",
+    "ws": "^8.22.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -37,6 +47,8 @@
     "@types/pg": "^8.15.5",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.186.0",
+    "@types/ws": "^8.18.2",
     "eslint": "^9",
     "eslint-config-next": "16.3.1",
     "tailwindcss": "^4",

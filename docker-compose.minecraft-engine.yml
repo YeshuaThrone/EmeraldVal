@@ -1,0 +1,26 @@
+# Staff-only Minecraft engine scrape stack. Does not replace public WURFI
+# (`docker-compose.yml` / worfi-app). Prometheus pulls /metrics every 5s.
+services:
+  minecraft-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minecraft-engine
+    command: ["npx", "tsx", "src/config/metrics/metricsServer.ts"]
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    expose:
+      - "3000"
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    container_name: minecraft-engine-prometheus
+    depends_on:
+      - minecraft-engine
+    volumes:
+      - ./src/config/telemetry/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+    ports:
+      - "9090:9090"

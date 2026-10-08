@@ -1,0 +1,114 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("@/lib/UnrealEngineStudioSDK", () => ({
+  callUE5RemoteControl: vi.fn(async () => ({ ReturnValue: true })),
+  inspectUe5Studio: vi.fn(() => ({
+    binary: "UnrealEditor-Cmd",
+    binaryExists: false,
+    pythonScript: "render-ue5-mrq.py",
+    pythonExists: true,
+    remoteUrl: "http://127.0.0.1:30010/remote/object/call",
+    ready: false,
+    note: "Set UNREAL_ENGINE_BIN",
+  })),
+  triggerAudio2FaceLiveLink: vi.fn(async () => ({
+    status: "STREAMING_ACTIVE",
+    streamingChannel: "livelink_hero_01",
+  })),
+  updateUE5StageProperties: vi.fn(async () => ({ ReturnValue: true })),
+}));
+
+import {
+  callUE5RemoteControl,
+  triggerAudio2FaceLiveLink,
+  updateUE5StageProperties,
+} from "@/lib/UnrealEngineStudioSDK";
+import { POST } from "./route";
+
+function staffRequest(body: unknown) {
+  return new Request("http://localhost/api/internal-studio/ue5", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-studio-staff-email": "3bbullion@gmail.com",
+      "x-studio-staff-key": "studio-key",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+describe("POST /api/internal-studio/ue5", () => {
+  beforeEach(() => {
+    vi.stubEnv("ANIMATION_STUDIO_OS_SECRET", "studio-key");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.clearAllMocks();
+  });
+
+  it("requires studio staff", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/internal-studio/ue5", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "remote", payload: { objectPath: "/Game/A", functionName: "Ping" } }),
+      }),
+    );
+    expect(response.status).toBe(401);
+    expect(callUE5RemoteControl).not.toHaveBeenCalled();
+  });
+
+  it("dispatches a Remote Control payload", async () => {
+    const response = await POST(
+      staffRequest({
+        action: "remote",
+        payload: {
+          objectPath: "/Game/WerfiStudio/Cameras.Cameras",
+          functionName: "SetCameraAngle",
+        },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(callUE5RemoteControl).toHaveBeenCalled();
+  });
+
+  it("starts Audio2Face LiveLink for a MetaHuman", async () => {
+    const response = await POST(
+      staffRequest({
+        action: "livelink",
+        audioFilePath: "/tmp/internal-studio/ep_01/master.wav",
+        metaHumanTargetId: "hero_01",
+      }),
+    );
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as { streamingChannel: string };
+    expect(json.streamingChannel).toBe("livelink_hero_01");
+    expect(triggerAudio2FaceLiveLink).toHaveBeenCalled();
+  });
+
+  it("lists the MetaHuman registry for staff", async () => {
+    const { listMetaHumans } = await import("@/lib/MetaHumanRegistry");
+    const response = await POST(staffRequest({ action: "metahumans" }));
+    expect(response.status).toBe(200);
+    const json = (await response.json()) as { registry: { id: string }[] };
+    expect(json.registry.map((entry) => entry.id)).toEqual(
+      listMetaHumans().map((entry) => entry.id),
+    );
+  });
+
+  it("updates camera and lighting on the UE5 bridge", async () => {
+    const response = await POST(
+      staffRequest({
+        action: "stage",
+        cameraAngle: "CAM_WIDE_01",
+        lightingPreset: "NEON_CYAN_NIGHT",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(updateUE5StageProperties).toHaveBeenCalledWith(
+      "CAM_WIDE_01",
+      "NEON_CYAN_NIGHT",
+    );
+  });
+});
