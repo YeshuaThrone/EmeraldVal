@@ -4,6 +4,8 @@ import {
   imageTagForSpeaker,
   videoStemForSpeaker,
 } from "../config/masterAssetMap";
+import { lookupMetaHuman } from "@/lib/MetaHumanRegistry";
+import type { ShotCard } from "@/sdk/studio-engine";
 
 export interface StudioShotBeat {
   camera?: string;
@@ -177,4 +179,24 @@ export function compileAnimationPrompt(
   ].join("\n");
 
   return { prompt, shots };
+}
+
+export function shotCardsFromCompiledShots(
+  shots: CompiledShot[],
+  hosts: { primary?: string; secondary?: string } = {},
+): ShotCard[] {
+  const primary = hosts.primary || "HOST_01";
+  const secondary = hosts.secondary || "GUEST_01";
+  return shots.map((shot) => {
+    const hostId = shot.speaker === "secondary" ? secondary : primary;
+    const meta = lookupMetaHuman(hostId);
+    return {
+      shotId: `shot_${shot.index}`,
+      speakerId: meta?.id ?? hostId,
+      dialogueText: shot.dialogue || shot.action,
+      characterModelId: meta?.id ?? hostId,
+      motionPrompt: shot.action,
+      cameraAngle: shot.camera,
+    };
+  });
 }

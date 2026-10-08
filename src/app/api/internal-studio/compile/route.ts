@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { compileAnimationPrompt } from "@/internal-studio/api/compilePrompt";
+import {
+  compileAnimationPrompt,
+  shotCardsFromCompiledShots,
+} from "@/internal-studio/api/compilePrompt";
 import { insertStudioShot, isUnavailableDb } from "@/internal-studio/api/shotsRepository";
 import {
   readJsonBody,
@@ -18,6 +21,8 @@ export async function POST(request: Request) {
     shots?: unknown;
     script?: unknown;
     durationSecondsPerShot?: unknown;
+    primaryHost?: unknown;
+    secondaryHost?: unknown;
   };
 
   try {
@@ -50,10 +55,19 @@ export async function POST(request: Request) {
       );
     }
 
+    const primaryHost =
+      typeof body.primaryHost === "string" ? body.primaryHost.trim() : "HOST_01";
+    const secondaryHost =
+      typeof body.secondaryHost === "string" ? body.secondaryHost.trim() : "GUEST_01";
+
     return NextResponse.json({
       success: true,
       prompt: compiled.prompt,
       shots: compiled.shots,
+      shotCards: shotCardsFromCompiledShots(compiled.shots, {
+        primary: primaryHost,
+        secondary: secondaryHost,
+      }),
       records: saved,
     });
   } catch (err) {

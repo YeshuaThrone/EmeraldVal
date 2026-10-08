@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 import { DEFAULT_BROADCAST_FPS } from "@/sdk/studio-engine";
 import {
@@ -45,6 +45,32 @@ export function ue5RemoteControlUrl(env: NodeJS.ProcessEnv = process.env): strin
 
 export function ue5BinaryPath(env: NodeJS.ProcessEnv = process.env): string {
   return (env.UNREAL_ENGINE_BIN || DEFAULT_UE5_BIN).trim();
+}
+
+export function inspectUe5Studio(env: NodeJS.ProcessEnv = process.env): {
+  binary: string;
+  binaryExists: boolean;
+  pythonScript: string;
+  pythonExists: boolean;
+  remoteUrl: string;
+  ready: boolean;
+  note: string;
+} {
+  const binary = ue5BinaryPath(env);
+  const pythonScript = ue5MrqPythonScript(env);
+  const binaryExists = existsSync(binary);
+  const pythonExists = existsSync(pythonScript);
+  return {
+    binary,
+    binaryExists,
+    pythonScript,
+    pythonExists,
+    remoteUrl: ue5RemoteControlUrl(env),
+    ready: binaryExists && pythonExists,
+    note: binaryExists
+      ? "UnrealEditor-Cmd found. Compile UWerfiStudioBridge into the .uproject and set UE5_BRIDGE_OBJECT_PATH."
+      : "Set UNREAL_ENGINE_BIN to UnrealEditor-Cmd on the render machine. Node will not fake a UE5 editor.",
+  };
 }
 
 function assertSafePath(filePath: string, label: string): string {

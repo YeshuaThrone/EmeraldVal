@@ -6,11 +6,22 @@ import {
 } from "@/internal-studio/api/http";
 import {
   callUE5RemoteControl,
+  inspectUe5Studio,
   triggerAudio2FaceLiveLink,
   updateUE5StageProperties,
   type UE5RemoteControlRequest,
 } from "@/lib/UnrealEngineStudioSDK";
 import { listMetaHumans } from "@/lib/MetaHumanRegistry";
+
+export async function GET(request: Request) {
+  const auth = studioStaffFrom(request);
+  if (!auth.ok) return studioUnauthorized(auth);
+  return NextResponse.json({
+    success: true,
+    doctor: inspectUe5Studio(),
+    metahumans: listMetaHumans(),
+  });
+}
 
 export async function POST(request: Request) {
   const auth = studioStaffFrom(request);

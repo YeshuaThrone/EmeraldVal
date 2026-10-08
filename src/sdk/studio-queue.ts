@@ -11,6 +11,7 @@ import {
 import { authorizeStaffAccess } from "./studio-staff";
 import { emitStudioJobProgress } from "@/lib/studio-dashboard-sdk";
 import { studioWorkDir } from "@/internal-studio/api/ffmpegStitcher";
+import { persistStudioRenderJobQuietly } from "@/internal-studio/api/studioRenderJobsRepository";
 
 export const STUDIO_RENDER_QUEUE = "AnimationStudioEngineQueue";
 export const STUDIO_RENDER_JOB_NAME = "RenderEpisodeJob";
@@ -110,6 +111,12 @@ export async function processStudioRenderJob(
       progressPercent: 100,
       hlsMasterUrl: hlsUrl,
     });
+    await persistStudioRenderJobQuietly({
+      queueJobId: jobId || episodeId,
+      jobData: job.data,
+      status: "EPG_PUBLISHED",
+      hlsMasterUrl: hlsUrl,
+    });
     console.log(`[Studio Engine] Render Complete. Manifest generated at: ${hlsUrl}`);
 
     return {
@@ -123,6 +130,12 @@ export async function processStudioRenderJob(
     await reportProgress(job, {
       stage: "FAILED",
       progressPercent: 0,
+      error: message,
+    });
+    await persistStudioRenderJobQuietly({
+      queueJobId: jobId || episodeId,
+      jobData: job.data,
+      status: "FAILED",
       error: message,
     });
     throw error;
@@ -162,5 +175,10 @@ export async function enqueueStudioPipeline(
 ): Promise<{ jobId: string; status: "QUEUED" }> {
   authorizeStaffAccess(jobData.requestedBy);
   const jobId = await enqueueStudioPipelineJob(jobData, queue);
+  await persistStudioRenderJobQuietly({
+    queueJobId: jobId,
+    jobData,
+    status: "QUEUED",
+  });
   return { jobId, status: "QUEUED" };
 }

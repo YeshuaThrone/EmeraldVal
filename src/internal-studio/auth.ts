@@ -26,6 +26,63 @@ export interface StudioAuthDenied {
 
 export type StudioAuthResult = StudioAuthOk | StudioAuthDenied;
 
+export const STUDIO_SESSION_COOKIE = "studio_session";
+export const STUDIO_SESSION_MAX_AGE_SEC = 60 * 60 * 24;
+
+export function signHs256Jwt(
+  payload: Record<string, unknown>,
+  secret: string,
+): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: "HS256", typ: "JWT" }),
+  ).toString("base64url");
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const signature = createHmac("sha256", secret)
+    .update(`${header}.${body}`)
+    .digest("base64url");
+  return `${header}.${body}.${signature}`;
+}
+
+export function readCookie(headers: Headers, name: string): string | undefined {
+  const raw = headers.get("cookie");
+  if (!raw) return undefined;
+  for (const part of raw.split(";")) {
+    const trimmed = part.trim();
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    if (trimmed.slice(0, eq) !== name) continue;
+    try {
+      return decodeURIComponent(trimmed.slice(eq + 1));
+    } catch {
+      return trimmed.slice(eq + 1);
+    }
+  }
+  return undefined;
+}
+
+export function signStudioSession(
+  session: { email: string; role: InternalStudioRole },
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const secret = getSupabaseJwtSecret(env) || getStudioStaffSecret(env);
+  if (!secret) {
+    throw new Error("Studio session secret is not configured");
+  }
+  return signHs256Jwt(
+    {
+      email: session.email,
+      studio_role: session.role,
+      exp: Math.floor(Date.now() / 1000) + STUDIO_SESSION_MAX_AGE_SEC,
+    },
+    secret,
+  );
+}
+
+export function studioSessionCookie(token: string, maxAge = STUDIO_SESSION_MAX_AGE_SEC): string {
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${STUDIO_SESSION_COOKIE}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+}
+
 function headerValue(headers: Headers, name: string): string | undefined {
   return headers.get(name) ?? undefined;
 }
@@ -171,6 +228,12 @@ export function assertStudioAccess(
     headerValue(headers, "x-staff-email")
   ) {
     return assertStudioStaff(headers, env);
+  }
+  const cookie = readCookie(headers, STUDIO_SESSION_COOKIE);
+  if (cookie && !headerValue(headers, "authorization")) {
+    const forged = new Headers(headers);
+    forged.set("authorization", `Bearer ${cookie}`);
+    return assertStudioJwt(forged, env);
   }
   return assertStudioJwt(headers, env);
 }

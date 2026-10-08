@@ -5,6 +5,7 @@ import { resetMetaHumanPool } from "./MetaHumanRegistry";
 import {
   buildUe5MrqArgs,
   callUE5RemoteControl,
+  inspectUe5Studio,
   renderHeadlessUE5Shot,
   triggerAudio2FaceLiveLink,
   ue5RemoteControlUrl,
@@ -183,5 +184,11 @@ describe("headless Movie Render Queue", () => {
     expect(py).toContain("MoviePipelineQueueSubsystem");
     expect(py).toContain("29.97");
     expect(py).toContain("MoviePipelineInProcessExecutor");
+  });
+
+  it("reports missing UnrealEditor-Cmd without faking a render box", () => {
+    const doctor = inspectUe5Studio({ UNREAL_ENGINE_BIN: "/not/a/real/ue5" });
+    expect(doctor.binaryExists).toBe(false);
+    expect(doctor.ready).toBe(false);
   });
 });

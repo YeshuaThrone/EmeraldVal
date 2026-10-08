@@ -2,6 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/UnrealEngineStudioSDK", () => ({
   callUE5RemoteControl: vi.fn(async () => ({ ReturnValue: true })),
+  inspectUe5Studio: vi.fn(() => ({
+    binary: "UnrealEditor-Cmd",
+    binaryExists: false,
+    pythonScript: "render-ue5-mrq.py",
+    pythonExists: true,
+    remoteUrl: "http://127.0.0.1:30010/remote/object/call",
+    ready: false,
+    note: "Set UNREAL_ENGINE_BIN",
+  })),
   triggerAudio2FaceLiveLink: vi.fn(async () => ({
     status: "STREAMING_ACTIVE",
     streamingChannel: "livelink_hero_01",

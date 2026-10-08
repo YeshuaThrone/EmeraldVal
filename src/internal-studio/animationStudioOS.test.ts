@@ -2,8 +2,17 @@ import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { assertStudioAccess, assertStudioStaff, verifyHs256Jwt } from "./auth";
-import { compileAnimationPrompt } from "./api/compilePrompt";
+import {
+  compileAnimationPrompt,
+  shotCardsFromCompiledShots,
+} from "./api/compilePrompt";
+import {
+  assertStudioAccess,
+  assertStudioStaff,
+  signStudioSession,
+  STUDIO_SESSION_COOKIE,
+  verifyHs256Jwt,
+} from "./auth";
 import { buildFfmpegConcatArgs } from "./api/ffmpegStitcher";
 import { buildSeeDancePayload, parseGenerateShotBody } from "./api/generateShot";
 import {
@@ -45,6 +54,8 @@ describe("AnimationStudioOS schema", () => {
     expect(schema).toContain("CREATE EXTENSION IF NOT EXISTS vector");
     expect(schema).toContain("match_character_embedding");
     expect(schema).toContain("CREATE TABLE IF NOT EXISTS public.shot_render_jobs");
+    expect(schema).toContain("queue_job_id");
+    expect(schema).toContain("hls_master_url");
     expect(schema).toContain("CREATE TABLE IF NOT EXISTS public.shot_motion_trajectories");
     expect(schema).toContain("idx_motion_trajectories_shot");
     expect(schema).toContain('CREATE POLICY "Studio Team Motion Trajectories"');
@@ -112,6 +123,19 @@ describe("assertStudioStaff", () => {
     expect(allowed.ok).toBe(true);
     if (allowed.ok) expect(allowed.role).toBe("studio_admin");
   });
+
+  it("accepts a studio_session cookie without repeating the staff key", () => {
+    vi.stubEnv("ANIMATION_STUDIO_OS_SECRET", "studio-key");
+    const token = signStudioSession({
+      email: "3bbullion@gmail.com",
+      role: "studio_admin",
+    });
+    const allowed = assertStudioAccess(
+      new Headers({ cookie: `${STUDIO_SESSION_COOKIE}=${token}` }),
+    );
+    expect(allowed.ok).toBe(true);
+    if (allowed.ok) expect(allowed.email).toBe("3bbullion@gmail.com");
+  });
 });
 
 describe("compileAnimationPrompt", () => {
@@ -127,6 +151,9 @@ describe("compileAnimationPrompt", () => {
     expect(prompt).toContain("@location_view1");
     expect(prompt).toContain("--- SHOT 1 ---");
     expect(prompt).toContain("[00:00 - 00:04]");
+    const cards = shotCardsFromCompiledShots(shots);
+    expect(cards[0]?.characterModelId).toBe("HOST_01");
+    expect(cards[1]?.characterModelId).toBe("GUEST_01");
     expect(prompt).toContain("@image1");
     expect(prompt).toContain(
       '"I can\'t believe we have to re-render this entire act." @video1',

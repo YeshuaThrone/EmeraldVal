@@ -3,6 +3,10 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { JobProgressPayload, StudioRenderJobData } from "./studio-engine";
 
+vi.mock("@/internal-studio/api/studioRenderJobsRepository", () => ({
+  persistStudioRenderJobQuietly: vi.fn(async () => undefined),
+}));
+
 vi.mock("./studio-engine", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./studio-engine")>();
   return {

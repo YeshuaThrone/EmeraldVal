@@ -120,6 +120,14 @@ CREATE TABLE IF NOT EXISTS public.shot_render_jobs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+ALTER TABLE public.shot_render_jobs ADD COLUMN IF NOT EXISTS queue_job_id TEXT;
+ALTER TABLE public.shot_render_jobs ADD COLUMN IF NOT EXISTS episode_id TEXT;
+ALTER TABLE public.shot_render_jobs ADD COLUMN IF NOT EXISTS hls_master_url TEXT;
+ALTER TABLE public.shot_render_jobs ADD COLUMN IF NOT EXISTS requested_by TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS shot_render_jobs_queue_job_id
+  ON public.shot_render_jobs (queue_job_id)
+  WHERE queue_job_id IS NOT NULL;
+
 ALTER TABLE public.shot_render_jobs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Studio Team Shot Render Jobs"

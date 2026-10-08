@@ -7,6 +7,14 @@ import {
 import { enqueueStudioPipeline } from "@/sdk/studio-queue";
 import type { StudioRenderJobData } from "@/sdk/studio-engine";
 import { parseStudioRenderJobBody } from "@/sdk/studio-job-parse";
+import { listStudioRenderJobs } from "@/internal-studio/api/studioRenderJobsRepository";
+
+export async function GET(request: Request) {
+  const auth = studioStaffFrom(request);
+  if (!auth.ok) return studioUnauthorized(auth);
+  const jobs = await listStudioRenderJobs();
+  return NextResponse.json({ success: true, jobs });
+}
 
 export async function POST(request: Request) {
   const auth = studioStaffFrom(request);
