@@ -24,6 +24,7 @@ import {
 import { CITY_PINS } from "@/lib/seedData";
 import CivicComplianceSection from "@/components/CivicComplianceSection";
 import ViewToggle from "@/components/ViewToggle";
+import DayPhaseOverrideControl from "@/components/DayPhaseOverrideControl";
 import AnimatedBar from "./AnimatedBar";
 
 export const metadata = {
@@ -280,10 +281,10 @@ export default function AdminDashboardPage() {
   );
 
   return (
-    <div className="civic-mode h-auto min-h-screen max-h-screen w-full overflow-y-auto bg-atx-night text-atx-paper">
+    <div className="h-auto min-h-screen max-h-screen w-full overflow-y-auto bg-atx-night text-atx-paper">
       <header className="border-b border-atx-night-line bg-atx-night/95 p-4 backdrop-blur-md md:p-5">
         <div className="mx-auto flex max-w-5xl flex-col gap-4">
-          <ViewToggle variant="admin" />
+          <ViewToggle variant="admin" trailing={<DayPhaseOverrideControl />} />
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-atx-red shadow-[0_0_24px_rgba(155,27,48,0.45)]">
               <BarChart3 className="h-5 w-5 text-white" />

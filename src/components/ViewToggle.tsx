@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import {
   ADMIN_ROUTE,
@@ -11,6 +12,10 @@ interface ViewToggleProps {
   /** Which view is currently active — drives which link gets aria-current.
    *  Omitted on the flagship landing, where no cross-surface view is active. */
   variant?: "fan" | "admin" | "festival" | "artist" | "venue";
+  /** Slot after the nav links. Skylight S2: the themable surfaces pass the
+   *  DayPhaseOverrideControl here; Venue Studio passes nothing, which keeps
+   *  the phase engine out of the venue bundle (forced-light, both phases). */
+  trailing?: ReactNode;
 }
 
 const linkClass = (active: boolean) =>
@@ -26,7 +31,7 @@ const linkClass = (active: boolean) =>
  * every header so any view is always one click away from the other four;
  * the active view is marked with aria-current="page".
  */
-export default function ViewToggle({ variant }: ViewToggleProps) {
+export default function ViewToggle({ variant, trailing }: ViewToggleProps) {
   return (
     <nav
       aria-label="View switcher"
@@ -67,6 +72,7 @@ export default function ViewToggle({ variant }: ViewToggleProps) {
       >
         Venue Studio
       </Link>
+      {trailing}
     </nav>
   );
 }
