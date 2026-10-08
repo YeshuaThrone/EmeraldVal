@@ -482,3 +482,12 @@ body {
   border-color: var(--color-atx-line);
 }
 
+/* Muted "off" states (text-stone-400 @ opacity-60 — the map legend's
+   inactive toggles) were graded for dark ground; on light tiles they fall
+   below legibility. Lift them to ink at reduced opacity, keeping the
+   muted intent. */
+.skylight-day .text-stone-400.opacity-60 {
+  color: var(--color-atx-ink);
+  opacity: 0.55;
+}
+
