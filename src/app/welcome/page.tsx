@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ViewToggle from "@/components/ViewToggle";
+import DayPhaseOverrideControl from "@/components/DayPhaseOverrideControl";
 import { FAN_MAP_ROUTE } from "@/lib/routes";
 import { CITY_PINS } from "@/lib/seedData";
 import type { Pin } from "@/lib/types";
@@ -53,13 +54,13 @@ export default function WelcomePage() {
   const stats = getWelcomeStats();
 
   return (
-    <main className="civic-mode h-dvh w-full overflow-y-auto bg-atx-night">
+    <main className="h-dvh w-full overflow-y-auto bg-atx-night text-atx-paper">
       <div className="mx-auto flex min-h-dvh w-full max-w-5xl flex-col px-6 py-8 sm:px-10">
         <header className="flex flex-wrap items-center justify-between gap-3">
           <p className="font-display text-sm font-semibold uppercase tracking-[0.2em] text-atx-gold">
             ATXLive
           </p>
-          <ViewToggle />
+          <ViewToggle trailing={<DayPhaseOverrideControl />} />
         </header>
 
         <section className="flex flex-1 flex-col items-center justify-center py-12 text-center">

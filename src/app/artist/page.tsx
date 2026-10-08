@@ -2,6 +2,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import ArtistUploadWidget from "@/components/ArtistUploadWidget";
 import ViewToggle from "@/components/ViewToggle";
+import DayPhaseOverrideControl from "@/components/DayPhaseOverrideControl";
 import { FAN_MAP_ROUTE } from "@/lib/routes";
 
 export const metadata = {
@@ -17,7 +18,7 @@ export const metadata = {
  */
 export default function ArtistPage() {
   return (
-    <div className="civic-mode min-h-dvh w-full bg-atx-ink/70 px-4 py-6 backdrop-blur-sm md:py-10">
+    <div className="min-h-dvh w-full bg-atx-night text-atx-paper px-4 py-6 backdrop-blur-sm md:py-10">
       <div className="mx-auto w-full max-w-md">
         <section
           aria-label="Artist Studio"
@@ -32,7 +33,7 @@ export default function ArtistPage() {
           </Link>
 
           <div className="mt-4">
-            <ViewToggle variant="artist" />
+            <ViewToggle variant="artist" trailing={<DayPhaseOverrideControl />} />
           </div>
 
           <div className="mt-6">

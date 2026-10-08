@@ -1,7 +1,6 @@
 
-
 "use client";
-
+ 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import dynamic from "next/dynamic";
 import {
@@ -43,6 +42,7 @@ import PerformerDrawer from "@/components/PerformerDrawer";
 import GoLiveModal from "@/components/GoLiveModal";
 import Toast from "@/components/Toast";
 import ViewToggle from "@/components/ViewToggle";
+import DayPhaseOverrideControl from "@/components/DayPhaseOverrideControl";
 
 const MapCanvas = dynamic(() => import("@/components/MapCanvas"), {
   ssr: false,
@@ -505,7 +505,7 @@ export default function LiveMapApp() {
   );
 
   return (
-    <div className="civic-mode relative h-dvh w-full overflow-hidden bg-atx-paper text-atx-ink">
+    <div className="relative h-dvh w-full overflow-hidden bg-atx-night text-atx-paper">
       <div className="absolute inset-0 z-0">
         <MapCanvas
           pins={visiblePins}
@@ -558,7 +558,7 @@ export default function LiveMapApp() {
 
       <header className="pointer-events-none absolute inset-x-0 top-0 z-20 p-4 md:p-5">
         <div className="mx-auto flex max-w-5xl flex-col gap-4">
-          <ViewToggle variant="fan" />
+          <ViewToggle variant="fan" trailing={<DayPhaseOverrideControl />} />
           <div className="pointer-events-auto flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-atx-red shadow-[0_0_24px_rgba(155,27,48,0.45)]">

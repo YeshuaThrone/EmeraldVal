@@ -216,11 +216,14 @@ body {
 
 /* ─── Civic Chrome dark mode (Foundry Pass M2) ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-   The dark family is opted into per route: a surface carries `civic-mode`
-   on its wrapper (body or a full-height top node) and the rules below
-   re-grade the light utilities that surface already uses onto the dark
-   token family. Layout, typography, copy, and light-mode rules elsewhere
-   are untouched — dropping the class restores the light page exactly.
+   Since Skylight S2 the `civic-mode` class lives on <html>, set before
+   first paint by the pre-hydration bootstrap (dayPhase.ts) and kept in
+   sync afterwards by DayPhaseChrome: it IS the night phase. The rules
+   below re-grade the light utilities the dark surfaces already use onto
+   the dark token family; the Venue Studio route never receives the class
+   (forced-light in both phases). Day state = no `civic-mode`; the
+   `skylight-day` block at the bottom of this file re-grades the handful
+   of night-first utilities back onto the light family.
 
    Grading:
    · page ground → atx-night, raised cards/surfaces → atx-slab,
@@ -439,3 +442,52 @@ body {
 .civic-mode .leaflet-control-attribution a {
   color: #f5b301 !important;
 }
+
+/* ─── Skylight day skin (S2) ──────────────────────────────────────────────
+
+   Day phase: <html> carries `skylight-day` and NO `civic-mode`. The light
+   token family is the substrate, so the base rules render as authored;
+   this block only re-grades the handful of utilities the night-first
+   surfaces hardcode (page grounds, dark text, night hairlines) back onto
+   the light family — the mirror of the civic block above. Night state
+   (civic-mode on <html>) never matches a rule here, so its rendering is
+   byte-identical to the pre-S2 chrome. */
+
+.skylight-day {
+  background-color: var(--color-atx-paper);
+  color: var(--color-atx-ink);
+  scrollbar-color: var(--color-atx-line) transparent;
+}
+
+/* Page grounds and raised slabs → paper. */
+.skylight-day .bg-atx-night,
+.skylight-day .bg-atx-night\/95,
+.skylight-day .bg-atx-night-line,
+.skylight-day .bg-atx-slab {
+  background-color: var(--color-atx-paper);
+}
+
+/* Dark text → ink. */
+.skylight-day .text-atx-paper {
+  color: var(--color-atx-ink);
+}
+
+/* Night hairlines → the light hairline. */
+.skylight-day .border-atx-night-line {
+  border-color: var(--color-atx-line);
+}
+
+.skylight-day .divide-atx-night-line > :not([hidden]) ~ :not([hidden]),
+.skylight-day .divide-atx-night-line > :not(:last-child) {
+  border-color: var(--color-atx-line);
+}
+
+/* Muted "off" states (text-stone-400 @ opacity-60 — the map legend's
+   inactive toggles) were graded for dark ground; on light tiles they fall
+   below legibility. Lift them to ink at reduced opacity, keeping the
+   muted intent. */
+.skylight-day .text-stone-400.opacity-60 {
+  color: var(--color-atx-ink);
+  opacity: 0.55;
+}
+
