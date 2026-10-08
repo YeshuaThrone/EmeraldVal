@@ -23,6 +23,7 @@ import {
   getMinuteClockNow,
   subscribeToMinuteClock,
 } from "./minuteClock";
+import { VENUE_ROUTE } from "./routes";
 
 export type DayPhase = "day" | "night";
 export type DayPhaseMode = "auto" | "day" | "night";
@@ -251,3 +252,102 @@ export function resetDayPhaseForTests(): void {
   // its listener into the next test's notification counts.
   listeners.clear();
 }
+
+// ---------------------------------------------------------------------------
+// S2 chrome flip (spec art_NqnJMLfh, Move S2). The <html> element carries the
+// phase class: night = `civic-mode` (the Foundry dark grading), day =
+// `skylight-day` (a light marker the day-skin CSS re-grades from), and the
+// Venue Studio route carries neither (forced-light contract, both phases).
+// ---------------------------------------------------------------------------
+
+/** Day-phase marker class set on <html> when the app renders its light skin. */
+export const DAY_PHASE_DAY_CLASS = "skylight-day";
+
+/** Night class on <html>: the Foundry civic-dark grading, unchanged. */
+export const DAY_PHASE_NIGHT_CLASS = "civic-mode";
+
+/**
+ * Surfaces exempt from the phase flip. Venue Studio is light in both phases
+ * by founder contract, so its route never receives a phase class.
+ */
+export function dayPhaseSurfaceExempt(pathname: string): boolean {
+  return pathname === VENUE_ROUTE || pathname.startsWith(`${VENUE_ROUTE}/`);
+}
+
+/** Pure class contract for an <html> element: empty string means "neither". */
+export function dayPhaseHtmlClassFor(
+  phase: DayPhase,
+  surfaceExempt: boolean,
+): string {
+  if (surfaceExempt) return "";
+  return phase === "day" ? DAY_PHASE_DAY_CLASS : DAY_PHASE_NIGHT_CLASS;
+}
+
+/**
+ * Imperative <html> class sync — the write side of `dayPhaseHtmlClassFor`.
+ * Idempotent; called from the DayPhaseChrome effect after hydration (the
+ * pre-hydration script owns first paint). No-ops outside the browser.
+ */
+export function applyDayPhaseDocumentClass(
+  phase: DayPhase,
+  surfaceExempt: boolean,
+): void {
+  if (typeof document === "undefined") return;
+  const next = dayPhaseHtmlClassFor(phase, surfaceExempt);
+  document.documentElement.classList.toggle(
+    DAY_PHASE_DAY_CLASS,
+    next === DAY_PHASE_DAY_CLASS,
+  );
+  document.documentElement.classList.toggle(
+    DAY_PHASE_NIGHT_CLASS,
+    next === DAY_PHASE_NIGHT_CLASS,
+  );
+}
+
+/**
+ * Pre-hydration bootstrap, inlined as the first <body> child in the root
+ * layout. It re-derives the phase from the SAME constants the store uses
+ * (interpolated here, so the two cannot drift), reads the persisted
+ * override, and sets the <html> class before first paint — no flash.
+ *
+ * Single source of truth: `dayPhaseChrome.test.ts` executes this string
+ * under stubbed globals and asserts it lands on the same class as
+ * `dayPhaseFor` + `readDayPhaseMode` + `dayPhaseHtmlClassFor` across
+ * boundary times, overrides, and the venue exemption.
+ */
+export const DAY_PHASE_PRE_HYDRATION_SCRIPT = `(function () {
+  try {
+    var STORAGE_KEY = ${JSON.stringify(STORAGE_KEY)};
+    var CT_OFFSET_MINUTES = ${JSON.stringify(CT_OFFSET_MINUTES)};
+    var MINUTES_PER_DAY = ${JSON.stringify(MINUTES_PER_DAY)};
+    var DAY_START_MINUTES = ${JSON.stringify(DAY_START_MINUTES)};
+    var DAY_END_MINUTES = ${JSON.stringify(DAY_END_MINUTES)};
+    var VENUE_ROUTE = ${JSON.stringify(VENUE_ROUTE)};
+    var DAY_CLASS = ${JSON.stringify(DAY_PHASE_DAY_CLASS)};
+    var NIGHT_CLASS = ${JSON.stringify(DAY_PHASE_NIGHT_CLASS)};
+    var mode = "auto";
+    try {
+      var raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw === "day" || raw === "night" || raw === "auto") mode = raw;
+    } catch (e) {}
+    var phase = mode;
+    if (mode === "auto") {
+      var shifted = Math.floor((Date.now() + CT_OFFSET_MINUTES * 60000) / 60000);
+      var minutes = ((shifted % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+      phase = minutes >= DAY_START_MINUTES && minutes < DAY_END_MINUTES ? "day" : "night";
+    }
+    var root = document.documentElement;
+    var path = window.location.pathname;
+    var exempt = path === VENUE_ROUTE || path.indexOf(VENUE_ROUTE + "/") === 0;
+    if (exempt) {
+      root.classList.remove(DAY_CLASS);
+      root.classList.remove(NIGHT_CLASS);
+    } else if (phase === "day") {
+      root.classList.add(DAY_CLASS);
+      root.classList.remove(NIGHT_CLASS);
+    } else {
+      root.classList.add(NIGHT_CLASS);
+      root.classList.remove(DAY_CLASS);
+    }
+  } catch (e) {}
+})();`;

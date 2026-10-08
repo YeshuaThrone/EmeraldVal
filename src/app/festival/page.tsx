@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MapPin, X } from "lucide-react";
 import ViewToggle from "@/components/ViewToggle";
+import DayPhaseOverrideControl from "@/components/DayPhaseOverrideControl";
 import { FAN_MAP_ROUTE } from "@/lib/routes";
 import { FESTIVAL_EVENTS, formatLiveCountdown, isLive } from "@/lib/festivalEvents";
 import ArtistSubmittedShows from "@/components/ArtistSubmittedShows";
@@ -25,7 +26,7 @@ export default function FestivalPage() {
   const now = new Date();
 
   return (
-    <div className="civic-mode min-h-dvh w-full bg-atx-ink/70 px-4 py-6 backdrop-blur-sm md:py-10">
+    <div className="min-h-dvh w-full bg-atx-night text-atx-paper px-4 py-6 backdrop-blur-sm md:py-10">
       <div className="mx-auto w-full max-w-2xl">
         <section
           aria-label="Festival Finder"
@@ -49,7 +50,7 @@ export default function FestivalPage() {
           </div>
 
           <div className="mt-4">
-            <ViewToggle variant="festival" />
+            <ViewToggle variant="festival" trailing={<DayPhaseOverrideControl />} />
           </div>
 
           <div className="mt-6 flex flex-col gap-7">
