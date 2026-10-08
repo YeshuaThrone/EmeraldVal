@@ -1,7 +1,8 @@
 "use client";
 
 import { Moon, Sun, SunMoon } from "lucide-react";
-import { useDayPhase, type DayPhaseMode } from "@/lib/dayPhase";
+import { type DayPhaseMode } from "@/lib/dayPhase";
+import { useDayPhase } from "@/lib/dayPhaseHook";
 
 const OPTIONS: readonly {
   value: DayPhaseMode;

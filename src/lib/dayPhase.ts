@@ -18,7 +18,6 @@
  * fallback whenever timing is ambiguous (server render, no storage).
  */
 
-import { useEffect, useSyncExternalStore } from "react";
 import {
   getMinuteClockNow,
   subscribeToMinuteClock,
@@ -218,28 +217,6 @@ export function hydrateDayPhaseModeFromStorage(
     mode = stored;
     refreshAndNotify();
   }
-}
-
-/**
- * Hook: effective day phase plus the override controls. S2 wires `setMode`
- * to the ViewToggle sun/moon control; hydration of a persisted override
- * happens after mount so SSR and first client render agree.
- */
-export function useDayPhase(): DayPhaseSnapshot & {
-  setMode: (mode: DayPhaseMode) => void;
-} {
-  useEffect(() => {
-    // Re-sync against the clock, then pull the persisted override — both may
-    // notify; order matters so a persisted mode lands on a fresh phase read.
-    syncDayPhase();
-    hydrateDayPhaseModeFromStorage();
-  }, []);
-  const current = useSyncExternalStore(
-    subscribeToDayPhase,
-    getDayPhaseSnapshot,
-    getDayPhaseServerSnapshot,
-  );
-  return { ...current, setMode: setDayPhaseMode };
 }
 
 /** Test seam: restores auto mode, the minute clock, and the fallback snapshot. */

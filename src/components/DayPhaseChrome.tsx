@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import {
   applyDayPhaseDocumentClass,
   dayPhaseSurfaceExempt,
-  useDayPhase,
 } from "@/lib/dayPhase";
+import { useDayPhase } from "@/lib/dayPhaseHook";
 
 /**
  * Keeps the <html> phase class in sync with the day-phase store after

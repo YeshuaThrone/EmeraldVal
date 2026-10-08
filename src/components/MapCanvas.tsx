@@ -18,7 +18,7 @@ import {
 } from "@/lib/constants";
 import { generateHeatPoints } from "@/lib/heat";
 import type { FlyToTarget, Pin } from "@/lib/types";
-import { useDayPhase } from "@/lib/dayPhase";
+import { useDayPhase } from "@/lib/dayPhaseHook";
 import { basemapTilesFor } from "@/lib/basemap";
 import HeatmapLayer from "@/components/HeatmapLayer";
 
