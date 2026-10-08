@@ -34,6 +34,8 @@ import {
 } from "@/lib/venueStudioForm";
 import type { VenueStudioBlueprintProfile } from "@/lib/venueStudioBlueprint";
 import VenueStudioHeader from "@/components/VenueStudioHeader";
+import VenueOperatorConsole from "@/components/VenueOperatorConsole";
+import { OPERATOR_MAP_DISTRICT } from "@/lib/venueOperator";
 import {
   ATXLiveEngine,
   DEFAULT_CURFEW_RULES,
@@ -41,11 +43,18 @@ import {
   districtDensityIndexText,
 } from "@/lib/masterSdk";
 import type { District } from "@/lib/types";
+import {
+  getMinuteClockNow,
+  getMinuteClockServerSnapshot,
+  subscribeToMinuteClock,
+} from "@/lib/minuteClock";
 
 /**
  * Venue Studio — "Empire Control Room" (PR 33, fifth surface).
  *
- * Two tabs:
+ * Four tabs, Operator Console first:
+ *  - Operator Console: room status / curfew read-edit / sound hour from the
+ *    master engine and the admin audit contract (venueOperator.ts);
  *  - Sound Telemetry Guard: a live dB monitor whose alert box is driven by
  *    ATXLiveIntelligenceEngine.evaluateDecibelAcceleration over a real
  *    readings history — every fader action appends a reading, so the
@@ -62,7 +71,7 @@ import type { District } from "@/lib/types";
  * zinc/green/orange palette is not used.
  */
 
-type TabId = "blueprint" | "telemetry" | "shows";
+type TabId = "console" | "blueprint" | "telemetry" | "shows";
 
 type AuthState =
   | { status: "restoring" }
@@ -77,6 +86,7 @@ type PublishState =
 
 /** One tab of the studio — id drives the themed active state. */
 const TABS: { id: TabId; label: string }[] = [
+  { id: "console", label: "Operator Console" },
   { id: "blueprint", label: "Venue Blueprint" },
   { id: "telemetry", label: "Sound Telemetry Guard" },
   { id: "shows", label: "Stage & Show Management" },
@@ -85,15 +95,9 @@ const TABS: { id: TabId; label: string }[] = [
 const inputClass =
   "w-full rounded-xl border border-atx-line bg-atx-paper px-3 py-2 text-sm text-atx-ink placeholder:text-stone-400 focus:border-atx-blue focus:outline-none";
 
-/** Minute tick for the client-only clock read (curfew window). */
-function subscribeToMinuteClock(onStoreChange: () => void): () => void {
-  const timer = setInterval(onStoreChange, 60_000);
-  return () => clearInterval(timer);
-}
-
 export default function VenueStudioView() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabId>("blueprint");
+  const [activeTab, setActiveTab] = useState<TabId>("console");
 
   // ── Venue Blueprint state (v3.5.0 schema rebuild) ──────────────────────
   // Seeded from the paste's Default Austin Blueprint Seed Instance; the
@@ -139,13 +143,14 @@ export default function VenueStudioView() {
   const masterEngine = new ATXLiveEngine(masterBlueprint);
   const masterPing = masterEngine.processTelemetryPing(currentDb);
   const curfewRule = DEFAULT_CURFEW_RULES[masterProfile.district];
-  // Client clock via useSyncExternalStore: the server snapshot is null, so
-  // SSR and hydration render the standard-hours line, then the curfew window
+  // Client clock via useSyncExternalStore with a cached snapshot
+  // (src/lib/minuteClock.ts): the server snapshot is null, so SSR and
+  // hydration render the standard-hours line, then the curfew window
   // activates on the client and refreshes every minute.
   const masterNowMs = useSyncExternalStore(
     subscribeToMinuteClock,
-    () => Date.now(),
-    () => null,
+    getMinuteClockNow,
+    getMinuteClockServerSnapshot,
   );
   const curfewStatus =
     masterNowMs === null
@@ -312,8 +317,22 @@ export default function VenueStudioView() {
         })}
       </div>
 
-      {/* ── Tab 1: Sound Telemetry Guard ──────────────────────────────── */}
-      {activeTab === "blueprint" ? (
+      {/* ── Tab sections — console leads, everything else after it ───── */}
+      {activeTab === "console" ? (
+        <section
+          role="tabpanel"
+          aria-label="Operator Console"
+          className="flex flex-col gap-4"
+        >
+          <VenueOperatorConsole
+            engine={masterEngine}
+            nowMs={masterNowMs}
+            profileDistrict={masterProfile.district}
+            mapDistrict={OPERATOR_MAP_DISTRICT}
+            isLive={masterProfile.isLive}
+          />
+        </section>
+      ) : activeTab === "blueprint" ? (
         <section
           role="tabpanel"
           aria-label="Venue Blueprint"

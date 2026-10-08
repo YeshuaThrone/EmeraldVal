@@ -90,6 +90,13 @@ interface VenueTemplate {
   locationName: string;
   lat: number;
   lng: number;
+  /**
+   * Camera-ready readiness (Operator Pass O3, spec art_zVtFFMSp Move O3).
+   * Additive and optional — legacy entries omit it entirely, and the flag
+   * is pass-through data, never scheduling input: the PRNG sequences read
+   * only venue count and index, so byte-stability is untouched.
+   */
+  streamReady?: boolean;
 }
 
 /**
@@ -116,8 +123,8 @@ interface VenueTemplate {
  */
 export const REAL_AUSTIN_VENUES: VenueTemplate[] = [
   // — Red River Cultural District + East/West 6th + Congress (26) —
-  { performerName: "Mohawk", locationName: "912 Red River St", lat: 30.26879, lng: -97.73634 },
-  { performerName: "Stubb's Bar-B-Q", locationName: "801 Red River St", lat: 30.26804, lng: -97.73642 },
+  { performerName: "Mohawk", locationName: "912 Red River St", lat: 30.26879, lng: -97.73634, streamReady: true },
+  { performerName: "Stubb's Bar-B-Q", locationName: "801 Red River St", lat: 30.26804, lng: -97.73642, streamReady: true },
   { performerName: "Cheer Up Charlies", locationName: "900 Red River St", lat: 30.2682, lng: -97.7375 },
   { performerName: "Honey", locationName: "506 E 6th St", lat: 30.26702, lng: -97.73912 },
   { performerName: "Beerland", locationName: "711 Red River St", lat: 30.2659, lng: -97.7368 },
@@ -126,8 +133,8 @@ export const REAL_AUSTIN_VENUES: VenueTemplate[] = [
   { performerName: "Elysium", locationName: "705 Red River St", lat: 30.2649, lng: -97.7365 },
   { performerName: "Barracuda", locationName: "611 Red River St", lat: 30.2662, lng: -97.7355 },
   { performerName: "Empire Garage & Control Room", locationName: "606 E 7th St", lat: 30.2672, lng: -97.736 },
-  { performerName: "Antone's Nightclub", locationName: "305 E 5th St", lat: 30.26624, lng: -97.74132 },
-  { performerName: "ACL Live at the Moody Theater", locationName: "310 W Willie Nelson Blvd", lat: 30.26529, lng: -97.74919 },
+  { performerName: "Antone's Nightclub", locationName: "305 E 5th St", lat: 30.26624, lng: -97.74132, streamReady: true },
+  { performerName: "ACL Live at the Moody Theater", locationName: "310 W Willie Nelson Blvd", lat: 30.26529, lng: -97.74919, streamReady: true },
   { performerName: "3TEN at ACL Live", locationName: "310 W Willie Nelson Blvd", lat: 30.264, lng: -97.7498 },
   { performerName: "Flamingo Cantina", locationName: "515 E 6th St", lat: 30.2668, lng: -97.7378 },
   { performerName: "B.D. Riley's", locationName: "204 E 6th St", lat: 30.2672, lng: -97.74 },
@@ -155,7 +162,7 @@ export const REAL_AUSTIN_VENUES: VenueTemplate[] = [
   { performerName: "Hangar Lounge", locationName: "318 Colorado St", lat: 30.2648, lng: -97.745 },
   { performerName: "Ego's", locationName: "500 S Congress Ave", lat: 30.261, lng: -97.7437 },
   // — South Congress (3) —
-  { performerName: "Continental Club", locationName: "1315 S Congress Ave", lat: 30.24893, lng: -97.74956 },
+  { performerName: "Continental Club", locationName: "1315 S Congress Ave", lat: 30.24893, lng: -97.74956, streamReady: true },
   { performerName: "C-Boy's Heart & Soul", locationName: "2008 S Congress Ave", lat: 30.2447, lng: -97.749 },
   { performerName: "Hotel San José", locationName: "1316 S Congress Ave", lat: 30.249, lng: -97.7485 },
   // — South Lamar / far South / Menchaca (15) —
@@ -327,6 +334,11 @@ export function generateCityPins(): Pin[] {
       source: sourceSequence[i],
       district: districtForPoint(venue.lat, venue.lng),
       isLocal: localSequence[i],
+      // Pass-through only — the PRNG never reads this field, so the
+      // shuffle sequence (and byte-stable output) is untouched. Spread
+      // keeps unflagged pins without the key at all, matching the
+      // template shape verbatim.
+      ...(venue.streamReady === true ? { streamReady: true } : {}),
     };
   });
 
