@@ -235,19 +235,20 @@ export function impliedCrowdSize(intensity: number): number {
 }
 
 /**
- * Civic-dark heat ramp (low → high), graded for the CARTO dark basemap:
- * electric blue (low) → electric (mid) → warm gold (peak) → ember. Single
- * source of truth so the heat layer and the LiveMapApp legend swatch can
- * never disagree. Colors live here (not as component literals) precisely
- * so ramp tests can assert endpoints without importing browser-only
- * Leaflet code.
+ * Founder-locked amber heat ramp (low → high): transparent → amber →
+ * orange → gold → white peak — the canon ramp verified on production
+ * f6ec82b (restored 2026-10-09; the electric-blue/gold civic-dark ramp is
+ * rejected direction and must not return). Single source of truth so the
+ * heat layer and the LiveMapApp legend swatch can never disagree. Colors
+ * live here (not as component literals) precisely so ramp tests can assert
+ * endpoints without importing browser-only Leaflet code.
  */
 export const HEAT_RAMP: Record<number, string> = {
   0.0: "rgba(0,0,0,0)",
-  0.3: "rgba(0,70,192,0.4)", // electric-deep
-  0.6: "rgba(0,85,255,0.75)", // electric
+  0.3: "rgba(255,140,0,0.4)", // amber
+  0.6: "rgba(255,165,0,0.75)", // orange
   0.85: "rgba(255,215,0,0.95)", // gold
-  1.0: "#ff8a3d", // ember peak
+  1.0: "#ffffff", // white peak
 };
 
 export function generateHeatPoints(pins: Pin[] = CITY_PINS): HeatPoint[] {

@@ -20,9 +20,11 @@ export default function VenueStudioHeader({
 }) {
   return (
     <header className="relative flex flex-wrap items-center justify-between gap-3">
-      {/* Title & Live Badge */}
-      <div className="flex items-center space-x-3 overflow-hidden pr-12">
-        <h1 className="text-xl font-semibold whitespace-nowrap text-atx-ink md:text-2xl">
+      {/* Title & Live Badge — the title wraps when the sheet is narrow
+          (390px phones) instead of clipping; the badge drops below the
+          title on its own row when space runs out. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 overflow-hidden pr-12">
+        <h1 className="text-xl font-semibold text-atx-ink md:text-2xl">
           {venueName} — Venue Studio
         </h1>
         <span className="whitespace-nowrap rounded-full border border-atx-red/30 bg-atx-red/10 px-2.5 py-0.5 text-xs font-bold text-atx-red">

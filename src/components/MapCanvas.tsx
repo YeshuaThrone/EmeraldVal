@@ -18,8 +18,6 @@ import {
 } from "@/lib/constants";
 import { generateHeatPoints } from "@/lib/heat";
 import type { FlyToTarget, Pin } from "@/lib/types";
-import { useDayPhase } from "@/lib/dayPhaseHook";
-import { basemapTilesFor } from "@/lib/basemap";
 import HeatmapLayer from "@/components/HeatmapLayer";
 
 type MapCanvasProps = {
@@ -119,12 +117,6 @@ export default function MapCanvas({
   // Heat reflects whatever pins are currently visible (post-filter); the
   // five corridor clusters themselves are filter-independent (see heat.ts).
   const heatPoints = useMemo(() => generateHeatPoints(pins), [pins]);
-  // Skylight Pass S1 (spec art_NqnJMLfh): phase-keyed basemap — light by
-  // day, the Operator Pass dark civic basemap at night (byte-identical to
-  // 1351201). Keying the TileLayers by phase forces a clean layer swap at
-  // the flip moment instead of relying on setUrl semantics.
-  const { phase } = useDayPhase();
-  const basemap = basemapTilesFor(phase);
 
   return (
     <MapContainer
@@ -140,23 +132,12 @@ export default function MapCanvas({
       style={{ height: "100%", width: "100%", background: "#ffffff" }}
     >
       <ZoomControl position="bottomleft" />
-      {/* Esri Canvas family (base + labels reference overlay). Spec Move 1
-          pinned CARTO dark_all, but CARTO now watermarks every anonymous
-          tile with "API KEY REQUIRED" (verified session-live on
-          basemaps.cartocdn.com and the fastly CDN). Esri World Dark Gray is
-          the nearest no-signup dark raster and World Light Gray is its day
-          counterpart — same host, same {z}/{y}/{x} scheme; a CARTO key
-          restores the spec'd provider in one line:
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          subdomains="abcd". */}
+      {/* Founder-locked canon basemap (restored 2026-10-09, f6ec82b): OSM
+          raster, identical in both clock modes — the Skylight sun/moon
+          switch changes chrome only, never the map. */}
       <TileLayer
-        key={`base-${phase}`}
-        attribution={basemap.base.attribution}
-        url={basemap.base.url}
-      />
-      <TileLayer
-        key={`reference-${phase}`}
-        url={basemap.reference.url}
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <MapController flyTo={flyTo} onMapClick={onMapClick} onPanStart={onPanStart} />
       <HeatmapLayer points={heatPoints} />

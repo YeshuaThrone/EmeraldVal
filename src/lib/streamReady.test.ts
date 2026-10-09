@@ -5,35 +5,30 @@ import { filterVenues, isStreamReady } from "@/lib/streamReady";
 /**
  * Operator Pass O3 (spec art_zVtFFMSp, Move O3) — the seed flag contract.
  *
- * The 5 flagship pilot candidates are the streaming spec's entry list
- * (research doc art_T9l8fSrk, cited from the spec brief). The contract
- * holds: the flag is readable off the seed without mutating anything,
- * carries a key only on flagged entries, and adds no PRNG input, so the
- * byte-stable seed sequence is untouched.
+ * Founder-locked canon (2026-10-09): the seed is the 36-venue f6ec82b
+ * world, and the 5-flagship pilot list (Mohawk, Stubb's Bar-B-Q, Antone's,
+ * ACL Live at the Moody Theater, Continental Club) rode the rejected
+ * expanded-venue seed out with it. The pass-through flag, the readiness
+ * helpers, and the operator console filter all remain — the canon seed
+ * simply flags nothing, so the flag mechanics are exercised below with
+ * synthetic pins instead of seeded ones.
  */
-const FLAGGED_VENUES = [
-  "Mohawk",
-  "Stubb's Bar-B-Q",
-  "Antone's Nightclub",
-  "ACL Live at the Moody Theater",
-  "Continental Club",
-];
 
 describe("stream-ready seed flag contract", () => {
-  it("flags exactly the 5 flagship pilot venues on CITY_PINS", () => {
-    const flagged = CITY_PINS.filter(isStreamReady);
-    expect(flagged.map((pin) => pin.performerName).sort()).toEqual(
-      [...FLAGGED_VENUES].sort(),
-    );
+  it("carries no seeded streamReady flags on the 36-venue canon seed", () => {
+    expect(CITY_PINS.filter(isStreamReady)).toEqual([]);
+    for (const pin of CITY_PINS) {
+      expect(Object.hasOwn(pin, "streamReady")).toBe(false);
+    }
   });
 
-  it("leaves the flag off every other pin — no key at all, not just falsy", () => {
-    for (const pin of CITY_PINS) {
-      if (!FLAGGED_VENUES.includes(pin.performerName)) {
-        expect(Object.hasOwn(pin, "streamReady")).toBe(false);
-        expect(isStreamReady(pin)).toBe(false);
-      }
-    }
+  it("is a pass-through flag: keyed only where a venue template flags it", () => {
+    const base = CITY_PINS[0];
+    const flagged = { ...base, id: "synthetic-ready", streamReady: true };
+    expect(Object.hasOwn(flagged, "streamReady")).toBe(true);
+    expect(isStreamReady(flagged)).toBe(true);
+    expect(Object.hasOwn(base, "streamReady")).toBe(false);
+    expect(isStreamReady(base)).toBe(false);
   });
 
   it("is deterministic: two generateCityPins() calls project identical flags", () => {
@@ -55,30 +50,41 @@ describe("stream-ready seed flag contract", () => {
 
 describe("filterVenues — operator console filter logic", () => {
   it("with streamReadyOnly returns only camera-ready venues", () => {
-    const result = filterVenues(CITY_PINS, { streamReadyOnly: true });
-    expect(result.length).toBeGreaterThan(0);
+    const ready = { ...CITY_PINS[0], id: "synthetic-ready", streamReady: true };
+    const plain = { ...CITY_PINS[1], id: "synthetic-plain" };
+    const result = filterVenues([ready, plain], { streamReadyOnly: true });
+    expect(result.map((pin) => pin.id)).toEqual(["synthetic-ready"]);
     for (const pin of result) {
       expect(isStreamReady(pin)).toBe(true);
     }
   });
 
-  it("with an empty filter returns the whole seed, as a new array", () => {
+  it("with an empty filter returns the whole input, as a new array", () => {
     const result = filterVenues(CITY_PINS, { streamReadyOnly: false });
     expect(result).not.toBe(CITY_PINS);
     expect(result.length).toBe(CITY_PINS.length);
   });
 
   it("composes readiness with a district filter", () => {
-    const result = filterVenues(CITY_PINS, {
+    const readyDowntown = {
+      ...CITY_PINS[0],
+      id: "synthetic-ready-dt",
+      streamReady: true,
+    };
+    const readyEast = {
+      ...CITY_PINS.find((pin) => pin.district === "East")!,
+      id: "synthetic-ready-east",
+      streamReady: true,
+    };
+    const result = filterVenues([readyDowntown, readyEast], {
       streamReadyOnly: true,
       district: "Downtown",
     });
+    // Every readiness-filtered pin is accounted for: nothing lost, only narrowed.
+    expect(result.map((pin) => pin.id)).toEqual(["synthetic-ready-dt"]);
     for (const pin of result) {
       expect(isStreamReady(pin)).toBe(true);
       expect(pin.district).toBe("Downtown");
     }
-    // Every readiness-filtered pin is accounted for: nothing lost, only narrowed.
-    const allReady = filterVenues(CITY_PINS, { streamReadyOnly: true });
-    expect(allReady.length).toBeGreaterThanOrEqual(result.length);
   });
 });

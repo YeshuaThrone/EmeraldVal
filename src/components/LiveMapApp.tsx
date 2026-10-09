@@ -523,10 +523,10 @@ export default function LiveMapApp() {
       >
         <span
           aria-hidden="true"
-          className="h-2 w-16 rounded-full bg-[linear-gradient(to_right,rgba(0,0,0,0),rgba(0,70,192,0.4),rgba(0,85,255,0.75),rgba(255,215,0,0.95),#ff8a3d)]"
+          className="h-2 w-16 rounded-full bg-[linear-gradient(to_right,rgba(0,0,0,0),rgba(255,140,0,0.4),rgba(255,165,0,0.75),rgba(255,215,0,0.95),#ffffff)]"
         />
         <span className="font-medium">
-          Low Crowd (Electric Blue) &rarr; Peak Foot Traffic (Gold Ember)
+          Low Density (Amber) &rarr; Peak Foot Traffic (White)
         </span>
       </div>
 
