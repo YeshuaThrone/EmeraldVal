@@ -86,19 +86,8 @@ describe("telemetry sync invariants", () => {
     );
   });
 
-  it("keeps totalVenues pinned to the display contract while the tracked seed diverges upward (Move 3)", () => {
-    // Move 3 grew the tracked Austin world to 129 pins (CITY_PINS.length)
-    // while the admin KPI figures remain the pasted display contract (M5
-    // acceptance: KPI numbers unchanged from the current build — the same
-    // TOTAL_VENUES = 36 base derives liveStreamsPct and the 69.4% local
-    // share). The old equality held only while the tracked world and the
-    // display contract were the same 36; the tracked world now leads, and
-    // this guard pins both sides of the seam so neither can move silently.
-    expect(ADMIN_TELEMETRY_DATA.totalVenues).toBe(TOTAL_VENUES);
-    expect(ADMIN_TELEMETRY_DATA.totalVenues).toBe(36);
-    expect(ACTIVE_VENUE_COUNT).toBeGreaterThanOrEqual(
-      ADMIN_TELEMETRY_DATA.totalVenues,
-    );
+  it("keeps totalVenues in step with the municipal active venue count", () => {
+    expect(ADMIN_TELEMETRY_DATA.totalVenues).toBe(ACTIVE_VENUE_COUNT);
   });
 
   it("keeps realtimeFootTraffic in step with the municipal active fans figure", () => {

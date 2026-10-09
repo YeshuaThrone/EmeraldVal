@@ -79,7 +79,7 @@ export function curfewFamilyForPoint(
 
 /** The seed pin this studio operates. */
 export const OPERATOR_SEED_PIN = CITY_PINS.find(
-  (pin) => pin.performerName === "Empire Garage & Control Room",
+  (pin) => pin.performerName === "Warehouse Six",
 );
 
 /** The seed district of the operator venue (undefined if the seed changes). */

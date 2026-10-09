@@ -100,32 +100,32 @@ describe("generateHeatPoints", () => {
   });
 });
 
-describe("HEAT_RAMP (civic dark basemap)", () => {
+describe("HEAT_RAMP (amber canon)", () => {
   it("stays transparent at zero heat", () => {
     expect(HEAT_RAMP[0]).toBe("rgba(0,0,0,0)");
   });
 
-  it("opens cold in the electric-deep blue family", () => {
-    expect(HEAT_RAMP[0.3]).toBe("rgba(0,70,192,0.4)");
+  it("opens in the amber family at low heat", () => {
+    expect(HEAT_RAMP[0.3]).toBe("rgba(255,140,0,0.4)");
   });
 
-  it("passes through pure electric at mid heat", () => {
-    expect(HEAT_RAMP[0.6]).toBe("rgba(0,85,255,0.75)");
+  it("passes through orange at mid heat", () => {
+    expect(HEAT_RAMP[0.6]).toBe("rgba(255,165,0,0.75)");
   });
 
   it("hits warm gold at high heat", () => {
     expect(HEAT_RAMP[0.85]).toBe("rgba(255,215,0,0.95)");
   });
 
-  it("peaks as a warm ember, readable on the dark basemap", () => {
-    expect(HEAT_RAMP[1]).toBe("#ff8a3d");
+  it("peaks white — the Peak Foot Traffic (White) legend endpoint", () => {
+    expect(HEAT_RAMP[1]).toBe("#ffffff");
   });
 
-  it("peaks gold-side: no white peak and no amber-era endpoints anywhere", () => {
+  it("stays in the amber-to-white canon: no electric blue and no ember endpoints anywhere", () => {
     const rampValues = Object.values(HEAT_RAMP);
-    expect(rampValues).not.toContain("#ffffff");
-    expect(rampValues.some((value) => value.includes("255,140,0"))).toBe(false);
-    expect(rampValues.some((value) => value.includes("255,165,0"))).toBe(false);
+    expect(rampValues.some((value) => value.includes("0,70,192"))).toBe(false);
+    expect(rampValues.some((value) => value.includes("0,85,255"))).toBe(false);
+    expect(rampValues).not.toContain("#ff8a3d");
   });
 });
 

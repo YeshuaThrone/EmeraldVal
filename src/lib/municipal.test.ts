@@ -17,12 +17,9 @@ describe("municipal contract figures", () => {
     expect(ACTIVE_FANS).toBe(14280);
   });
 
-  it("derives the active venue count from CITY_PINS, floor 100 after Move 3 (was pinned at 36 pre-expansion)", () => {
-    // The count is derived from the seed, never a literal — the old 36
-    // assertion pinned the pre-expansion world; the real-Austin append
-    // grows the seed to 129 pins, so the contract floor replaces the pin.
+  it("derives the active venue count from CITY_PINS, currently 36", () => {
     expect(ACTIVE_VENUE_COUNT).toBe(CITY_PINS.length);
-    expect(ACTIVE_VENUE_COUNT).toBeGreaterThanOrEqual(100);
+    expect(ACTIVE_VENUE_COUNT).toBe(36);
   });
 
   it("derives the local artist economic share from the unified telemetry model (69.4%)", () => {

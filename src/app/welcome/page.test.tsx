@@ -29,7 +29,9 @@ describe("welcome landing stats", () => {
     const stats = getWelcomeStats();
 
     expect(stats.venuesTracked).toBe(CITY_PINS.length);
-    expect(stats.venuesTracked).toBeGreaterThanOrEqual(100);
+    // Founder-locked canon (2026-10-09): the seed is exactly 36 venues —
+    // the expanded-venue append is rejected direction.
+    expect(stats.venuesTracked).toBe(36);
     expect(stats.liveRightNow).toBe(
       CITY_PINS.filter((pin) => pin.source === "live").length,
     );

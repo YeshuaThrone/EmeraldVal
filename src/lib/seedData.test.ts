@@ -8,10 +8,11 @@ import { GENRES, type District } from "@/lib/types";
 const VALID_DISTRICTS: District[] = ["Downtown", "North", "South", "East", "West"];
 
 describe("CITY_PINS seed validity", () => {
-  it("clears the Move 3 real-Austin floor: at least 100 tracked venues", () => {
-    // Move 3 appended the curated real-Austin set to the 36-venue legacy
-    // world — the floor asserts the expansion stuck and doesn't regress.
-    expect(CITY_PINS.length).toBeGreaterThanOrEqual(100);
+  it("is the founder-locked 36-venue canon seed", () => {
+    // Founder lock (2026-10-09): the seed is exactly the 36-venue canon —
+    // 3 originals + 33 generated rooms. The expanded real-venue append is
+    // rejected direction; pin the exact count so it cannot creep back in.
+    expect(CITY_PINS.length).toBe(36);
   });
 
   it("every generated venue is unique in locationName: no silent double-appends", () => {
@@ -23,9 +24,9 @@ describe("CITY_PINS seed validity", () => {
     }
   });
 
-  it("every generated venue that classifies carries its districtForPoint district", () => {
-    // The classifier is untouched Move 3 ground — nothing was edited to
-    // flatter labels; this asserts the contract over the expanded set.
+  it("every generated venue carries its districtForPoint district", () => {
+    // The classifier is untouched ground — nothing was edited to flatter
+    // labels; this asserts the classifier contract over the whole seed.
     for (const pin of CITY_PINS) {
       expect(pin.district).toBe(districtForPoint(pin.lat, pin.lng));
     }
@@ -72,8 +73,8 @@ describe("CITY_PINS seed validity", () => {
     expect(liveCount + droppedCount).toBe(CITY_PINS.length);
   });
 
-  it("is deterministic: generateCityPins() called twice is byte-identical over the expanded real-Austin set", () => {
-    // Move 3 makes the byte-stability claim load-bearing: the 129-pin
+  it("is deterministic: generateCityPins() called twice is byte-identical over the 36-venue canon seed", () => {
+    // The byte-stability claim is load-bearing: the founder-locked 36-pin
     // world must be reproducible across two calls, not just deep-equal —
     // serialized with a stable key order so a property-order regression
     // can't hide behind the deep-equal.
