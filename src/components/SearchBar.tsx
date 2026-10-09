@@ -77,7 +77,7 @@ export default function SearchBar({
             onFocus={onExpand}
             tabIndex={collapsed ? -1 : 0}
             placeholder='Any street or intersection — "6th & Brazos", "William Cannon & S 1st St"'
-            className="w-full rounded-2xl border border-atx-line bg-atx-paper/95 py-3 pr-4 pl-11 text-sm text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] placeholder:text-stone-400 outline-none backdrop-blur-md transition focus:border-atx-blue focus:ring-2 focus:ring-atx-blue/40"
+            className="w-full truncate rounded-2xl border border-atx-line bg-atx-paper/95 py-3 pr-4 pl-11 text-sm text-atx-ink shadow-[0_0_0_1px_rgba(28,25,23,0.08),0_12px_40px_rgba(28,25,23,0.18)] placeholder:text-stone-400 outline-none backdrop-blur-md transition focus:border-atx-blue focus:ring-2 focus:ring-atx-blue/40"
           />
         </label>
         <div className="flex gap-2">
